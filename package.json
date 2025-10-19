@@ -1,0 +1,23 @@
+{
+  "name": "farcaster-fruit-slice",
+  "version": "1.0.0",
+  "description": "Web3-enabled fruit slicing mini game for Farcaster",
+  "main": "game.js",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "serve": "python3 -m http.server 8000"
+  },
+  "keywords": [
+    "game",
+    "web3",
+    "farcaster",
+    "fruit-slice",
+    "canvas"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}

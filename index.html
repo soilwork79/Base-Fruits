@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="description" content="Farcaster Fruit Slice - Web3 Mini Game">
+    <title>Base Fruits 🍉</title>
+    
+    <!-- Farcaster Frame Meta Tags -->
+    <meta property="og:title" content="Base Fruits 🍉" />
+    <meta property="og:description" content="Slice fruits, avoid bombs, and compete on the leaderboard! Web3 gaming on Base network." />
+    <meta property="og:image" content="https://your-domain.com/images/frame-preview.png" />
+    <meta property="og:url" content="https://your-domain.com" />
+    <meta property="og:type" content="website" />
+    
+    <!-- Farcaster Frame Specific -->
+    <meta property="fc:frame" content="vNext" />
+    <meta property="fc:frame:image" content="https://your-domain.com/images/frame-preview.png" />
+    <meta property="fc:frame:button:1" content="🎮 Play Game" />
+    <meta property="fc:frame:button:2" content="🏆 Leaderboard" />
+    <meta property="fc:frame:post_url" content="https://your-domain.com/api/frame" />
+    
+    <!-- Twitter Card (optional) -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Base Fruits 🍉" />
+    <meta name="twitter:description" content="Slice fruits, avoid bombs, and compete on the leaderboard!" />
+    <meta name="twitter:image" content="https://your-domain.com/images/frame-preview.png" />
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="styles.css?v=5">
+    <!-- Ethers.js - Try multiple CDNs -->
+    <script src="https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+    <script>
+        // Wait for ethers to load and check
+        let ethersCheckInterval;
+        let ethersCheckAttempts = 0;
+        const maxAttempts = 50; // 5 seconds max
+        
+        function checkEthersLoaded() {
+            ethersCheckAttempts++;
+            console.log(`Checking ethers... attempt ${ethersCheckAttempts}`);
+            
+            if (typeof ethers !== 'undefined') {
+                console.log('✅ Ethers.js loaded successfully:', ethers.version);
+                clearInterval(ethersCheckInterval);
+                window.ethersReady = true;
+                return;
+            }
+            
+            if (ethersCheckAttempts >= maxAttempts) {
+                console.error('❌ Ethers.js failed to load after', maxAttempts, 'attempts');
+                clearInterval(ethersCheckInterval);
+                
+                // Try backup CDN
+                console.log('🔄 Trying backup CDN...');
+                const script = document.createElement('script');
+                script.src = 'https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js';
+                script.onload = function() {
+                    console.log('✅ Backup ethers loaded successfully');
+                    window.ethersReady = true;
+                };
+                script.onerror = function() {
+                    console.error('❌ All ethers CDNs failed');
+                    alert('Web3 kütüphanesi yüklenemedi. İnternet bağlantınızı kontrol edin ve sayfayı yenileyin.');
+                };
+                document.head.appendChild(script);
+            }
+        }
+        
+        // Start checking immediately
+        ethersCheckInterval = setInterval(checkEthersLoaded, 100);
+        
+        // Also check when DOM is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM loaded, ethers status:', typeof ethers !== 'undefined');
+        });
+    </script>
+</head>
+<body>
+    <div id="game-container">
+        <canvas id="game-canvas"></canvas>
+        
+        <!-- Start Screen -->
+        <div id="start-screen" class="screen">
+            <h1>🍉 Base Fruits</h1>
+            <p class="subtitle">Slice the fruits, avoid the bombs!</p>
+            <div class="rules">
+                <p>🎯 Slice fruits as they fly</p>
+                <p>💣 <strong>Beware of bombs!</strong> Don't cut them!</p>
+                <p>🔥 The more fruits you cut at once, the more combo points you get.</p>
+                <p>❤️ You have 4 lives (+1 life every 10 waves)</p>
+                <p>🎮 <strong>40 challenging waves</strong></p>
+            </div>
+            <button id="start-button" class="game-button">Start Game</button>
+        </div>
+        
+        <!-- Game HUD -->
+        <div id="game-hud" class="hidden">
+            <div class="hud-top">
+                <div class="score-display">
+                    <span class="label">Score</span>
+                    <span id="score">0</span>
+                </div>
+                <div class="level-display">
+                    <span class="label">Wave</span>
+                    <span id="level">1</span>
+                </div>
+            </div>
+            <div class="lives-display">
+                <span class="label">Lives:</span>
+                <span id="lives">❤️❤️❤️❤️</span>
+            </div>
+        </div>
+        
+        <!-- Milestone Message -->
+        <div id="milestone-message" class="milestone-screen hidden">
+            <div class="milestone-content">
+                <h2 id="milestone-text">Congratulations!</h2>
+                <p id="milestone-subtext">You gained 1 life</p>
+            </div>
+        </div>
+        
+        <!-- Game Over Screen -->
+        <div id="game-over-screen" class="screen hidden">
+            <h1>Game Over</h1>
+            <div class="final-score">
+                <p class="label">Final Score</p>
+                <p id="final-score" class="score-value">0</p>
+            </div>
+            <div class="stats">
+                <p>Wave Reached: <span id="final-level">1</span></p>
+            </div>
+            
+            <!-- Leaderboard Section -->
+            <div class="leaderboard-section">
+                <div class="button-group">
+                    <button id="save-leaderboard-button" class="game-button leaderboard-btn">💾 Save Leaderboard</button>
+                    <button id="view-leaderboard-button" class="game-button secondary-btn">🏆 View Leaderboard</button>
+                    <button id="share-score-button" class="game-button share-btn">🚀 Share on Farcaster</button>
+                </div>
+            </div>
+            
+            <button id="restart-button" class="game-button">Play Again</button>
+        </div>
+        
+        <!-- Leaderboard Modal -->
+        <div id="leaderboard-modal" class="modal hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>🏆 Leaderboard</h2>
+                    <button id="close-leaderboard" class="close-btn">&times;</button>
+                </div>
+                <div id="leaderboard-content" class="leaderboard-list">
+                    <p>Loading...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="game.js?v=22"></script>
+</body>
+</html>

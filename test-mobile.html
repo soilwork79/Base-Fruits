@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mobile Preview Test</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #f0f0f0;
+            font-family: Arial, sans-serif;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .preview-container {
+            display: flex;
+            gap: 30px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .device {
+            background: white;
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        .device h2 {
+            text-align: center;
+            margin-bottom: 15px;
+            font-size: 1rem;
+        }
+        .phone-frame {
+            border: 8px solid #333;
+            border-radius: 30px;
+            overflow: hidden;
+            position: relative;
+            background: #000;
+        }
+        .phone-frame.iphone {
+            width: 375px;
+            height: 667px;
+        }
+        .phone-frame.farcaster {
+            width: 360px;
+            height: 640px;
+        }
+        .phone-frame iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            display: block;
+        }
+        .notch {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 150px;
+            height: 25px;
+            background: #000;
+            border-radius: 0 0 15px 15px;
+            z-index: 10;
+        }
+        .info {
+            margin-top: 20px;
+            padding: 15px;
+            background: #e8f5e9;
+            border-radius: 10px;
+            text-align: center;
+        }
+        .info p {
+            margin: 5px 0;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🍉 Farcaster Fruit Slice - Preview</h1>
+        
+        <div class="preview-container">
+            <div class="device">
+                <h2>🖥️ Desktop Browser (500px max)</h2>
+                <div class="phone-frame iphone">
+                    <div class="notch"></div>
+                    <iframe src="index.html"></iframe>
+                </div>
+            </div>
+            
+            <div class="device">
+                <h2>📱 Mobile/Farcaster (Full Width)</h2>
+                <div class="phone-frame farcaster">
+                    <iframe src="index.html"></iframe>
+                </div>
+            </div>
+        </div>
+        
+        <div class="info">
+            <p><strong>✅ Desktop: 500px max-width (easier to play)</strong></p>
+            <p><strong>✅ Mobile: Full-screen (perfect for Farcaster)</strong></p>
+            <p><strong>✅ Slower fruits with higher arcs</strong></p>
+            <p><strong>✅ Touch & mouse controls ready</strong></p>
+        </div>
+    </div>
+</body>
+</html>
