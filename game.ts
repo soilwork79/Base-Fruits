@@ -69,10 +69,10 @@ interface Firework {
 }
 
 // ===== GAME CONSTANTS =====
-const GRAVITY = 0.25;
+const GRAVITY = 0.2; // Reduced by 20% for slower motion
 const INITIAL_LIVES = 4;
 const MAX_LEVEL = 40;
-const FRUIT_RADIUS = 44.1; // 50% larger than 29.4
+const FRUIT_RADIUS = 26.46; // 40% smaller than original 44.1
 const TRAIL_FADE_SPEED = 0.35;
 const MAX_TRAIL_POINTS = 30;
 const WALL_BOUNCE_DAMPING = 0.7;
@@ -143,6 +143,7 @@ class GameState {
     excellentSound: HTMLAudioElement;
     amazingSound: HTMLAudioElement;
     legendarySound: HTMLAudioElement;
+    failSound: HTMLAudioElement;
     
     // Fruit images
     fruitImages: Map<string, HTMLImageElement> = new Map();
@@ -165,6 +166,7 @@ class GameState {
         this.excellentSound = new Audio('sounds/excellent.mp3');
         this.amazingSound = new Audio('sounds/amazing.mp3');
         this.legendarySound = new Audio('sounds/legendary.mp3');
+        this.failSound = new Audio('sounds/fail.mp3');
         
         // Set volume levels
         this.swooshSound.volume = 0.3;
@@ -176,6 +178,7 @@ class GameState {
         this.excellentSound.volume = 0.6;
         this.amazingSound.volume = 0.6;
         this.legendarySound.volume = 0.6;
+        this.failSound.volume = 0.7;
         
         // Load fruit images
         FRUIT_TYPES.forEach(fruitType => {
@@ -267,6 +270,9 @@ class FruitSliceGame {
                 fruit.fuseSound.currentTime = 0;
             }
         }
+        
+        // Play fail sound when game is over
+        this.playFailSound();
         
         // Update global score for leaderboard
         currentScore = this.state.score;
@@ -420,7 +426,7 @@ class FruitSliceGame {
                     
                     // Random angle (75-105 degrees) - more vertical, less horizontal spread
                     const angle = (75 + Math.random() * 30) * Math.PI / 180;
-                    const speed = 15 + Math.random() * 3;
+                    const speed = 12 + Math.random() * 2.4; // Reduced by 20% to match gravity
                     
                     this.state.fruits.push({
                         x: x,
@@ -458,7 +464,7 @@ class FruitSliceGame {
                 // Random launch position
                 const x = this.state.width * (0.3 + Math.random() * 0.4);
                 const angle = (75 + Math.random() * 30) * Math.PI / 180;
-                const speed = 15 + Math.random() * 3;
+                const speed = 12 + Math.random() * 2.4; // Reduced by 20% to match gravity
                 
                 // Create a new fuse sound instance for this bomb
                 const bombFuseSound = this.state.fuseSound.cloneNode() as HTMLAudioElement;
@@ -952,6 +958,13 @@ class FruitSliceGame {
         sound.play().catch(e => console.log('Audio play failed:', e));
     }
     
+    playFailSound() {
+        // Play fail sound when game is over
+        const sound = this.state.failSound.cloneNode() as HTMLAudioElement;
+        sound.volume = this.state.failSound.volume;
+        sound.play().catch(e => console.log('Fail audio play failed:', e));
+    }
+    
     createFireworks(x: number, y: number) {
         const colors = ['#ff6b6b', '#ffa500', '#ffd93d', '#6bcf7f', '#c471f5', '#ff4757'];
         const particles: Particle[] = [];
@@ -1224,7 +1237,7 @@ class FruitSliceGame {
                             sizeMultiplier = 3.2; // büyüt
                             break;
                         case 'lemon':
-                            sizeMultiplier = 2.2; // küçült
+                            sizeMultiplier = 1.8; // daha da küçült
                             break;
                         case 'apple':
                         case 'orange':
