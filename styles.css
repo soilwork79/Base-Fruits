@@ -91,8 +91,8 @@ body {
 }
 
 .game-button {
-    padding: 1rem 3rem;
-    font-size: 1.5rem;
+    padding: 1rem 2rem;
+    font-size: 1.2rem;
     font-weight: bold;
     color: #fff;
     background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
@@ -175,12 +175,13 @@ body {
 
 .final-score {
     margin: 0.3rem 0 0.3rem 0;
-    background: rgba(255, 255, 255, 0.1);
-    border: 3px solid #f5576c;
-    border-radius: 20px;
-    padding: 0.8rem 1.2rem;
-    box-shadow: 0 0 30px rgba(245, 87, 108, 0.5),
-                inset 0 0 20px rgba(245, 87, 108, 0.1);
+    background: rgba(255, 215, 0, 0.1);
+    border: 3px solid #ffd700;
+    border-radius: 15px;
+    padding: 1rem 1.5rem;
+    text-align: center;
+    box-shadow: 0 0 30px rgba(255, 215, 0, 0.4),
+                inset 0 0 20px rgba(255, 215, 0, 0.15);
 }
 
 .final-score .label {
@@ -192,8 +193,10 @@ body {
 .score-value {
     font-size: 4rem;
     font-weight: bold;
-    color: #f5576c;
-    text-shadow: 0 0 20px rgba(245, 87, 108, 0.8);
+    color: #ffcc00;
+    text-shadow: 0 0 20px rgba(255, 204, 0, 0.8);
+    margin: 0;
+    letter-spacing: 0.2rem;
 }
 
 .stats {
@@ -210,8 +213,9 @@ body {
 }
 
 .stats span {
-    color: #f5576c;
+    color: #ffcc00;
     font-weight: bold;
+    text-shadow: 0 0 10px rgba(255, 204, 0, 0.6);
 }
 
 .hidden {
@@ -360,15 +364,42 @@ body {
 .button-group-vertical {
     display: flex;
     flex-direction: column;
-    gap: 0.3rem;
+    gap: 0.8rem;
     align-items: center;
     width: 100%;
 }
 
 .button-group-vertical .game-button {
-    width: 280px;
-    max-width: 280px;
-    min-width: 280px;
+    width: 400px;
+    max-width: 400px;
+    min-width: 400px;
+    white-space: nowrap;
+}
+
+/* Horizontal Button Group */
+.button-group-horizontal {
+    display: flex;
+    flex-direction: row;
+    gap: 0.5rem;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    margin-bottom: 0.5rem;
+}
+
+.button-group-single {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+}
+
+/* Compact Buttons */
+.compact-btn {
+    padding: 0.6rem 1.2rem !important;
+    font-size: 1rem !important;
+    min-width: 80px !important;
+    width: auto !important;
+    max-width: none !important;
 }
 
 .leaderboard-btn {
@@ -532,15 +563,16 @@ body {
     }
     
     .button-group-vertical {
-        gap: 0.2rem;
+        gap: 0.6rem;
     }
     
     .button-group-vertical .game-button {
-        width: 240px;
-        max-width: 240px;
-        min-width: 240px;
-        padding: 0.6rem 1.5rem;
-        font-size: 0.95rem;
+        width: 350px;
+        max-width: 350px;
+        min-width: 350px;
+        padding: 0.6rem 1rem;
+        font-size: 0.9rem;
+        white-space: nowrap;
     }
     
     .final-score {
@@ -589,15 +621,26 @@ body {
     }
     
     .button-group-vertical {
-        gap: 0.15rem;
+        gap: 0.5rem;
     }
     
     .button-group-vertical .game-button {
-        width: 220px;
-        max-width: 220px;
-        min-width: 220px;
-        padding: 0.5rem 1.2rem;
-        font-size: 0.85rem;
+        width: 320px;
+        max-width: 320px;
+        min-width: 320px;
+        padding: 0.5rem 1rem;
+        font-size: 0.8rem;
+        white-space: nowrap;
+    }
+    
+    .button-group-horizontal {
+        gap: 0.3rem;
+    }
+    
+    .compact-btn {
+        padding: 0.5rem 0.8rem !important;
+        font-size: 0.85rem !important;
+        min-width: 60px !important;
     }
     
     .final-score {

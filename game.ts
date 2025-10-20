@@ -1,5 +1,4 @@
 // ===== TYPES AND INTERFACES =====
-export {}; // Make this file a module
 interface Point {
     x: number;
     y: number;
@@ -606,9 +605,6 @@ class FruitSliceGame {
                 x: this.state.width / 2,
                 y: this.state.height / 2,
                 score: comboScore,
-                opacity: 1,
-                scale: 1
-            });
             this.createFireworks(avgX, avgY);
         }
         
