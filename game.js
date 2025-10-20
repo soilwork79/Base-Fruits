@@ -9,14 +9,13 @@ const MAX_TRAIL_POINTS = 30;
 const WALL_BOUNCE_DAMPING = 0.7;
 const MAX_FRUITS = 7;
 const FRUIT_TYPES = [
-    { emoji: '🍎', color: '#ff6b6b', cutEmoji: '🍎' }, // Red apple - will show as half
-    { emoji: '🍊', color: '#ffa500', cutEmoji: '🍊' }, // Orange - will show as half
-    { emoji: '🍋', color: '#ffd93d', cutEmoji: '🍋' }, // Lemon - will show as half
-    { emoji: '🍌', color: '#ffe66d', cutEmoji: '🍌' }, // Banana - will show as half
-    { emoji: '🍉', color: '#ff6b9d', cutEmoji: '🍉' }, // Watermelon - will show as half
-    { emoji: '🍇', color: '#c471f5', cutEmoji: '🍇' }, // Grapes - will show as half
-    { emoji: '🍓', color: '#ff4757', cutEmoji: '🍓' }, // Strawberry - will show as half
-    { emoji: '🥝', color: '#6bcf7f', cutEmoji: '🥝' }, // Kiwi - already looks cut
+    { name: 'apple', emoji: '🍎', color: '#ff6b6b', imagePath: 'images/apple.png', halfImagePath: 'images/half_apple.png' },
+    { name: 'orange', emoji: '🍊', color: '#ffa500', imagePath: 'images/orange.png', halfImagePath: 'images/half_orange.png' },
+    { name: 'lemon', emoji: '🍋', color: '#ffd93d', imagePath: 'images/lemon.png', halfImagePath: 'images/half_lemon.png' },
+    { name: 'watermelon', emoji: '🍉', color: '#ff6b9d', imagePath: 'images/watermelon.png', halfImagePath: 'images/half_watermelon.png' },
+    { name: 'strawberry', emoji: '🍓', color: '#ff4757', imagePath: 'images/strawberry.png', halfImagePath: 'images/half_strawberry.png' },
+    { name: 'kiwi', emoji: '🥝', color: '#6bcf7f', imagePath: 'images/kiwi.png', halfImagePath: 'images/half_kiwi.png' },
+    { name: 'pineapple', emoji: '🍍', color: '#ffe66d', imagePath: 'images/pineapple.png', halfImagePath: 'images/half_pineapple.png' }
 ];
 const SCORE_TABLE = [0, 10, 30, 135, 200, 375, 675, 1200];
 // ===== GAME STATE =====
@@ -51,6 +50,9 @@ class GameState {
         this.showingMilestone = false;
         // Animation
         this.lastFrameTime = 0;
+        // Fruit images
+        this.fruitImages = new Map();
+        this.halfFruitImages = new Map();
         this.canvas = document.getElementById('game-canvas');
         this.ctx = this.canvas.getContext('2d');
         this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -76,11 +78,15 @@ class GameState {
         this.excellentSound.volume = 0.6;
         this.amazingSound.volume = 0.6;
         this.legendarySound.volume = 0.6;
-        // Load watermelon images
-        this.watermelonImg = new Image();
-        this.watermelonImg.src = 'images/watermelon.png';
-        this.halfWatermelonImg = new Image();
-        this.halfWatermelonImg.src = 'images/half_watermelon.png';
+        // Load fruit images
+        FRUIT_TYPES.forEach(fruitType => {
+            const img = new Image();
+            img.src = fruitType.imagePath;
+            this.fruitImages.set(fruitType.name, img);
+            const halfImg = new Image();
+            halfImg.src = fruitType.halfImagePath;
+            this.halfFruitImages.set(fruitType.name, halfImg);
+        });
         window.addEventListener('resize', () => this.resize());
     }
     resize() {
@@ -287,8 +293,9 @@ class FruitSliceGame {
                         vy: -Math.sin(angle) * speed,
                         radius: FRUIT_RADIUS,
                         color: fruitType.color,
-                        emoji: fruitType.emoji,
-                        cutEmoji: fruitType.cutEmoji,
+                        fruitType: fruitType.name,
+                        imagePath: fruitType.imagePath,
+                        halfImagePath: fruitType.halfImagePath,
                         sliced: false,
                         active: true,
                         isBomb: false
@@ -330,7 +337,7 @@ class FruitSliceGame {
                     vy: -Math.sin(angle) * speed,
                     radius: FRUIT_RADIUS,
                     color: '#2c2c2c',
-                    emoji: '💣',
+                    fruitType: 'bomb',
                     sliced: false,
                     active: true,
                     isBomb: true,
@@ -663,8 +670,8 @@ class FruitSliceGame {
             vy: fruit.vy + Math.sin(perpAngle) * 2,
             radius: fruit.radius,
             color: fruit.color,
-            emoji: fruit.emoji,
-            cutEmoji: fruit.cutEmoji,
+            fruitType: fruit.fruitType,
+            halfImagePath: fruit.halfImagePath,
             rotation: 0,
             rotationSpeed: -0.1 - Math.random() * 0.1,
             isLeft: true,
@@ -678,8 +685,8 @@ class FruitSliceGame {
             vy: fruit.vy - Math.sin(perpAngle) * 2,
             radius: fruit.radius,
             color: fruit.color,
-            emoji: fruit.emoji,
-            cutEmoji: fruit.cutEmoji,
+            fruitType: fruit.fruitType,
+            halfImagePath: fruit.halfImagePath,
             rotation: 0,
             rotationSpeed: 0.1 + Math.random() * 0.1,
             isLeft: false,
@@ -961,17 +968,38 @@ class FruitSliceGame {
             if (!fruit.active || fruit.sliced)
                 continue;
             ctx.globalAlpha = 1;
-            // Use image for watermelon, emoji for others
-            if (fruit.emoji === '🍉' && this.state.watermelonImg.complete) {
-                const imgSize = fruit.radius * 2.5;
-                ctx.drawImage(this.state.watermelonImg, fruit.x - imgSize / 2, fruit.y - imgSize / 2, imgSize, imgSize);
-            }
-            else {
-                // Draw emoji only (no background circle) - increased size
+            if (fruit.isBomb) {
+                // Draw bomb emoji
                 ctx.font = `${fruit.radius * 2}px Arial`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                ctx.fillText(fruit.emoji, fruit.x, fruit.y);
+                ctx.fillText('💣', fruit.x, fruit.y);
+            }
+            else {
+                // Use fruit image with custom sizes
+                const img = this.state.fruitImages.get(fruit.fruitType);
+                if (img && img.complete) {
+                    let sizeMultiplier = 2.5; // default size
+                    // Custom sizes for different fruits
+                    switch (fruit.fruitType) {
+                        case 'pineapple':
+                            sizeMultiplier = 3.2; // büyüt
+                            break;
+                        case 'lemon':
+                            sizeMultiplier = 2.2; // küçült
+                            break;
+                        case 'apple':
+                        case 'orange':
+                        case 'kiwi':
+                        case 'watermelon':
+                        case 'strawberry':
+                        default:
+                            sizeMultiplier = 2.5; // normal size
+                            break;
+                    }
+                    const imgSize = fruit.radius * sizeMultiplier;
+                    ctx.drawImage(img, fruit.x - imgSize / 2, fruit.y - imgSize / 2, imgSize, imgSize);
+                }
             }
         }
         // Draw fruit halves
@@ -980,33 +1008,37 @@ class FruitSliceGame {
             ctx.globalAlpha = half.opacity;
             ctx.translate(half.x, half.y);
             ctx.rotate(half.rotation);
-            // Use image for watermelon, emoji for others
-            if (half.emoji === '🍉' && this.state.halfWatermelonImg.complete) {
-                // Draw watermelon image - bigger size
-                const imgSize = half.radius * 2.8;
-                ctx.drawImage(this.state.halfWatermelonImg, -imgSize / 2, -imgSize / 2, imgSize, imgSize);
-            }
-            else {
-                // Draw emoji split in half - same size as whole fruits
-                const emojiSize = half.radius * 2;
-                ctx.font = `${emojiSize}px Arial`;
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                // Clip to show only half of the emoji
-                ctx.save();
-                ctx.beginPath();
-                if (half.isLeft) {
-                    // Show left half
-                    ctx.rect(-emojiSize, -emojiSize, emojiSize, emojiSize * 2);
+            // Use half fruit image with custom sizes
+            const halfImg = this.state.halfFruitImages.get(half.fruitType);
+            if (halfImg && halfImg.complete) {
+                let sizeMultiplier = 2.8; // default size
+                // Custom sizes for different fruit halves
+                switch (half.fruitType) {
+                    case 'apple':
+                        sizeMultiplier = 1.8; // daha da küçült
+                        break;
+                    case 'pineapple':
+                        sizeMultiplier = 3.5; // büyüt
+                        break;
+                    case 'orange':
+                    case 'lemon':
+                        sizeMultiplier = 1.9; // daha da küçült
+                        break;
+                    case 'kiwi':
+                        sizeMultiplier = 2; // küçült
+                        break;
+                    case 'strawberry':
+                        sizeMultiplier = 1.9; // küçült
+                        break;
+                    case 'watermelon':
+                        sizeMultiplier = 3.0; // büyüt
+                        break;
+                    default:
+                        sizeMultiplier = 2.2; // normal size
+                        break;
                 }
-                else {
-                    // Show right half
-                    ctx.rect(0, -emojiSize, emojiSize, emojiSize * 2);
-                }
-                ctx.clip();
-                // Draw the emoji
-                ctx.fillText(half.emoji, 0, 0);
-                ctx.restore();
+                const imgSize = half.radius * sizeMultiplier;
+                ctx.drawImage(halfImg, -imgSize / 2, -imgSize / 2, imgSize, imgSize);
             }
             ctx.restore();
         }
@@ -1095,9 +1127,9 @@ class FruitSliceGame {
     }
     drawFruitDetails(ctx, half) {
         // Add seeds or details based on fruit type
-        const emoji = half.emoji;
+        const fruitType = half.fruitType;
         // Watermelon - add black seeds
-        if (emoji === '🍉') {
+        if (fruitType === 'watermelon') {
             ctx.fillStyle = '#2c2c2c';
             for (let i = 0; i < 3; i++) {
                 const angle = (Math.PI * 2 * i) / 3;
@@ -1109,7 +1141,7 @@ class FruitSliceGame {
             }
         }
         // Kiwi - add small seeds pattern
-        else if (emoji === '🥝') {
+        else if (fruitType === 'kiwi') {
             ctx.fillStyle = '#2c2c2c';
             for (let i = 0; i < 8; i++) {
                 const angle = (Math.PI * 2 * i) / 8;
@@ -1121,7 +1153,7 @@ class FruitSliceGame {
             }
         }
         // Orange/Lemon - add segment lines
-        else if (emoji === '🍊' || emoji === '🍋') {
+        else if (fruitType === 'orange' || fruitType === 'lemon') {
             ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
             ctx.lineWidth = 1;
             for (let i = 0; i < 6; i++) {
@@ -1133,7 +1165,7 @@ class FruitSliceGame {
             }
         }
         // Strawberry - add small seeds
-        else if (emoji === '🍓') {
+        else if (fruitType === 'strawberry') {
             ctx.fillStyle = '#ffe66d';
             for (let i = 0; i < 6; i++) {
                 const angle = (Math.PI * 2 * i) / 6 + Math.random() * 0.3;
