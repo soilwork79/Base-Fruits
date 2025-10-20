@@ -30,10 +30,7 @@
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="styles.css?v=5">
     <!-- Farcaster Mini App SDK -->
-    <script type="module">
-        import { sdk } from 'https://unpkg.com/@farcaster/miniapp-sdk@0.1.0/dist/index.js';
-        window.farcasterSdk = sdk;
-    </script>
+    <script src="https://unpkg.com/@farcaster/miniapp-sdk@latest/dist/farcaster.umd.js"></script>
     <!-- Ethers.js - Try multiple CDNs -->
     <script src="https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js"></script>
     <script>
@@ -84,44 +81,59 @@
     
     <!-- Farcaster Mini App SDK Initialization -->
     <script>
-        // Initialize Farcaster Mini App SDK when DOM and app are ready
-        async function initializeFarcasterSDK() {
-            console.log('Initializing Farcaster Mini App SDK...');
+        // Simple and direct Farcaster SDK initialization
+        function initializeFarcasterSDK() {
+            console.log('🚀 Initializing Farcaster SDK...');
+            
+            // Check if we're running inside Farcaster
+            const isFarcaster = window.parent !== window;
             
             try {
-                // Wait for SDK to be available
-                let attempts = 0;
-                const maxAttempts = 50;
-                
-                while (!window.farcasterSdk && attempts < maxAttempts) {
-                    await new Promise(resolve => setTimeout(resolve, 100));
-                    attempts++;
-                }
-                
-                if (window.farcasterSdk) {
-                    console.log('✅ Farcaster Mini App SDK loaded successfully');
-                    
-                    // Call ready() to hide splash screen and show app content
-                    await window.farcasterSdk.actions.ready();
-                    console.log('✅ Farcaster SDK ready() called successfully - splash screen hidden');
+                // Try to access the SDK directly
+                if (typeof window.farcaster !== 'undefined' && window.farcaster.actions) {
+                    console.log('✅ Found Farcaster SDK - calling ready()');
+                    window.farcaster.actions.ready();
+                    console.log('✅ Farcaster ready() called successfully!');
+                } else if (typeof window.FarcasterSDK !== 'undefined') {
+                    console.log('✅ Found FarcasterSDK - calling ready()');
+                    window.FarcasterSDK.actions.ready();
+                    console.log('✅ FarcasterSDK ready() called successfully!');
                 } else {
-                    console.warn('⚠️ Farcaster Mini App SDK not found, app will work in standalone mode');
+                    console.log('📱 Running in standalone mode - no Farcaster SDK needed');
                     
-                    // Create fallback SDK for standalone mode
-                    window.farcasterSdk = {
+                    // Create mock for compatibility
+                    window.farcaster = {
                         actions: {
-                            ready: async () => console.log('Mock Farcaster ready() called'),
-                            openUrl: (url) => window.open(url, '_blank')
+                            ready: () => console.log('Mock ready() called')
                         }
                     };
                 }
             } catch (error) {
-                console.error('❌ Error initializing Farcaster SDK:', error);
+                console.warn('⚠️ Error with Farcaster SDK, continuing anyway:', error);
             }
+            
+            // Always call ready immediately to be safe
+            setTimeout(() => {
+                try {
+                    if (window.farcaster && window.farcaster.actions && window.farcaster.actions.ready) {
+                        window.farcaster.actions.ready();
+                        console.log('🔄 Backup ready() called');
+                    }
+                } catch (e) {
+                    console.log('🤷 Backup ready() failed, but app will continue');
+                }
+            }, 500);
         }
         
-        // Initialize when DOM is loaded
-        document.addEventListener('DOMContentLoaded', initializeFarcasterSDK);
+        // Initialize immediately
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initializeFarcasterSDK);
+        } else {
+            initializeFarcasterSDK();
+        }
+        
+        // Also try after a short delay
+        setTimeout(initializeFarcasterSDK, 1000);
     </script>
 </head>
 <body>

@@ -105,6 +105,9 @@ class FruitSliceGame {
         this.state = new GameState();
         this.setupEventListeners();
         this.showStartScreen();
+        
+        // Call Farcaster ready when game is initialized
+        this.callFarcasterReady();
     }
     setupEventListeners() {
         // Start button
@@ -764,6 +767,42 @@ class FruitSliceGame {
         const sound = this.state.failSound.cloneNode();
         sound.volume = this.state.failSound.volume;
         sound.play().catch(e => console.log('Fail audio play failed:', e));
+    }
+    callFarcasterReady() {
+        // Multiple attempts to call Farcaster ready
+        console.log('🎮 Game ready - calling Farcaster SDK ready()');
+        
+        const tryReady = () => {
+            try {
+                if (window.farcaster && window.farcaster.actions && window.farcaster.actions.ready) {
+                    window.farcaster.actions.ready();
+                    console.log('✅ Farcaster ready() called from game!');
+                    return true;
+                }
+                if (window.FarcasterSDK && window.FarcasterSDK.actions && window.FarcasterSDK.actions.ready) {
+                    window.FarcasterSDK.actions.ready();
+                    console.log('✅ FarcasterSDK ready() called from game!');
+                    return true;
+                }
+                if (window.parent && window.parent.postMessage) {
+                    window.parent.postMessage({ type: 'farcaster-ready' }, '*');
+                    console.log('✅ Posted ready message to parent window');
+                    return true;
+                }
+            } catch (error) {
+                console.warn('Farcaster ready attempt failed:', error);
+            }
+            return false;
+        };
+        
+        // Try immediately
+        if (tryReady()) return;
+        
+        // Try after delays
+        setTimeout(tryReady, 100);
+        setTimeout(tryReady, 500);
+        setTimeout(tryReady, 1000);
+        setTimeout(tryReady, 2000);
     }
     createFireworks(x, y) {
         const colors = ['#ff6b6b', '#ffa500', '#ffd93d', '#6bcf7f', '#c471f5', '#ff4757'];
