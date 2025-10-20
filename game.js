@@ -9,14 +9,13 @@ const MAX_TRAIL_POINTS = 30;
 const WALL_BOUNCE_DAMPING = 0.7;
 const MAX_FRUITS = 7;
 const FRUIT_TYPES = [
-    { emoji: '🍎', color: '#ff6b6b', cutEmoji: '🍎' }, // Red apple - will show as half
-    { emoji: '🍊', color: '#ffa500', cutEmoji: '🍊' }, // Orange - will show as half
-    { emoji: '🍋', color: '#ffd93d', cutEmoji: '🍋' }, // Lemon - will show as half
-    { emoji: '🍌', color: '#ffe66d', cutEmoji: '🍌' }, // Banana - will show as half
-    { emoji: '🍉', color: '#ff6b9d', cutEmoji: '🍉' }, // Watermelon - will show as half
-    { emoji: '🍇', color: '#c471f5', cutEmoji: '🍇' }, // Grapes - will show as half
-    { emoji: '🍓', color: '#ff4757', cutEmoji: '🍓' }, // Strawberry - will show as half
-    { emoji: '🥝', color: '#6bcf7f', cutEmoji: '🥝' }, // Kiwi - already looks cut
+    { emoji: '🍎', color: '#ff6b6b', cutEmoji: '🍎' }, // Apple
+    { emoji: '🍊', color: '#ffa500', cutEmoji: '🍊' }, // Orange
+    { emoji: '🍋', color: '#ffd93d', cutEmoji: '🍋' }, // Lemon
+    { emoji: '🥝', color: '#6bcf7f', cutEmoji: '🥝' }, // Kiwi
+    { emoji: '🍉', color: '#ff6b9d', cutEmoji: '🍉' }, // Watermelon
+    { emoji: '🍓', color: '#ff4757', cutEmoji: '🍓' }, // Strawberry
+    { emoji: '🍍', color: '#ffd700', cutEmoji: '🍍' }, // Pineapple
 ];
 const SCORE_TABLE = [0, 10, 30, 135, 200, 375, 675, 1200];
 // ===== GAME STATE =====
@@ -76,13 +75,41 @@ class GameState {
         this.excellentSound.volume = 0.6;
         this.amazingSound.volume = 0.6;
         this.legendarySound.volume = 0.6;
-        // Load watermelon images
-        this.watermelonImg = new Image();
-        this.watermelonImg.src = 'images/watermelon.png';
-        this.halfWatermelonImg = new Image();
-        this.halfWatermelonImg.src = 'images/half_watermelon.png';
-        this.halfOrangeImg = new Image();
-        this.halfOrangeImg.src = 'images/half_orange.png';
+        // Load fruit images
+        this.fruitImages = {};
+        this.halfFruitImages = {};
+        
+        // Load whole fruit images
+        this.fruitImages['🍎'] = new Image();
+        this.fruitImages['🍎'].src = 'images/apple.png';
+        this.fruitImages['🍊'] = new Image();
+        this.fruitImages['🍊'].src = 'images/orange.png';
+        this.fruitImages['🍋'] = new Image();
+        this.fruitImages['🍋'].src = 'images/lemon.png';
+        this.fruitImages['🥝'] = new Image();
+        this.fruitImages['🥝'].src = 'images/kiwi.png';
+        this.fruitImages['🍉'] = new Image();
+        this.fruitImages['🍉'].src = 'images/watermelon.png';
+        this.fruitImages['🍓'] = new Image();
+        this.fruitImages['🍓'].src = 'images/strawberry.png';
+        this.fruitImages['🍍'] = new Image();
+        this.fruitImages['🍍'].src = 'images/pineapple.png';
+        
+        // Load half fruit images
+        this.halfFruitImages['🍎'] = new Image();
+        this.halfFruitImages['🍎'].src = 'images/half_apple.png';
+        this.halfFruitImages['🍊'] = new Image();
+        this.halfFruitImages['🍊'].src = 'images/half_orange.png';
+        this.halfFruitImages['🍋'] = new Image();
+        this.halfFruitImages['🍋'].src = 'images/half_lemon.png';
+        this.halfFruitImages['🥝'] = new Image();
+        this.halfFruitImages['🥝'].src = 'images/half_kiwi.png';
+        this.halfFruitImages['🍉'] = new Image();
+        this.halfFruitImages['🍉'].src = 'images/half_watermelon.png';
+        this.halfFruitImages['🍓'] = new Image();
+        this.halfFruitImages['🍓'].src = 'images/half_strawberry.png';
+        this.halfFruitImages['🍍'] = new Image();
+        this.halfFruitImages['🍍'].src = 'images/half_pineapple.png';
         window.addEventListener('resize', () => this.resize());
     }
     resize() {
@@ -459,17 +486,17 @@ class FruitSliceGame {
         if (count === 3)
             comboText = '3 Fruits - Good';
         else if (count === 4)
-            comboText = '4 Fruits - Great';
+            comboText = `4 Fruit Combo - ${comboScore}`;
         else if (count === 5) {
-            comboText = '5 Fruits - Excellent';
+            comboText = `5 Fruit Combo - ${comboScore}`;
             this.playComboSound('excellent');
         }
         else if (count === 6) {
-            comboText = '6 Fruits - Amazing';
+            comboText = `6 Fruit Combo - ${comboScore}`;
             this.playComboSound('amazing');
         }
         else if (count >= 7) {
-            comboText = '7+ Fruits - Legendary';
+            comboText = `7 Fruit Combo - ${comboScore}`;
             this.playComboSound('legendary');
         }
         // For combos (3+), show text in center of screen
@@ -1005,13 +1032,22 @@ class FruitSliceGame {
             ctx.translate(fruit.x, fruit.y);
             ctx.rotate(fruit.rotation);
             
-            // Use image for watermelon, emoji for others
-            if (fruit.emoji === '🍉' && this.state.watermelonImg.complete) {
-                const imgSize = fruit.radius * 2.5;
-                ctx.drawImage(this.state.watermelonImg, -imgSize / 2, -imgSize / 2, imgSize, imgSize);
+            // Use images for all fruits, fallback to emoji if image not loaded
+            const fruitImg = this.state.fruitImages[fruit.emoji];
+            if (fruitImg && fruitImg.complete) {
+                // Different sizes for different fruit types
+                let sizeMultiplier = 2.5; // default size
+                if (fruit.emoji === '🍍') {
+                    sizeMultiplier = 3.2; // bigger pineapple
+                } else if (fruit.emoji === '🍋') {
+                    sizeMultiplier = 2.2; // smaller lemon
+                }
+                
+                const imgSize = fruit.radius * sizeMultiplier;
+                ctx.drawImage(fruitImg, -imgSize / 2, -imgSize / 2, imgSize, imgSize);
             }
             else {
-                // Draw emoji only (no background circle) - increased size
+                // Fallback to emoji if image not loaded
                 ctx.font = `${fruit.radius * 2}px Arial`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
@@ -1027,14 +1063,28 @@ class FruitSliceGame {
             ctx.globalAlpha = half.opacity;
             ctx.translate(half.x, half.y);
             ctx.rotate(half.rotation);
-            // Use image for watermelon, emoji for others
-            if (half.emoji === '🍉' && this.state.halfWatermelonImg.complete) {
-                // Draw watermelon image - bigger size
-                const imgSize = half.radius * 2.8;
-                ctx.drawImage(this.state.halfWatermelonImg, -imgSize / 2, -imgSize / 2, imgSize, imgSize);
+            // Use half images for all fruits, fallback to clipped emoji
+            const halfImg = this.state.halfFruitImages[half.emoji];
+            if (halfImg && halfImg.complete) {
+                // Different sizes for different fruit types
+                let sizeMultiplier = 2.2; // default size
+                if (half.emoji === '🍎') {
+                    sizeMultiplier = 1.8; // smaller apple halves
+                } else if (half.emoji === '🍊') {
+                    sizeMultiplier = 1.8; // smaller orange halves
+                } else if (half.emoji === '🍉') {
+                    sizeMultiplier = 3.0; // bigger watermelon halves
+                } else if (half.emoji === '🍍') {
+                    sizeMultiplier = 3.0; // bigger pineapple halves
+                } else if (half.emoji === '🥝') {
+                    sizeMultiplier = 1.9; // smaller kiwi halves
+                }
+                
+                const imgSize = half.radius * sizeMultiplier;
+                ctx.drawImage(halfImg, -imgSize / 2, -imgSize / 2, imgSize, imgSize);
             }
             else {
-                // Draw emoji split in half - same size as whole fruits
+                // Fallback to clipped emoji if half image not loaded
                 const emojiSize = half.radius * 2;
                 ctx.font = `${emojiSize}px Arial`;
                 ctx.textAlign = 'center';
