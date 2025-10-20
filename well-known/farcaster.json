@@ -1,0 +1,15 @@
+{
+  "miniapp": {
+    "version": "1",
+    "name": "Base Fruits",
+    "iconUrl": "https://base-fruits.vercel.app/images/watermelon_icon.png",
+    "homeUrl": "https://base-fruits.vercel.app/",
+    "imageUrl": "https://base-fruits.vercel.app/images/afis.png",
+    "buttonTitle": "🎮 Play",
+    "splashImageUrl": "https://base-fruits.vercel.app/images/watermelon_icon.png",
+    "splashBackgroundColor": "#000000",
+    "primaryCategory": "games",
+    "requiredChains": ["eip155:8453"],
+    "requiredCapabilities": []
+  }
+}
