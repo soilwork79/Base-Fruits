@@ -11,26 +11,25 @@
     <!-- Farcaster Frame Meta Tags -->
     <meta property="og:title" content="Base Fruits 🍉" />
     <meta property="og:description" content="Slice fruits, avoid bombs, and compete on the leaderboard! Web3 gaming on Base network." />
-    <meta property="og:image" content="https://fruits-farcaster-mini-app.vercel.app/images/afis.png" />
-    <meta property="og:url" content="https://fruits-farcaster-mini-app.vercel.app/" />
+    <meta property="og:image" content="https://base-fruits.vercel.app/images/afis.png" />
+    <meta property="og:url" content="https://base-fruits.vercel.app/" />
     <meta property="og:type" content="website" />
     
     <!-- Farcaster Frame Specific -->
     <meta property="fc:frame" content="vNext" />
-    <meta property="fc:frame:image" content="https://fruits-farcaster-mini-app.vercel.app//images/afis.png" />
+    <meta property="fc:frame:image" content="https://base-fruits.vercel.app/images/afis.png" />
     <meta property="fc:frame:button:1" content="🎮 Play Game" />
     <meta property="fc:frame:button:2" content="🏆 Leaderboard" />
-    <meta property="fc:frame:post_url" content="https://fruits-farcaster-mini-app.vercel.app/api/frame" />
+    <meta property="fc:frame:post_url" content="https://base-fruits.vercel.app/api/frame" />
     
     <!-- Twitter Card (optional) -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Base Fruits 🍉" />
     <meta name="twitter:description" content="Slice fruits, avoid bombs, and compete on the leaderboard!" />
-    <meta name="twitter:image" content="https://fruits-farcaster-mini-app.vercel.app/images/afis.png" />
+    <meta name="twitter:image" content="https://base-fruits.vercel.app/images/afis.png" />
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="styles.css?v=5">
-    <!-- Farcaster Mini App SDK -->
-    <script src="https://unpkg.com/@farcaster/miniapp-sdk@latest/dist/farcaster.umd.js"></script>
+    <!-- Farcaster Mini App SDK will be loaded at bottom via ESM -->
     <!-- Ethers.js - Try multiple CDNs -->
     <script src="https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js"></script>
     <script>
@@ -79,62 +78,7 @@
         });
     </script>
     
-    <!-- Farcaster Mini App SDK Initialization -->
-    <script>
-        // Simple and direct Farcaster SDK initialization
-        function initializeFarcasterSDK() {
-            console.log('🚀 Initializing Farcaster SDK...');
-            
-            // Check if we're running inside Farcaster
-            const isFarcaster = window.parent !== window;
-            
-            try {
-                // Try to access the SDK directly
-                if (typeof window.farcaster !== 'undefined' && window.farcaster.actions) {
-                    console.log('✅ Found Farcaster SDK - calling ready()');
-                    window.farcaster.actions.ready();
-                    console.log('✅ Farcaster ready() called successfully!');
-                } else if (typeof window.FarcasterSDK !== 'undefined') {
-                    console.log('✅ Found FarcasterSDK - calling ready()');
-                    window.FarcasterSDK.actions.ready();
-                    console.log('✅ FarcasterSDK ready() called successfully!');
-                } else {
-                    console.log('📱 Running in standalone mode - no Farcaster SDK needed');
-                    
-                    // Create mock for compatibility
-                    window.farcaster = {
-                        actions: {
-                            ready: () => console.log('Mock ready() called')
-                        }
-                    };
-                }
-            } catch (error) {
-                console.warn('⚠️ Error with Farcaster SDK, continuing anyway:', error);
-            }
-            
-            // Always call ready immediately to be safe
-            setTimeout(() => {
-                try {
-                    if (window.farcaster && window.farcaster.actions && window.farcaster.actions.ready) {
-                        window.farcaster.actions.ready();
-                        console.log('🔄 Backup ready() called');
-                    }
-                } catch (e) {
-                    console.log('🤷 Backup ready() failed, but app will continue');
-                }
-            }, 500);
-        }
-        
-        // Initialize immediately
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', initializeFarcasterSDK);
-        } else {
-            initializeFarcasterSDK();
-        }
-        
-        // Also try after a short delay
-        setTimeout(initializeFarcasterSDK, 1000);
-    </script>
+    <!-- Farcaster Mini App SDK Initialization moved to bottom per docs -->
 </head>
 <body>
     <div id="game-container">
@@ -217,5 +161,18 @@
     </div>
     
     <script src="game.js?v=22"></script>
+    
+    <!-- Farcaster Mini App SDK (per docs) -->
+    <script type="module">
+        import { sdk } from 'https://esm.sh/@farcaster/miniapp-sdk';
+        (async () => {
+            try {
+                await sdk.actions.ready();
+                console.log('✅ Farcaster sdk.actions.ready() called');
+            } catch (e) {
+                console.error('❌ Farcaster sdk.actions.ready() failed', e);
+            }
+        })();
+    </script>
 </body>
 </html>
