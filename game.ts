@@ -359,6 +359,13 @@ class FruitSliceGame {
         this.state.screenShake = 0;
         this.state.redFlash = 0;
         
+        // Reset save leaderboard button
+        const saveBtn = document.getElementById('save-leaderboard-button') as HTMLButtonElement;
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.textContent = '💾 Save Leaderboard';
+        }
+        
         // Update UI
         this.updateUI();
         document.getElementById('start-screen')!.classList.add('hidden');
@@ -1494,12 +1501,26 @@ let currentScore = 0;
 
 // SAVE LEADERBOARD - MetaMask otomatik açılır
 async function saveScore() {
-    const usernameInput = document.getElementById('username-input') as HTMLInputElement;
-    const username = usernameInput.value.trim();
+    // Farcaster kullanıcı adını çek veya test için rastgele oluştur
+    let username = '';
+    let fid = 0;
     
+    // Farcaster bağlantısını kontrol et
+    if ((window as any).parent && (window as any).parent.farcaster) {
+        try {
+            const farcasterUser = await (window as any).parent.farcaster.getUser();
+            username = farcasterUser.username;
+            fid = farcasterUser.fid;
+        } catch (error) {
+            console.log('Farcaster kullanıcısı alınamadı, test modu kullanılıyor');
+        }
+    }
+    
+    // Test ortamı için rastgele kullanıcı adı
     if (!username) {
-        alert('Lütfen kullanıcı adınızı girin!');
-        return;
+        const testUsernames = ['Player1', 'FruitNinja', 'SliceKing', 'BombAvoider', 'ComboMaster', 'FruitHero'];
+        username = testUsernames[Math.floor(Math.random() * testUsernames.length)] + Math.floor(Math.random() * 1000);
+        fid = Math.floor(Math.random() * 100000); // Test FID
     }
 
     if (!(window as any).ethereum) {
@@ -1509,7 +1530,7 @@ async function saveScore() {
 
     const btn = document.getElementById('save-leaderboard-button') as HTMLButtonElement;
     btn.disabled = true;
-    btn.textContent = '⏳ İşlem yapılıyor...';
+    btn.textContent = '⏳ Processing...';
 
     try {
         // MetaMask otomatik açılır
@@ -1521,10 +1542,37 @@ async function saveScore() {
         // Base Mainnet kontrolü
         const network = await provider.getNetwork();
         if (network.chainId !== 8453) {
-            await (window as any).ethereum.request({
-                method: 'wallet_switchEthereumChain',
-                params: [{ chainId: '0x2105' }],
-            });
+            try {
+                // Base ağına geçmeyi dene
+                await (window as any).ethereum.request({
+                    method: 'wallet_switchEthereumChain',
+                    params: [{ chainId: '0x2105' }],
+                });
+            } catch (switchError: any) {
+                // Eğer ağ yoksa, Base ağını ekle
+                if (switchError.code === 4902) {
+                    try {
+                        await (window as any).ethereum.request({
+                            method: 'wallet_addEthereumChain',
+                            params: [{
+                                chainId: '0x2105',
+                                chainName: 'Base Mainnet',
+                                nativeCurrency: {
+                                    name: 'Ethereum',
+                                    symbol: 'ETH',
+                                    decimals: 18
+                                },
+                                rpcUrls: ['https://mainnet.base.org'],
+                                blockExplorerUrls: ['https://basescan.org']
+                            }]
+                        });
+                    } catch (addError) {
+                        throw new Error('Base ağı eklenemedi. Lütfen manuel olarak ekleyin.');
+                    }
+                } else {
+                    throw new Error('Base ağına geçilemedi: ' + switchError.message);
+                }
+            }
         }
 
         // İmza al
@@ -1534,7 +1582,7 @@ async function saveScore() {
             body: JSON.stringify({
                 playerAddress: walletAddress,
                 farcasterUsername: username,
-                fid: 0,
+                fid: fid,
                 score: currentScore
             })
         });
@@ -1560,21 +1608,21 @@ async function saveScore() {
             signData.data.signature
         );
 
-        btn.textContent = '⏳ Onay bekleniyor...';
+        btn.textContent = '⏳ Waiting confirmation...';
         await tx.wait();
         
-        alert('✅ Skorunuz kaydedildi!');
-        btn.textContent = '✅ Kaydedildi!';
+        alert('✅ Score saved successfully!');
+        btn.textContent = '✅ Saved!';
         
     } catch (error: any) {
         console.error(error);
         
         if (error.code === 'ACTION_REJECTED') {
-            alert('İptal edildi.');
+            alert('Transaction cancelled.');
         } else if (error.message?.includes('insufficient funds')) {
-            alert('Yetersiz ETH!');
+            alert('Insufficient ETH!');
         } else {
-            alert('Hata: ' + (error.message || 'Bilinmeyen hata'));
+            alert('Error: ' + (error.message || 'Unknown error'));
         }
         
         btn.disabled = false;

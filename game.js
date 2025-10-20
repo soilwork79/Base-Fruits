@@ -234,6 +234,12 @@ class FruitSliceGame {
         // Clear explosion effects
         this.state.screenShake = 0;
         this.state.redFlash = 0;
+        // Reset save leaderboard button
+        const saveBtn = document.getElementById('save-leaderboard-button');
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.textContent = '💾 Save Leaderboard';
+        }
         // Update UI
         this.updateUI();
         document.getElementById('start-screen').classList.add('hidden');
@@ -1227,11 +1233,25 @@ const API_URL = 'https://base-fruits-game.vercel.app';
 let currentScore = 0;
 // SAVE LEADERBOARD - MetaMask otomatik açılır
 async function saveScore() {
-    const usernameInput = document.getElementById('username-input');
-    const username = usernameInput.value.trim();
+    // Farcaster kullanıcı adını çek veya test için rastgele oluştur
+    let username = '';
+    let fid = 0;
+    // Farcaster bağlantısını kontrol et
+    if (window.parent && window.parent.farcaster) {
+        try {
+            const farcasterUser = await window.parent.farcaster.getUser();
+            username = farcasterUser.username;
+            fid = farcasterUser.fid;
+        }
+        catch (error) {
+            console.log('Farcaster kullanıcısı alınamadı, test modu kullanılıyor');
+        }
+    }
+    // Test ortamı için rastgele kullanıcı adı
     if (!username) {
-        alert('Lütfen kullanıcı adınızı girin!');
-        return;
+        const testUsernames = ['Player1', 'FruitNinja', 'SliceKing', 'BombAvoider', 'ComboMaster', 'FruitHero'];
+        username = testUsernames[Math.floor(Math.random() * testUsernames.length)] + Math.floor(Math.random() * 1000);
+        fid = Math.floor(Math.random() * 100000); // Test FID
     }
     if (!window.ethereum) {
         alert('MetaMask yükleyin! metamask.io');
@@ -1239,7 +1259,7 @@ async function saveScore() {
     }
     const btn = document.getElementById('save-leaderboard-button');
     btn.disabled = true;
-    btn.textContent = '⏳ İşlem yapılıyor...';
+    btn.textContent = '⏳ Processing...';
     try {
         // MetaMask otomatik açılır
         const provider = new window.ethers.providers.Web3Provider(window.ethereum);
@@ -1249,10 +1269,40 @@ async function saveScore() {
         // Base Mainnet kontrolü
         const network = await provider.getNetwork();
         if (network.chainId !== 8453) {
-            await window.ethereum.request({
-                method: 'wallet_switchEthereumChain',
-                params: [{ chainId: '0x2105' }],
-            });
+            try {
+                // Base ağına geçmeyi dene
+                await window.ethereum.request({
+                    method: 'wallet_switchEthereumChain',
+                    params: [{ chainId: '0x2105' }],
+                });
+            }
+            catch (switchError) {
+                // Eğer ağ yoksa, Base ağını ekle
+                if (switchError.code === 4902) {
+                    try {
+                        await window.ethereum.request({
+                            method: 'wallet_addEthereumChain',
+                            params: [{
+                                    chainId: '0x2105',
+                                    chainName: 'Base Mainnet',
+                                    nativeCurrency: {
+                                        name: 'Ethereum',
+                                        symbol: 'ETH',
+                                        decimals: 18
+                                    },
+                                    rpcUrls: ['https://mainnet.base.org'],
+                                    blockExplorerUrls: ['https://basescan.org']
+                                }]
+                        });
+                    }
+                    catch (addError) {
+                        throw new Error('Base ağı eklenemedi. Lütfen manuel olarak ekleyin.');
+                    }
+                }
+                else {
+                    throw new Error('Base ağına geçilemedi: ' + switchError.message);
+                }
+            }
         }
         // İmza al
         const signResponse = await fetch(`${API_URL}/api/signScore`, {
@@ -1261,7 +1311,7 @@ async function saveScore() {
             body: JSON.stringify({
                 playerAddress: walletAddress,
                 farcasterUsername: username,
-                fid: 0,
+                fid: fid,
                 score: currentScore
             })
         });
@@ -1272,21 +1322,21 @@ async function saveScore() {
         // Contract'a yaz - MetaMask tekrar açılır
         const contract = new window.ethers.Contract(CONTRACT_ADDRESS, ['function submitScore(string memory _farcasterUsername, uint256 _fid, uint256 _score, uint256 _nonce, bytes memory _signature) external'], signer);
         const tx = await contract.submitScore(signData.data.params.farcasterUsername, signData.data.params.fid, signData.data.params.score, signData.data.nonce, signData.data.signature);
-        btn.textContent = '⏳ Onay bekleniyor...';
+        btn.textContent = '⏳ Waiting confirmation...';
         await tx.wait();
-        alert('✅ Skorunuz kaydedildi!');
-        btn.textContent = '✅ Kaydedildi!';
+        alert('✅ Score saved successfully!');
+        btn.textContent = '✅ Saved!';
     }
     catch (error) {
         console.error(error);
         if (error.code === 'ACTION_REJECTED') {
-            alert('İptal edildi.');
+            alert('Transaction cancelled.');
         }
         else if (error.message?.includes('insufficient funds')) {
-            alert('Yetersiz ETH!');
+            alert('Insufficient ETH!');
         }
         else {
-            alert('Hata: ' + (error.message || 'Bilinmeyen hata'));
+            alert('Error: ' + (error.message || 'Unknown error'));
         }
         btn.disabled = false;
         btn.textContent = '💾 Save Leaderboard';
