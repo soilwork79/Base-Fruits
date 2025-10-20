@@ -11,24 +11,26 @@
     <!-- Farcaster Frame Meta Tags -->
     <meta property="og:title" content="Base Fruits 🍉" />
     <meta property="og:description" content="Slice fruits, avoid bombs, and compete on the leaderboard! Web3 gaming on Base network." />
-    <meta property="og:image" content="https://your-domain.com/images/frame-preview.png" />
-    <meta property="og:url" content="https://your-domain.com" />
+    <meta property="og:image" content="https://fruits-farcaster-mini-app.vercel.app/images/afis.png" />
+    <meta property="og:url" content="https://fruits-farcaster-mini-app.vercel.app/" />
     <meta property="og:type" content="website" />
     
     <!-- Farcaster Frame Specific -->
     <meta property="fc:frame" content="vNext" />
-    <meta property="fc:frame:image" content="https://your-domain.com/images/frame-preview.png" />
+    <meta property="fc:frame:image" content="https://fruits-farcaster-mini-app.vercel.app//images/afis.png" />
     <meta property="fc:frame:button:1" content="🎮 Play Game" />
     <meta property="fc:frame:button:2" content="🏆 Leaderboard" />
-    <meta property="fc:frame:post_url" content="https://your-domain.com/api/frame" />
+    <meta property="fc:frame:post_url" content="https://fruits-farcaster-mini-app.vercel.app/api/frame" />
     
     <!-- Twitter Card (optional) -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Base Fruits 🍉" />
     <meta name="twitter:description" content="Slice fruits, avoid bombs, and compete on the leaderboard!" />
-    <meta name="twitter:image" content="https://your-domain.com/images/frame-preview.png" />
+    <meta name="twitter:image" content="https://fruits-farcaster-mini-app.vercel.app/images/afis.png" />
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="styles.css?v=5">
+    <!-- Farcaster SDK -->
+    <script src="https://sdk.farcaster.xyz/v0.0.5/farcaster.js"></script>
     <!-- Ethers.js - Try multiple CDNs -->
     <script src="https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js"></script>
     <script>
@@ -74,6 +76,37 @@
         // Also check when DOM is loaded
         document.addEventListener('DOMContentLoaded', function() {
             console.log('DOM loaded, ethers status:', typeof ethers !== 'undefined');
+        });
+    </script>
+    
+    <!-- Farcaster SDK Initialization -->
+    <script>
+        // Initialize Farcaster SDK when DOM is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Initializing Farcaster SDK...');
+            
+            // Check if Farcaster SDK is available
+            if (typeof window.farcaster !== 'undefined') {
+                console.log('✅ Farcaster SDK loaded successfully');
+                
+                // Initialize the SDK and call ready
+                try {
+                    window.farcaster.actions.ready();
+                    console.log('✅ Farcaster SDK ready() called successfully');
+                } catch (error) {
+                    console.error('❌ Error calling Farcaster ready():', error);
+                }
+            } else {
+                console.warn('⚠️ Farcaster SDK not found, app will work in standalone mode');
+                
+                // Fallback: create a mock SDK object to prevent errors
+                window.farcaster = {
+                    actions: {
+                        ready: () => console.log('Mock Farcaster ready() called'),
+                        openUrl: (url) => window.open(url, '_blank')
+                    }
+                };
+            }
         });
     </script>
 </head>
