@@ -605,6 +605,10 @@ class FruitSliceGame {
                 x: this.state.width / 2,
                 y: this.state.height / 2,
                 score: comboScore,
+                opacity: 1,
+                scale: 1,
+                comboText: comboText
+            });
             this.createFireworks(avgX, avgY);
         }
         
@@ -1449,12 +1453,6 @@ class FruitSliceGame {
 }
 
 // ===== LEADERBOARD FUNCTIONALITY =====
-declare global {
-    interface Window {
-        ethereum?: any;
-        ethers?: any;
-    }
-}
 
 const CONTRACT_ADDRESS = '0xa4f109Eb679970C0b30C21812C99318837A81c73';
 const API_URL = 'https://base-fruits-game.vercel.app';
@@ -1470,7 +1468,7 @@ async function saveScore() {
         return;
     }
 
-    if (!window.ethereum) {
+    if (!(window as any).ethereum) {
         alert('MetaMask yükleyin! metamask.io');
         return;
     }
@@ -1481,7 +1479,7 @@ async function saveScore() {
 
     try {
         // MetaMask otomatik açılır
-        const provider = new window.ethers.providers.Web3Provider(window.ethereum);
+        const provider = new (window as any).ethers.providers.Web3Provider((window as any).ethereum);
         await provider.send("eth_requestAccounts", []); // ← MetaMask açılır
         const signer = provider.getSigner();
         const walletAddress = await signer.getAddress();
@@ -1489,7 +1487,7 @@ async function saveScore() {
         // Base Mainnet kontrolü
         const network = await provider.getNetwork();
         if (network.chainId !== 8453) {
-            await window.ethereum.request({
+            await (window as any).ethereum.request({
                 method: 'wallet_switchEthereumChain',
                 params: [{ chainId: '0x2105' }],
             });
@@ -1514,7 +1512,7 @@ async function saveScore() {
         }
 
         // Contract'a yaz - MetaMask tekrar açılır
-        const contract = new window.ethers.Contract(
+        const contract = new (window as any).ethers.Contract(
             CONTRACT_ADDRESS,
             ['function submitScore(string memory _farcasterUsername, uint256 _fid, uint256 _score, uint256 _nonce, bytes memory _signature) external'],
             signer
