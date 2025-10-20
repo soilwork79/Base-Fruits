@@ -29,8 +29,11 @@
     <meta name="twitter:image" content="https://fruits-farcaster-mini-app.vercel.app/images/afis.png" />
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="styles.css?v=5">
-    <!-- Farcaster SDK -->
-    <script src="https://sdk.farcaster.xyz/v0.0.5/farcaster.js"></script>
+    <!-- Farcaster Mini App SDK -->
+    <script type="module">
+        import { sdk } from 'https://unpkg.com/@farcaster/miniapp-sdk@0.1.0/dist/index.js';
+        window.farcasterSdk = sdk;
+    </script>
     <!-- Ethers.js - Try multiple CDNs -->
     <script src="https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js"></script>
     <script>
@@ -79,35 +82,46 @@
         });
     </script>
     
-    <!-- Farcaster SDK Initialization -->
+    <!-- Farcaster Mini App SDK Initialization -->
     <script>
-        // Initialize Farcaster SDK when DOM is loaded
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('Initializing Farcaster SDK...');
+        // Initialize Farcaster Mini App SDK when DOM and app are ready
+        async function initializeFarcasterSDK() {
+            console.log('Initializing Farcaster Mini App SDK...');
             
-            // Check if Farcaster SDK is available
-            if (typeof window.farcaster !== 'undefined') {
-                console.log('✅ Farcaster SDK loaded successfully');
+            try {
+                // Wait for SDK to be available
+                let attempts = 0;
+                const maxAttempts = 50;
                 
-                // Initialize the SDK and call ready
-                try {
-                    window.farcaster.actions.ready();
-                    console.log('✅ Farcaster SDK ready() called successfully');
-                } catch (error) {
-                    console.error('❌ Error calling Farcaster ready():', error);
+                while (!window.farcasterSdk && attempts < maxAttempts) {
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    attempts++;
                 }
-            } else {
-                console.warn('⚠️ Farcaster SDK not found, app will work in standalone mode');
                 
-                // Fallback: create a mock SDK object to prevent errors
-                window.farcaster = {
-                    actions: {
-                        ready: () => console.log('Mock Farcaster ready() called'),
-                        openUrl: (url) => window.open(url, '_blank')
-                    }
-                };
+                if (window.farcasterSdk) {
+                    console.log('✅ Farcaster Mini App SDK loaded successfully');
+                    
+                    // Call ready() to hide splash screen and show app content
+                    await window.farcasterSdk.actions.ready();
+                    console.log('✅ Farcaster SDK ready() called successfully - splash screen hidden');
+                } else {
+                    console.warn('⚠️ Farcaster Mini App SDK not found, app will work in standalone mode');
+                    
+                    // Create fallback SDK for standalone mode
+                    window.farcasterSdk = {
+                        actions: {
+                            ready: async () => console.log('Mock Farcaster ready() called'),
+                            openUrl: (url) => window.open(url, '_blank')
+                        }
+                    };
+                }
+            } catch (error) {
+                console.error('❌ Error initializing Farcaster SDK:', error);
             }
-        });
+        }
+        
+        // Initialize when DOM is loaded
+        document.addEventListener('DOMContentLoaded', initializeFarcasterSDK);
     </script>
 </head>
 <body>
