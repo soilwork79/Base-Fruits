@@ -1,0 +1,18 @@
+name: Daily Notifications
+
+on:
+  schedule:
+    # Her gün saat 12:00 UTC'de çalışır
+    - cron: '0 12 * * *'
+  workflow_dispatch: # Manuel tetikleme için
+
+jobs:
+  send-notifications:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Send Daily Notifications
+        run: |
+          curl -X POST https://base-fruits.vercel.app/api/send-notifications \
+            -H "Content-Type: application/json" \
+            -d '{"scheduled": true}'

@@ -59,17 +59,15 @@ The notification system sends daily reminders to users who have enabled notifica
 }
 ```
 
-### Vercel Cron Job (`vercel.json`)
-```json
-{
-  "crons": [
-    {
-      "path": "/api/scheduler",
-      "schedule": "0 12 * * *"
-    }
-  ]
-}
+### GitHub Actions Cron Job (`.github/workflows/daily-notifications.yml`)
+```yaml
+on:
+  schedule:
+    - cron: '0 12 * * *'  # Daily at 12:00 UTC
+  workflow_dispatch: # Manual trigger
 ```
+
+**Note:** Vercel cron jobs removed due to plan limits. Using GitHub Actions instead.
 
 ## 🚀 Deployment
 
