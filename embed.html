@@ -89,28 +89,63 @@
     </div>
 
     <!-- Farcaster Mini App SDK -->
+    <script src="https://unpkg.com/@farcaster/miniapp-sdk@latest" defer></script>
     <script type="module">
-        try {
-            // Import Farcaster Mini App SDK
-            const { sdk } = await import("https://unpkg.com/@farcaster/miniapp-sdk@0.1.0/dist/index.js");
-            
-            // Initialize SDK
-            await sdk.ready();
-            console.log("✅ Farcaster Mini App SDK initialized successfully");
-            
-            // Optional: Get user context
+        // Wait for DOM and SDK to be ready
+        document.addEventListener('DOMContentLoaded', async () => {
             try {
-                const context = await sdk.context();
-                console.log("Farcaster context:", context);
-            } catch (contextError) {
-                console.log("Context not available (normal in some environments):", contextError);
+                console.log("🔄 Initializing Farcaster Mini App SDK...");
+                
+                // Wait a bit for SDK to load
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                // Try different ways to access the SDK
+                let sdk = null;
+                
+                if (window.farcaster?.miniapp) {
+                    sdk = window.farcaster.miniapp;
+                    console.log("✅ Found SDK at window.farcaster.miniapp");
+                } else if (window.FarcasterMiniApp) {
+                    sdk = window.FarcasterMiniApp;
+                    console.log("✅ Found SDK at window.FarcasterMiniApp");
+                } else if (window.sdk) {
+                    sdk = window.sdk;
+                    console.log("✅ Found SDK at window.sdk");
+                } else {
+                    // Try dynamic import as fallback
+                    try {
+                        const module = await import("https://unpkg.com/@farcaster/miniapp-sdk@latest/dist/index.js");
+                        sdk = module.sdk || module.default;
+                        console.log("✅ Loaded SDK via dynamic import");
+                    } catch (importError) {
+                        console.log("⚠️ Dynamic import failed:", importError.message);
+                    }
+                }
+                
+                if (sdk && typeof sdk.ready === 'function') {
+                    console.log("🚀 Calling sdk.ready()...");
+                    await sdk.ready();
+                    console.log("✅ Farcaster Mini App SDK initialized successfully");
+                    
+                    // Try to get context
+                    if (typeof sdk.context === 'function') {
+                        try {
+                            const context = await sdk.context();
+                            console.log("👤 Farcaster context:", context);
+                        } catch (contextError) {
+                            console.log("ℹ️ Context not available:", contextError.message);
+                        }
+                    }
+                } else {
+                    console.log("⚠️ SDK not found or ready method not available");
+                    console.log("Available globals:", Object.keys(window).filter(k => k.toLowerCase().includes('farcaster')));
+                }
+                
+            } catch (error) {
+                console.error("❌ Failed to initialize Farcaster SDK:", error);
+                console.log("⚠️ Running in fallback mode");
             }
-            
-        } catch (error) {
-            console.error("❌ Failed to initialize Farcaster SDK:", error);
-            // Fallback for non-Farcaster environments
-            console.log("Running in fallback mode");
-        }
+        });
     </script>
 </body>
 </html>
