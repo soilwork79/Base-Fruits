@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="description" content="Farcaster Fruit Slice - Web3 Mini Game">
+    <title>Base Fruits 🍉 - Frame</title>
+    
+    <!-- Immediate ethereum conflict prevention - must be first script -->
+    <script>
+        (function() {
+            // Immediately prevent ethereum property redefinition
+            const originalDefineProperty = Object.defineProperty;
+            Object.defineProperty = function(obj, prop, descriptor) {
+                if (obj === window && prop === 'ethereum') {
+                    console.warn('⚠️ Blocked ethereum property redefinition attempt');
+                    // Return the existing ethereum or the object itself
+                    return window.ethereum || obj;
+                }
+                return originalDefineProperty.call(this, obj, prop, descriptor);
+            };
+            
+            // Store for later restoration
+            window.__originalDefineProperty = originalDefineProperty;
+            
+            // Also freeze ethereum if it exists
+            if (window.ethereum) {
+                try {
+                    Object.freeze(window.ethereum);
+                    console.log('✅ Ethereum object frozen to prevent modifications');
+                } catch (e) {
+                    console.warn('Could not freeze ethereum object:', e.message);
+                }
+            }
+        })();
+    </script>
+    
+    <!-- Open Graph Meta Tags -->
+    <meta property="og:title" content="Base Fruits 🍉" />
+    <meta property="og:description" content="Slice fruits, avoid bombs, and compete on the leaderboard! Web3 gaming on Base network." />
+    <meta property="og:image" content="https://base-fruits-farcaster-miniapp.vercel.app/images/splash.png" />
+    <meta property="og:url" content="https://base-fruits-farcaster-miniapp.vercel.app/frame" />
+    <meta property="og:type" content="website" />
+    
+    <!-- Farcaster Frame Meta Tags - Optimized for inline display -->
+    <meta property="fc:frame" content="vNext" />
+    <meta property="fc:frame:image" content="https://base-fruits-farcaster-miniapp.vercel.app/images/splash.png" />
+    <meta property="fc:frame:button:1" content="🎮 Play Game" />
+    <meta property="fc:frame:button:1:action" content="link" />
+    <meta property="fc:frame:button:1:target" content="https://base-fruits-farcaster-miniapp.vercel.app/frame" />
+    <meta property="fc:frame:button:2" content="🏆 Leaderboard" />
+    <meta property="fc:frame:button:2:action" content="link" />
+    <meta property="fc:frame:button:2:target" content="https://base-fruits-farcaster-miniapp.vercel.app/frame?view=leaderboard" />
+    
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Base Fruits 🍉" />
+    <meta name="twitter:description" content="Slice fruits, avoid bombs, and compete on the leaderboard!" />
+    <meta name="twitter:image" content="https://base-fruits-farcaster-miniapp.vercel.app/images/splash.png" />
+    
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="styles.css?v=6">
+    
+    <!-- Load Ethers.js safely -->
+    <script>
+        // Store ethereum backup if available
+        let ethereumBackup = null;
+        
+        // Unfreeze ethereum temporarily for ethers.js if needed
+        if (window.ethereum && Object.isFrozen(window.ethereum)) {
+            try {
+                // Create a backup before any modifications
+                ethereumBackup = { ...window.ethereum };
+                console.log('✅ Ethereum object backed up before ethers.js load');
+            } catch (e) {
+                console.warn('⚠️ Could not backup ethereum object:', e.message);
+            }
+        }
+        
+        // Load ethers with conflict prevention
+        function loadEthers() {
+            const script = document.createElement('script');
+            script.src = 'https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js';
+            script.onload = function() {
+                console.log('✅ Ethers.js loaded successfully:', ethers.version);
+                window.ethersReady = true;
+                
+                // Restore original defineProperty if stored
+                if (window.__originalDefineProperty) {
+                    Object.defineProperty = window.__originalDefineProperty;
+                    console.log('✅ Restored original Object.defineProperty');
+                }
+                
+                // Ensure ethereum object is available
+                if (!window.ethereum && ethereumBackup) {
+                    try {
+                        window.ethereum = ethereumBackup;
+                        console.log('✅ Ethereum object restored from backup');
+                    } catch (e) {
+                        console.warn('⚠️ Could not restore ethereum object:', e.message);
+                    }
+                }
+            };
+            script.onerror = function() {
+                console.error('❌ Ethers.js failed to load');
+                // Restore original defineProperty if stored
+                if (window.__originalDefineProperty) {
+                    Object.defineProperty = window.__originalDefineProperty;
+                }
+                
+                // Mock ethers so game still works
+                window.ethers = {
+                    providers: { Web3Provider: function() { return {}; } },
+                    Contract: function() { return {}; },
+                    version: "mock"
+                };
+                window.ethersReady = true;
+            };
+            document.head.appendChild(script);
+        }
+        
+        // Load ethers after wallet extensions have initialized
+        setTimeout(loadEthers, 1000);
+        console.log('✅ Frame and Web3 initialization started with conflict prevention');
+    </script>
+    
+    <!-- Frame-specific styling -->
+    <style>
+        .frame-indicator {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: rgba(98, 0, 234, 0.9);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 12px;
+            z-index: 1000;
+            display: none;
+        }
+        
+        .frame-mode .frame-indicator {
+            display: block;
+        }
+        
+        /* Optimize for Farcaster frame display */
+        @media (max-width: 600px) {
+            #game-container {
+                height: 100vh;
+                overflow: hidden;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="frame-indicator">🖼️ Frame Mode</div>
+    
+    <div id="game-container">
+        <canvas id="game-canvas"></canvas>
+        
+        <!-- Chapter Name Display -->
+        <div id="chapter-name" class="chapter-name hidden">
+            <h1 id="chapter-text">Tropical Island</h1>
+        </div>
+        
+        <!-- Start Screen -->
+        <div id="start-screen" class="screen">
+            <h1>🍉 Base Fruits</h1>
+            <p class="subtitle">Slice the fruits, avoid the bombs!</p>
+            <div class="rules">
+                <p>🎯 Slice fruits as they fly</p>
+                <p>💣 <strong>Beware of bombs!</strong> Don't cut them!</p>
+                <p>🔥 The more fruits you cut at once, the more combo points you get.</p>
+                <p>❤️ You have 4 lives (+1 life every 10 waves)</p>
+                <p>🎮 <strong>50 challenging waves</strong></p>
+                <p class="frame-note">🖼️ <em>Playing in Farcaster Frame mode</em></p>
+            </div>
+            <button id="start-button" class="game-button">Start Game</button>
+        </div>
+        
+        <!-- Game HUD -->
+        <div id="game-hud" class="hidden">
+            <div class="hud-top">
+                <div class="score-display">
+                    <span class="label">Score</span>
+                    <span id="score">0</span>
+                </div>
+                <div class="level-display">
+                    <span class="label">Wave</span>
+                    <span id="level">1</span>
+                </div>
+            </div>
+            <div class="lives-display">
+                <span class="label">Lives:</span>
+                <span id="lives">❤️❤️❤️❤️</span>
+            </div>
+        </div>
+        
+        <!-- Milestone Message -->
+        <div id="milestone-message" class="milestone-screen hidden">
+            <div class="milestone-content">
+                <h2 id="milestone-text">Congratulations!</h2>
+                <p id="milestone-subtext">You gained 1 life</p>
+            </div>
+        </div>
+        
+        <!-- Game Over Screen -->
+        <div id="game-over-screen" class="screen hidden">
+            <h1>Game Over</h1>
+            <div class="final-score">
+                <p class="label">Final Score</p>
+                <p id="final-score" class="score-value">0</p>
+            </div>
+            <div class="stats">
+                <p>Wave Reached: <span id="final-level">1</span></p>
+            </div>
+            
+            <!-- Leaderboard Section -->
+            <div class="leaderboard-section">
+                <div class="button-group-vertical">
+                    <button id="save-leaderboard-button" class="game-button leaderboard-btn">💾 Save Leaderboard</button>
+                    <button id="view-leaderboard-button" class="game-button secondary-btn">🏆 View Leaderboard</button>
+                    <button id="share-score-button" class="game-button share-btn">🚀 Share on Farcaster</button>
+                    <button id="restart-button" class="game-button restart-btn">🔄 Play Again</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Leaderboard Modal -->
+        <div id="leaderboard-modal" class="modal hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>🏆 Leaderboard</h2>
+                    <button id="close-leaderboard" class="close-btn">&times;</button>
+                </div>
+                <div id="leaderboard-content" class="leaderboard-list">
+                    <p>Loading...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="game.js?v=23"></script>
+    
+    <!-- Frame-specific JavaScript -->
+    <script>
+        // Detect if running in Farcaster frame
+        function detectFrameMode() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const isFrame = window.location.pathname.includes('/frame') || 
+                           urlParams.has('frame') || 
+                           window.parent !== window;
+            
+            if (isFrame) {
+                document.body.classList.add('frame-mode');
+                console.log('🖼️ Running in Farcaster Frame mode');
+                
+                // Add frame-specific optimizations
+                if (window.farcasterSDK) {
+                    console.log('✅ Farcaster SDK available in frame');
+                }
+            }
+            
+            return isFrame;
+        }
+        
+        // Initialize frame detection
+        detectFrameMode();
+    </script>
+    
+    <!-- Farcaster Mini App SDK with enhanced error handling -->
+    <script>
+        // Load Farcaster SDK with fallback methods
+        async function initializeFarcasterSDK() {
+            try {
+                console.log('🔄 Initializing Farcaster Mini App SDK...');
+                
+                // Method 1: Try loading via script tag first
+                const loadViaScript = () => {
+                    return new Promise((resolve, reject) => {
+                        const script = document.createElement('script');
+                        script.src = 'https://unpkg.com/@farcaster/miniapp-sdk@latest/dist/index.umd.js';
+                        script.onload = () => {
+                            if (window.FarcasterSDK || window.sdk) {
+                                resolve(window.FarcasterSDK || window.sdk);
+                            } else {
+                                reject(new Error('SDK not found on window object'));
+                            }
+                        };
+                        script.onerror = () => reject(new Error('Script failed to load'));
+                        document.head.appendChild(script);
+                    });
+                };
+                
+                // Method 2: Try ES module import as fallback
+                const loadViaESM = async () => {
+                    try {
+                        const module = await import('https://esm.sh/@farcaster/miniapp-sdk');
+                        return module.sdk || module.default || module;
+                    } catch (e) {
+                        throw new Error(`ESM import failed: ${e.message}`);
+                    }
+                };
+                
+                let sdk = null;
+                
+                // Try script tag method first
+                try {
+                    sdk = await loadViaScript();
+                    console.log('✅ Farcaster SDK loaded via script tag');
+                } catch (scriptError) {
+                    console.log('⚠️ Script tag method failed, trying ESM import...');
+                    
+                    // Fallback to ESM import
+                    try {
+                        sdk = await loadViaESM();
+                        console.log('✅ Farcaster SDK loaded via ESM import');
+                    } catch (esmError) {
+                        console.warn('⚠️ Both loading methods failed:', {
+                            script: scriptError.message,
+                            esm: esmError.message
+                        });
+                        return;
+                    }
+                }
+                
+                // Initialize SDK if available
+                if (sdk && typeof sdk.ready === 'function') {
+                    await sdk.ready();
+                    console.log('✅ Farcaster SDK initialized successfully');
+                    
+                    // Store SDK globally for game use
+                    window.farcasterSDK = sdk;
+                    
+                    // Try to get context if available
+                    if (typeof sdk.context === 'function') {
+                        try {
+                            const context = await sdk.context();
+                            console.log('👤 Farcaster context:', context);
+                            window.farcasterContext = context;
+                        } catch (contextError) {
+                            console.log('ℹ️ Context not available:', contextError.message);
+                        }
+                    }
+                } else {
+                    console.warn('⚠️ SDK loaded but ready method not available');
+                }
+                
+            } catch (error) {
+                console.warn('⚠️ Farcaster SDK initialization failed (normal for local testing):', error.message);
+                // Game continues to work without Farcaster
+            }
+        }
+        
+        // Initialize after DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initializeFarcasterSDK);
+        } else {
+            initializeFarcasterSDK();
+        }
+    </script>
+</body>
+</html>

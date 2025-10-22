@@ -722,3 +722,44 @@ body {
         letter-spacing: 0.5px !important;
     }
 }
+
+/* Frame-specific styles */
+.frame-note {
+    font-size: 0.9rem;
+    color: #6200EA;
+    margin-top: 1rem;
+    font-style: italic;
+}
+
+.frame-indicator {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    background: rgba(98, 0, 234, 0.9);
+    color: white;
+    padding: 5px 10px;
+    border-radius: 15px;
+    font-size: 12px;
+    z-index: 1000;
+    display: none;
+}
+
+.frame-mode .frame-indicator {
+    display: block;
+}
+
+/* Optimize for Farcaster frame display */
+@media (max-width: 600px) {
+    .frame-mode #game-container {
+        height: 100vh;
+        overflow: hidden;
+    }
+    
+    .frame-mode .screen {
+        padding: 1rem;
+    }
+    
+    .frame-mode .rules {
+        font-size: 0.9rem;
+    }
+}

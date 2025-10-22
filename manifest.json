@@ -26,7 +26,8 @@
     "ogTitle": "Base Fruits - Play on Base",
     "ogDescription": "Slice fruits, dodge bombs, and climb the global leaderboard.",
     "ogImageUrl": "https://base-fruits-farcaster-miniapp.vercel.app/splash.png",
-    "castShareUrl": "https://base-fruits-farcaster-miniapp.vercel.app/?ref=cast"
+    "castShareUrl": "https://base-fruits-farcaster-miniapp.vercel.app/?ref=cast",
+    "frameUrl": "https://base-fruits-farcaster-miniapp.vercel.app/frame"
   },
   "embed": {
     "url": "https://base-fruits-farcaster-miniapp.vercel.app/embed",
