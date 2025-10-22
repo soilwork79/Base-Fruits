@@ -1,17 +1,36 @@
 {
-  "name": "Base Fruits",
-  "short_name": "Base Fruits",
-  "description": "Slice fruits and earn combo points in this addictive Web3 mini game",
-  "start_url": "/",
-  "display": "fullscreen",
-  "orientation": "portrait",
-  "background_color": "#1a1a2e",
-  "theme_color": "#1a1a2e",
-  "icons": [
-    {
-      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='75' font-size='75'>🍉</text></svg>",
-      "sizes": "192x192",
-      "type": "image/svg+xml"
-    }
-  ]
+  "frame": {
+    "name": "Base Fruits",
+    "version": "1",
+    "iconUrl": "https://base-fruits-farcester-miniapp.vercel.app/icon.png",
+    "homeUrl": "https://base-fruits-farcester-miniapp.vercel.app",
+    "imageUrl": "https://base-fruits-farcester-miniapp.vercel.app/image.png",
+    "buttonTitle": "Play Now",
+    "splashImageUrl": "https://base-fruits-farcester-miniapp.vercel.app/splash.png",
+    "splashBackgroundColor": "#6200EA",
+    "webhookUrl": "https://base-fruits-farcester-miniapp.vercel.app/api/webhook",
+    "subtitle": "Base Fruits",
+    "description": "Slice fruits, avoid bombs, and compete on the leaderboard! Web3 gaming on Base network.",
+    "screenshotUrls": [
+      "https://base-fruits-farcester-miniapp.vercel.app/image.png"
+    ],
+    "primaryCategory": "games",
+    "tags": [
+      "game",
+      "fruit",
+      "slice",
+      "leaderboard",
+      "challenging"
+    ],
+    "tagline": "Slice, Score, Earn on Base",
+    "ogTitle": "Base Fruits - Play on Base",
+    "ogDescription": "Slice fruits, dodge bombs, and climb the global leaderboard.",
+    "ogImageUrl": "https://base-fruits-farcester-miniapp.vercel.app/splash.png",
+    "castShareUrl": "https://base-fruits-farcester-miniapp.vercel.app/?ref=cast"
+  },
+  "accountAssociation": {
+    "header": "eyJmaWQiOjUyMjQ2MSwidHlwZSI6ImF1dGgiLCJrZXkiOiIweDExNDk1MDM2YzM1REM1NThCODZkY0JENEJmNjY2Q0I3MDAxMTM0QTkifQ",
+    "payload": "eyJkb21haW4iOiJiYXNlLWZydWl0cy1mYXJjZXN0ZXItbWluaWFwcC52ZXJjZWwuYXBwIn0",
+    "signature": "HXh+TfDB6g//jVizsZW0hmO8O98K+MxehgyDQyaehcdYM2E28r5sazOHCnNz2Q0Fng0ZCH9EfQyIFr31JGOsUBs="
+  }
 }
