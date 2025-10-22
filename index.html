@@ -33,15 +33,48 @@
     <!-- Farcaster Mini App SDK will be loaded at bottom via ESM -->
     <!-- Load Ethers.js safely -->
     <script>
-        // Prevent wallet conflicts by storing original ethereum
+        // Enhanced wallet conflict prevention
         let originalEthereum = null;
+        let ethereumBackup = null;
+        
+        // Store original ethereum object safely
         try {
-            originalEthereum = window.ethereum;
+            if (window.ethereum) {
+                originalEthereum = window.ethereum;
+                // Create a deep backup to prevent reference issues
+                ethereumBackup = { ...window.ethereum };
+                console.log('✅ Ethereum object backed up');
+            }
         } catch (e) {
-            console.warn('Ethereum object conflict detected');
+            console.warn('⚠️ Ethereum object access restricted:', e.message);
         }
         
-        // Load ethers with conflict prevention
+        // Prevent property redefinition errors
+        function safeDefineProperty(obj, prop, descriptor) {
+            try {
+                if (Object.hasOwnProperty.call(obj, prop)) {
+                    console.warn(`⚠️ Property ${prop} already exists, skipping redefinition`);
+                    return false;
+                }
+                Object.defineProperty(obj, prop, descriptor);
+                return true;
+            } catch (e) {
+                console.warn(`⚠️ Could not define property ${prop}:`, e.message);
+                return false;
+            }
+        }
+        
+        // Override Object.defineProperty temporarily for ethereum conflicts
+        const originalDefineProperty = Object.defineProperty;
+        Object.defineProperty = function(obj, prop, descriptor) {
+            if (obj === window && prop === 'ethereum') {
+                console.warn('⚠️ Prevented ethereum property redefinition');
+                return obj;
+            }
+            return originalDefineProperty.call(this, obj, prop, descriptor);
+        };
+        
+        // Load ethers with enhanced conflict prevention
         function loadEthers() {
             const script = document.createElement('script');
             script.src = 'https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js';
@@ -49,18 +82,24 @@
                 console.log('✅ Ethers.js loaded successfully:', ethers.version);
                 window.ethersReady = true;
                 
-                // Restore ethereum if it was overwritten
-                if (originalEthereum && !window.ethereum) {
+                // Restore original defineProperty
+                Object.defineProperty = originalDefineProperty;
+                
+                // Ensure ethereum object is available
+                if (!window.ethereum && (originalEthereum || ethereumBackup)) {
                     try {
-                        window.ethereum = originalEthereum;
+                        window.ethereum = originalEthereum || ethereumBackup;
                         console.log('✅ Ethereum object restored');
                     } catch (e) {
-                        console.warn('Could not restore ethereum object');
+                        console.warn('⚠️ Could not restore ethereum object:', e.message);
                     }
                 }
             };
             script.onerror = function() {
                 console.error('❌ Ethers.js failed to load');
+                // Restore original defineProperty
+                Object.defineProperty = originalDefineProperty;
+                
                 // Mock ethers so game still works
                 window.ethers = {
                     providers: { Web3Provider: function() { return {}; } },
@@ -72,9 +111,9 @@
             document.head.appendChild(script);
         }
         
-        // Load ethers after a short delay to avoid conflicts
-        setTimeout(loadEthers, 500);
-        console.log('✅ Game and Web3 initialization started');
+        // Load ethers after wallet extensions have initialized
+        setTimeout(loadEthers, 1000);
+        console.log('✅ Game and Web3 initialization started with conflict prevention');
     </script>
     
     <!-- Farcaster Mini App SDK Initialization moved to bottom per docs -->
@@ -166,15 +205,95 @@
     
     <script src="game.js?v=23"></script>
     
-    <!-- Farcaster Mini App SDK with error handling -->
-    <script type="module">
-        try {
-            const { sdk } = await import('https://esm.sh/@farcaster/miniapp-sdk');
-            await sdk.actions.ready();
-            console.log('✅ Farcaster SDK loaded successfully');
-        } catch (e) {
-            console.warn('⚠️ Farcaster SDK failed to load (normal for local testing):', e.message);
-            // Game continues to work without Farcaster
+    <!-- Farcaster Mini App SDK with enhanced error handling -->
+    <script>
+        // Load Farcaster SDK with fallback methods
+        async function initializeFarcasterSDK() {
+            try {
+                console.log('🔄 Initializing Farcaster Mini App SDK...');
+                
+                // Method 1: Try loading via script tag first
+                const loadViaScript = () => {
+                    return new Promise((resolve, reject) => {
+                        const script = document.createElement('script');
+                        script.src = 'https://unpkg.com/@farcaster/miniapp-sdk@latest/dist/index.umd.js';
+                        script.onload = () => {
+                            if (window.FarcasterSDK || window.sdk) {
+                                resolve(window.FarcasterSDK || window.sdk);
+                            } else {
+                                reject(new Error('SDK not found on window object'));
+                            }
+                        };
+                        script.onerror = () => reject(new Error('Script failed to load'));
+                        document.head.appendChild(script);
+                    });
+                };
+                
+                // Method 2: Try ES module import as fallback
+                const loadViaESM = async () => {
+                    try {
+                        const module = await import('https://esm.sh/@farcaster/miniapp-sdk');
+                        return module.sdk || module.default || module;
+                    } catch (e) {
+                        throw new Error(`ESM import failed: ${e.message}`);
+                    }
+                };
+                
+                let sdk = null;
+                
+                // Try script tag method first
+                try {
+                    sdk = await loadViaScript();
+                    console.log('✅ Farcaster SDK loaded via script tag');
+                } catch (scriptError) {
+                    console.log('⚠️ Script tag method failed, trying ESM import...');
+                    
+                    // Fallback to ESM import
+                    try {
+                        sdk = await loadViaESM();
+                        console.log('✅ Farcaster SDK loaded via ESM import');
+                    } catch (esmError) {
+                        console.warn('⚠️ Both loading methods failed:', {
+                            script: scriptError.message,
+                            esm: esmError.message
+                        });
+                        return;
+                    }
+                }
+                
+                // Initialize SDK if available
+                if (sdk && typeof sdk.ready === 'function') {
+                    await sdk.ready();
+                    console.log('✅ Farcaster SDK initialized successfully');
+                    
+                    // Store SDK globally for game use
+                    window.farcasterSDK = sdk;
+                    
+                    // Try to get context if available
+                    if (typeof sdk.context === 'function') {
+                        try {
+                            const context = await sdk.context();
+                            console.log('👤 Farcaster context:', context);
+                            window.farcasterContext = context;
+                        } catch (contextError) {
+                            console.log('ℹ️ Context not available:', contextError.message);
+                        }
+                    }
+                } else {
+                    console.warn('⚠️ SDK loaded but ready method not available');
+                }
+                
+            } catch (error) {
+                console.warn('⚠️ Farcaster SDK initialization failed (normal for local testing):', error.message);
+                // Game continues to work without Farcaster
+            }
+        }
+        
+        // Initialize after DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initializeFarcasterSDK);
+        } else {
+            initializeFarcasterSDK();
         }
     </script>
 </body>

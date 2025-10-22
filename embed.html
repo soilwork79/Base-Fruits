@@ -88,50 +88,91 @@
         </a>
     </div>
 
-    <!-- Farcaster Mini App SDK -->
-    <script src="https://unpkg.com/@farcaster/miniapp-sdk@latest" defer></script>
-    <script type="module">
-        // Wait for DOM and SDK to be ready
-        document.addEventListener('DOMContentLoaded', async () => {
+    <!-- Farcaster Mini App SDK with enhanced loading -->
+    <script>
+        // Enhanced Farcaster SDK loading for embed
+        async function initializeFarcasterEmbedSDK() {
             try {
                 console.log("🔄 Initializing Farcaster Mini App SDK...");
                 
-                // Wait a bit for SDK to load
-                await new Promise(resolve => setTimeout(resolve, 1000));
+                // Method 1: Try loading via UMD script
+                const loadViaUMD = () => {
+                    return new Promise((resolve, reject) => {
+                        const script = document.createElement('script');
+                        script.src = 'https://unpkg.com/@farcaster/miniapp-sdk@latest/dist/index.umd.js';
+                        script.onload = () => {
+                            // Wait a bit for SDK to initialize
+                            setTimeout(() => {
+                                const sdk = window.FarcasterSDK || window.sdk || window.farcaster?.miniapp;
+                                if (sdk) {
+                                    resolve(sdk);
+                                } else {
+                                    reject(new Error('SDK not found on window object'));
+                                }
+                            }, 500);
+                        };
+                        script.onerror = () => reject(new Error('UMD script failed to load'));
+                        document.head.appendChild(script);
+                    });
+                };
                 
-                // Try different ways to access the SDK
+                // Method 2: Try the original unpkg script
+                const loadViaUnpkg = () => {
+                    return new Promise((resolve, reject) => {
+                        const script = document.createElement('script');
+                        script.src = 'https://unpkg.com/@farcaster/miniapp-sdk@latest';
+                        script.onload = () => {
+                            setTimeout(() => {
+                                const sdk = window.farcaster?.miniapp || window.FarcasterMiniApp || window.sdk;
+                                if (sdk) {
+                                    resolve(sdk);
+                                } else {
+                                    reject(new Error('SDK not found after unpkg load'));
+                                }
+                            }, 1000);
+                        };
+                        script.onerror = () => reject(new Error('Unpkg script failed to load'));
+                        document.head.appendChild(script);
+                    });
+                };
+                
                 let sdk = null;
                 
-                if (window.farcaster?.miniapp) {
-                    sdk = window.farcaster.miniapp;
-                    console.log("✅ Found SDK at window.farcaster.miniapp");
-                } else if (window.FarcasterMiniApp) {
-                    sdk = window.FarcasterMiniApp;
-                    console.log("✅ Found SDK at window.FarcasterMiniApp");
-                } else if (window.sdk) {
-                    sdk = window.sdk;
-                    console.log("✅ Found SDK at window.sdk");
-                } else {
-                    // Try dynamic import as fallback
+                // Try UMD method first
+                try {
+                    sdk = await loadViaUMD();
+                    console.log("✅ Farcaster SDK loaded via UMD");
+                } catch (umdError) {
+                    console.log("⚠️ UMD method failed, trying unpkg...");
+                    
+                    // Fallback to unpkg method
                     try {
-                        const module = await import("https://unpkg.com/@farcaster/miniapp-sdk@latest/dist/index.js");
-                        sdk = module.sdk || module.default;
-                        console.log("✅ Loaded SDK via dynamic import");
-                    } catch (importError) {
-                        console.log("⚠️ Dynamic import failed:", importError.message);
+                        sdk = await loadViaUnpkg();
+                        console.log("✅ Farcaster SDK loaded via unpkg");
+                    } catch (unpkgError) {
+                        console.warn("⚠️ Both loading methods failed:", {
+                            umd: umdError.message,
+                            unpkg: unpkgError.message
+                        });
+                        return;
                     }
                 }
                 
+                // Initialize SDK if available
                 if (sdk && typeof sdk.ready === 'function') {
                     console.log("🚀 Calling sdk.ready()...");
                     await sdk.ready();
                     console.log("✅ Farcaster Mini App SDK initialized successfully");
+                    
+                    // Store SDK globally
+                    window.farcasterSDK = sdk;
                     
                     // Try to get context
                     if (typeof sdk.context === 'function') {
                         try {
                             const context = await sdk.context();
                             console.log("👤 Farcaster context:", context);
+                            window.farcasterContext = context;
                         } catch (contextError) {
                             console.log("ℹ️ Context not available:", contextError.message);
                         }
@@ -145,7 +186,14 @@
                 console.error("❌ Failed to initialize Farcaster SDK:", error);
                 console.log("⚠️ Running in fallback mode");
             }
-        });
+        }
+        
+        // Initialize when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initializeFarcasterEmbedSDK);
+        } else {
+            initializeFarcasterEmbedSDK();
+        }
     </script>
 </body>
 </html>
