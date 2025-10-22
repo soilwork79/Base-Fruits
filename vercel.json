@@ -1,25 +1,8 @@
 {
-  "functions": {
-    "api/webhook.js": {
-      "runtime": "nodejs18.x"
-    },
-    "api/send-notifications.js": {
-      "runtime": "nodejs18.x"
-    },
-    "api/scheduler.js": {
-      "runtime": "nodejs18.x"
-    }
-  },
   "crons": [
     {
       "path": "/api/scheduler",
       "schedule": "0 12 * * *"
-    }
-  ],
-  "rewrites": [
-    {
-      "source": "/api/(.*)",
-      "destination": "/api/$1"
     }
   ]
 }

@@ -1,3 +1,8 @@
 node_modules/
 *.map
 .DS_Store
+.vercel
+.env
+.env.local
+notification-tokens.json
+package-lock.json

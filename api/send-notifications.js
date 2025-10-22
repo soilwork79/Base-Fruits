@@ -1,10 +1,7 @@
 // Daily Notification Sender for Base Fruits
 // This script sends daily notifications to all subscribed users
 
-const fs = require('fs');
-const path = require('path');
-
-const TOKENS_FILE = path.join(__dirname, 'notification-tokens.json');
+const fetch = require('node-fetch');
 
 // Notification messages array
 const NOTIFICATION_MESSAGES = [
@@ -15,16 +12,18 @@ const NOTIFICATION_MESSAGES = [
     "It's slicing time! ⚡ Can you beat yesterday's score?"
 ];
 
-// Load notification tokens
+// For demo purposes, return empty tokens
+// In production, this would connect to a database
 function loadTokens() {
     try {
-        if (fs.existsSync(TOKENS_FILE)) {
-            return JSON.parse(fs.readFileSync(TOKENS_FILE, 'utf8'));
-        }
+        // In production, load from database
+        // For now, return empty object as tokens are stored in webhook.js memory
+        console.log('Loading tokens from database...');
+        return {};
     } catch (error) {
         console.error('Error loading tokens:', error);
+        return {};
     }
-    return {};
 }
 
 // Get random notification message

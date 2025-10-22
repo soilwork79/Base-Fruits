@@ -1,28 +1,30 @@
 // Farcaster Mini App Notification Webhook Handler
 // This endpoint receives webhook events from Farcaster clients
 
-const fs = require('fs');
-const path = require('path');
 
-// Simple file-based storage for notification tokens
-const TOKENS_FILE = path.join(__dirname, 'notification-tokens.json');
+// In-memory storage for notification tokens (for demo purposes)
+// In production, use a database like PostgreSQL, MongoDB, or Redis
+let notificationTokens = {};
 
-// Load existing tokens
+// Load existing tokens (from environment or database)
 function loadTokens() {
     try {
-        if (fs.existsSync(TOKENS_FILE)) {
-            return JSON.parse(fs.readFileSync(TOKENS_FILE, 'utf8'));
-        }
+        // For demo, we'll use in-memory storage
+        // In production, load from database
+        return notificationTokens;
     } catch (error) {
         console.error('Error loading tokens:', error);
+        return {};
     }
-    return {};
 }
 
-// Save tokens to file
+// Save tokens (to database in production)
 function saveTokens(tokens) {
     try {
-        fs.writeFileSync(TOKENS_FILE, JSON.stringify(tokens, null, 2));
+        // For demo, save to memory
+        // In production, save to database
+        notificationTokens = tokens;
+        console.log('Tokens saved to memory:', Object.keys(tokens).length, 'users');
     } catch (error) {
         console.error('Error saving tokens:', error);
     }
