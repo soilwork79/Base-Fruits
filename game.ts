@@ -1713,21 +1713,31 @@ const CONTRACT_ADDRESS = '0xa4f109Eb679970C0b30C21812C99318837A81c73';
 const API_URL = 'https://base-fruits-game.vercel.app';
 let currentScore = 0;
 
-// SAVE LEADERBOARD - MetaMask otomatik açılır
+// SAVE LEADERBOARD - Farcaster SDK veya MetaMask
 async function saveScore() {
+    console.log('=== SAVE SCORE STARTED ===');
+    console.log('Current score:', currentScore);
+    console.log('Window parent:', (window as any).parent);
+    console.log('Farcaster available:', !!(window as any).parent?.farcaster);
+    
     // Farcaster kullanıcı adını çek veya test için rastgele oluştur
     let username = '';
     let fid = 0;
     
     // Farcaster bağlantısını kontrol et
-    if ((window as any).parent && (window as any).parent.farcaster) {
-        try {
+    try {
+        if ((window as any).parent && (window as any).parent !== window) {
+            console.log('Attempting to access parent.farcaster...');
             const farcasterUser = await (window as any).parent.farcaster.getUser();
             username = farcasterUser.username;
             fid = farcasterUser.fid;
-        } catch (error) {
-            console.log('Farcaster kullanıcısı alınamadı, test modu kullanılıyor');
+            console.log('Farcaster user:', { username, fid });
+        } else {
+            console.log('No parent frame or same origin');
         }
+    } catch (error: any) {
+        console.log('Farcaster access error (expected in preview):', error.message);
+        // Cross-origin hatası beklenen bir durum
     }
     
     // Test ortamı için rastgele kullanıcı adı
@@ -1737,36 +1747,87 @@ async function saveScore() {
         fid = Math.floor(Math.random() * 100000); // Test FID
     }
 
-    if (!(window as any).ethereum) {
-        alert('MetaMask yükleyin! metamask.io');
-        return;
-    }
-
     const btn = document.getElementById('save-leaderboard-button') as HTMLButtonElement;
     btn.disabled = true;
     btn.textContent = '⏳ Processing...';
 
     try {
-        // MetaMask otomatik açılır
-        const provider = new (window as any).ethers.providers.Web3Provider((window as any).ethereum);
-        await provider.send("eth_requestAccounts", []); // ← MetaMask açılır
-        const signer = provider.getSigner();
-        const walletAddress = await signer.getAddress();
+        let provider;
+        let signer;
+        let walletAddress;
+
+        // Farcaster Mini App içinde mi kontrol et
+        let farcasterWalletAvailable = false;
+        
+        try {
+            // Cross-origin erişimi güvenli şekilde test et
+            if ((window as any).parent && (window as any).parent !== window) {
+                console.log('Attempting Farcaster wallet connection...');
+                const farcasterProvider = await (window as any).parent.farcaster.wallet.getEthereumProvider();
+                console.log('Farcaster provider obtained:', farcasterProvider);
+                
+                provider = new (window as any).ethers.providers.Web3Provider(farcasterProvider);
+                console.log('Ethers provider created');
+                
+                // Wallet bağlantısını iste
+                console.log('Requesting accounts...');
+                await provider.send("eth_requestAccounts", []);
+                signer = provider.getSigner();
+                walletAddress = await signer.getAddress();
+                
+                console.log('Farcaster wallet connected:', walletAddress);
+                farcasterWalletAvailable = true;
+            }
+        } catch (farcasterError: any) {
+            console.log('Farcaster wallet not available (expected in preview):', farcasterError?.message);
+            // Cross-origin hatası veya Farcaster SDK yoksa MetaMask'a geç
+        }
+        
+        if (!farcasterWalletAvailable) {
+            // Normal web browser - MetaMask kullan
+            console.log('Using MetaMask fallback...');
+            console.log('Ethereum available:', !!(window as any).ethereum);
+            
+            if (!(window as any).ethereum) {
+                console.error('No wallet provider available');
+                alert('Bu özellik Farcaster Mini App içinde çalışır veya MetaMask gerektirir!');
+                return;
+            }
+            
+            provider = new (window as any).ethers.providers.Web3Provider((window as any).ethereum);
+            await provider.send("eth_requestAccounts", []);
+            signer = provider.getSigner();
+            walletAddress = await signer.getAddress();
+            
+            console.log('MetaMask wallet connected:', walletAddress);
+        }
 
         // Base Mainnet kontrolü
         const network = await provider.getNetwork();
         if (network.chainId !== 8453) {
             try {
+                // Doğru provider'ı kullan (Farcaster varsa onu, yoksa MetaMask)
+                const walletProvider = farcasterWalletAvailable ? 
+                    await (window as any).parent.farcaster.wallet.getEthereumProvider() : 
+                    (window as any).ethereum;
+                
+                console.log('Switching to Base network...');
                 // Base ağına geçmeyi dene
-                await (window as any).ethereum.request({
+                await walletProvider.request({
                     method: 'wallet_switchEthereumChain',
                     params: [{ chainId: '0x2105' }],
                 });
             } catch (switchError: any) {
+                console.log('Network switch error:', switchError);
                 // Eğer ağ yoksa, Base ağını ekle
                 if (switchError.code === 4902) {
                     try {
-                        await (window as any).ethereum.request({
+                        const walletProvider = farcasterWalletAvailable ? 
+                            await (window as any).parent.farcaster.wallet.getEthereumProvider() : 
+                            (window as any).ethereum;
+                            
+                        console.log('Adding Base network...');
+                        await walletProvider.request({
                             method: 'wallet_addEthereumChain',
                             params: [{
                                 chainId: '0x2105',
@@ -1781,6 +1842,7 @@ async function saveScore() {
                             }]
                         });
                     } catch (addError) {
+                        console.error('Failed to add Base network:', addError);
                         throw new Error('Base ağı eklenemedi. Lütfen manuel olarak ekleyin.');
                     }
                 } else {
