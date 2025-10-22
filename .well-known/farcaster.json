@@ -2,25 +2,26 @@
   "miniapp": {
     "version": "1",
     "name": "Base Fruits",
-    "iconUrl": "https://base-fruits.vercel.app/images/watermelon_icon.png",
+    "iconUrl": "https://base-fruits.vercel.app/images/fruit.png",
     "homeUrl": "https://base-fruits.vercel.app/",
-    "imageUrl": "https://base-fruits.vercel.app/images/afis.png",
+    "imageUrl": "https://base-fruits.vercel.app/images/splash.png",
     "buttonTitle": "🎮 Play",
     "subtitle": "Arcade fruit slicing on Base",
     "description": "Slice fruits, avoid bombs, and climb the leaderboard. Fast, mobile-friendly Farcaster Mini App on Base.",
-    "splashImageUrl": "https://base-fruits.vercel.app/images/watermelon_icon.png",
+    "splashImageUrl": "https://base-fruits.vercel.app/images/splash.png",
     "splashBackgroundColor": "#0b0b0f",
     "primaryCategory": "games",
     "tags": ["game", "arcade", "fruits", "base", "slice"],
     "requiredChains": ["eip155:8453"],
     "requiredCapabilities": [],
-    "heroImageUrl": "https://base-fruits.vercel.app/images/afis.png",
+    "heroImageUrl": "https://base-fruits.vercel.app/images/splash.png",
     "ogTitle": "Base Fruits",
     "ogDescription": "Slice fruits, avoid bombs, and climb the leaderboard on Base.",
-    "ogImageUrl": "https://base-fruits.vercel.app/images/afis.png",
+    "ogImageUrl": "https://base-fruits.vercel.app/images/splash.png",
     "screenshotUrls": [
-      "https://base-fruits.vercel.app/images/afis.png",
+      "https://base-fruits.vercel.app/images/splash.png",
       "https://base-fruits.vercel.app/images/dojo_background.png"
-    ]
+    ],
+    "webhookUrl": "https://base-fruits.vercel.app/api/webhook"
   }
 }

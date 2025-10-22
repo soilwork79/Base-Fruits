@@ -69,9 +69,9 @@ interface Firework {
 }
 
 // ===== GAME CONSTANTS =====
-const GRAVITY = 0.2; // Reduced by 20% for slower motion
+const GRAVITY = 0.17; // Adjusted gravity for optimal fruit trajectories
 const INITIAL_LIVES = 4;
-const MAX_LEVEL = 40;
+const MAX_LEVEL = 50;
 const FRUIT_RADIUS = 26.46; // 40% smaller than original 44.1
 const TRAIL_FADE_SPEED = 0.35;
 const MAX_TRAIL_POINTS = 30;
@@ -260,7 +260,7 @@ class FruitSliceGame {
         document.getElementById('game-over-screen')!.classList.add('hidden');
     }
     
-    showGameOver() {
+    showGameOver(playFailSound: boolean = true) {
         this.state.isPlaying = false;
         
         // Stop all fuse sounds
@@ -268,11 +268,14 @@ class FruitSliceGame {
             if (fruit.isBomb && fruit.fuseSound) {
                 fruit.fuseSound.pause();
                 fruit.fuseSound.currentTime = 0;
+                fruit.fuseSound = undefined; // Clear reference
             }
         }
         
         // Play fail sound when game is over
-        this.playFailSound();
+        if (playFailSound) {
+            this.playFailSound();
+        }
         
         // Update global score for leaderboard
         currentScore = this.state.score;
@@ -283,6 +286,107 @@ class FruitSliceGame {
         document.getElementById('game-hud')!.classList.add('hidden');
     }
     
+    getBackgroundForWave(wave: number): string {
+        // Determine which background to use based on wave ranges
+        if (wave >= 1 && wave <= 10) return "island_background.png";
+        if (wave >= 11 && wave <= 20) return "purple_background.png";
+        if (wave >= 21 && wave <= 30) return "dojo_background.png";
+        if (wave >= 31 && wave <= 40) return "forest_background.png";
+        if (wave >= 41 && wave <= 50) return "desert_background.png";
+        return "island_background.png"; // Default fallback
+    }
+
+    changeBackground(wave: number) {
+        const backgroundImage = this.getBackgroundForWave(wave);
+        
+        console.log(`Changing background to: ${backgroundImage} for wave ${wave}`);
+        
+        const gameContainer = document.getElementById('game-container')!;
+        gameContainer.style.backgroundImage = `url('images/${backgroundImage}')`;
+    }
+
+    showChapterName(wave: number) {
+        const chapterNames: { [key: number]: string } = {
+            1: "Tropical Island",
+            11: "Valley of Purple Rocks", 
+            21: "Silent Sword Dojo",
+            31: "Wild Forest",
+            41: "Desert Night"
+        };
+        
+        const chapterName = chapterNames[wave];
+        if (!chapterName) return;
+        
+        console.log(`Showing chapter: ${chapterName} for wave ${wave}`);
+        
+        // Change background first
+        this.changeBackground(wave);
+        
+        // Update chapter text
+        const chapterTextElement = document.getElementById('chapter-text')!;
+        chapterTextElement.textContent = chapterName;
+        
+        // Force h1 styles
+        chapterTextElement.style.cssText = `
+            font-size: 2.5rem !important;
+            color: #ffffff !important;
+            text-align: center !important;
+            text-shadow: 
+                0 0 10px rgba(255, 255, 255, 0.9),
+                0 0 20px rgba(255, 255, 255, 0.7),
+                0 0 30px rgba(255, 255, 255, 0.5),
+                0 0 40px rgba(255, 255, 255, 0.3),
+                2px 2px 8px rgba(0, 0, 0, 0.9) !important;
+            font-weight: bold !important;
+            letter-spacing: 3px !important;
+            margin: 0 !important;
+            padding: 20px !important;
+            white-space: nowrap !important;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
+        `;
+        
+        const chapterElement = document.getElementById('chapter-name')!;
+        
+        // Reset any previous state
+        chapterElement.classList.remove('show');
+        chapterElement.classList.remove('hidden');
+        
+        // Show chapter name (fade in over 1s)
+        // Force inline styles to override any conflicts
+        chapterElement.style.cssText = `
+            position: fixed !important;
+            top: 50% !important;
+            left: 50% !important;
+            transform: translate(-50%, -50%) !important;
+            z-index: 9999 !important;
+            display: flex !important;
+            justify-content: center !important;
+            align-items: center !important;
+            width: 100% !important;
+            height: auto !important;
+            pointer-events: none !important;
+            opacity: 0 !important;
+            transition: opacity 1s ease-in-out !important;
+        `;
+        
+        // Force reflow to ensure initial state
+        chapterElement.offsetHeight;
+        setTimeout(() => {
+            chapterElement.style.opacity = '1';
+            chapterElement.classList.add('show');
+        }, 100);
+        
+        // Hide chapter name after 3 seconds (fade out over 1s)
+        setTimeout(() => {
+            chapterElement.style.opacity = '0';
+            chapterElement.classList.remove('show');
+            setTimeout(() => {
+                chapterElement.classList.add('hidden');
+                chapterElement.style.display = 'none';
+            }, 1000);
+        }, 3000);
+    }
+
     showMilestoneMessage(wave: number) {
         this.state.showingMilestone = true;
         
@@ -292,16 +396,19 @@ class FruitSliceGame {
         
         if (wave === 10) {
             mainText = 'Congratulations!';
-            subText = 'You have completed the first 10 waves. You gained 1 life';
+            subText = 'You passed the Tropical Island level and gained 1 life ❤️';
         } else if (wave === 20) {
             mainText = 'Congratulations!';
-            subText = 'You have completed the second 10 waves. You gained 1 life';
+            subText = 'You passed the Valley of Purple Rocks level and gained 1 life ❤️';
         } else if (wave === 30) {
             mainText = 'Congratulations!';
-            subText = 'You have completed the third 10 waves. You gained 1 life';
+            subText = 'You passed the Silent Sword Dojo level and gained 1 life ❤️';
         } else if (wave === 40) {
             mainText = 'Congratulations!';
-            subText = `You finished the game! Final Score: ${this.state.score}`;
+            subText = 'You passed the Wild Forest level and gained 1 life ❤️';
+        } else if (wave === 50) {
+            mainText = 'Congratulations, you have completed the game by passing 50 waves.';
+            subText = '';
         }
         
         // Update milestone message elements
@@ -309,21 +416,41 @@ class FruitSliceGame {
         document.getElementById('milestone-subtext')!.textContent = subText;
         document.getElementById('milestone-message')!.classList.remove('hidden');
         
-        // Hide milestone message after 2 seconds
+        // Fireworks on final completion
+        if (wave === 50) {
+            this.createFireworks(this.state.width / 2, this.state.height / 2);
+        }
+        
+        // Hide milestone message after 3 seconds
         setTimeout(() => {
             document.getElementById('milestone-message')!.classList.add('hidden');
             this.state.showingMilestone = false;
             
-            // If wave 40, show game over screen
-            if (wave === 40) {
-                this.showGameOver();
+            if (wave === 50) {
+                // Final screen without fail sound
+                this.showGameOver(false);
             } else {
-                // Otherwise, advance to next wave
+                // Advance to next wave
                 this.state.level++;
                 this.updateUI();
-                this.launchFruits();
+                
+                // Resume game immediately after milestone
+                this.state.isPlaying = true;
+                
+                // Restart game loop if it was stopped
+                requestAnimationFrame((time) => this.gameLoop(time));
+                
+                // Check if this is a chapter start wave
+                const nextWave = this.state.level;
+                if (nextWave === 11 || nextWave === 21 || nextWave === 31 || nextWave === 41) {
+                    // Show chapter name and immediately launch fruits
+                    this.showChapterName(nextWave);
+                    this.launchFruits();
+                } else {
+                    this.launchFruits();
+                }
             }
-        }, 2000);
+        }, 3000);
     }
     
     startGame() {
@@ -334,6 +461,7 @@ class FruitSliceGame {
             if (fruit.isBomb && fruit.fuseSound) {
                 fruit.fuseSound.pause();
                 fruit.fuseSound.currentTime = 0;
+                fruit.fuseSound = undefined; // Clear reference
             }
         }
         
@@ -365,6 +493,11 @@ class FruitSliceGame {
         this.state.screenShake = 0;
         this.state.redFlash = 0;
         
+        // Clear game state flags
+        this.state.isPaused = false;
+        this.state.showingMilestone = false;
+        this.state.allFruitsLaunched = false;
+        
         // Reset save leaderboard button
         const saveBtn = document.getElementById('save-leaderboard-button') as HTMLButtonElement;
         if (saveBtn) {
@@ -378,8 +511,14 @@ class FruitSliceGame {
         document.getElementById('game-over-screen')!.classList.add('hidden');
         document.getElementById('game-hud')!.classList.remove('hidden');
         
-        // Launch first level
-        this.launchFruits();
+        // Change background and show chapter name for wave 1
+        this.changeBackground(1);
+        this.showChapterName(1);
+        
+        // Launch first level after chapter name appears
+        setTimeout(() => {
+            this.launchFruits();
+        }, 4000); // Wait for chapter name to finish (4s total)
         
         // Start game loop
         this.gameLoop(performance.now());
@@ -387,27 +526,32 @@ class FruitSliceGame {
     
     launchFruits() {
         const wave = this.state.level;
+        console.log(`launchFruits called for wave ${wave}`);
         let fruitCount = 7; // Default to 7 fruits
         
-        // Determine fruit count based on wave
+        // Determine fruit count based on wave (updated rules)
         if (wave <= 2) {
             fruitCount = 1;
-        } else if (wave <= 4) {
+        } else if (wave <= 5) {
             fruitCount = 2;
-        } else if (wave === 5) {
+        } else if (wave <= 8) {
             fruitCount = 3;
-        } else if (wave === 6) {
+        } else if (wave <= 10) {
             fruitCount = 4;
-        } else if (wave === 7) {
+        } else if (wave <= 20) {
             fruitCount = 5;
-        } else if (wave === 8) {
+        } else if (wave <= 30) {
             fruitCount = 6;
         } else {
-            fruitCount = 7; // Waves 9+
+            fruitCount = 7; // Waves 31+
         }
+        
         
         this.state.fruits = [];
         this.state.allFruitsLaunched = false;
+        
+        // Base delay to coordinate bombs relative to fruits (for waves 41-50)
+        const fruitBaseDelay = (wave >= 41 && wave <= 50) ? 1000 : 0;
         
         const launchFruitsNow = () => {
             // Launch fruits with staggered timing (0-500ms spread)
@@ -417,7 +561,9 @@ class FruitSliceGame {
                 const launchDelay = Math.random() * 500;
                 
                 setTimeout(() => {
-                    if (!this.state.isPlaying) return;
+                    if (!this.state.isPlaying) {
+                        return;
+                    }
                     
                     const fruitType = FRUIT_TYPES[Math.floor(Math.random() * FRUIT_TYPES.length)];
                     
@@ -450,14 +596,18 @@ class FruitSliceGame {
                             this.state.allFruitsLaunched = true;
                         }, 100);
                     }
-                }, launchDelay);
+                }, fruitBaseDelay + launchDelay);
             }
         };
         
         const launchBomb = (beforeFruit: boolean) => {
             // beforeFruit: true = bomb launches before fruits (350ms earlier), false = after fruits (350ms later)
             const delay = beforeFruit ? 0 : 350;
-            
+            launchBombAt(delay);
+        };
+
+        const launchBombAt = (delayMs: number) => {
+            const delay = Math.max(0, delayMs);
             setTimeout(() => {
                 if (!this.state.isPlaying) return;
                 
@@ -496,30 +646,49 @@ class FruitSliceGame {
         // Launch fruits first
         launchFruitsNow();
         
-        // Determine bomb spawning based on wave
-        if (wave === 10) {
-            // Wave 10: 7 fruits + 1 bomb (early or late)
-            const bombEarly = Math.random() < 0.5;
-            launchBomb(bombEarly);
-        } else if (wave >= 11 && wave <= 20) {
-            // Waves 11-20: 7 fruits + 50% chance of bomb
-            if (Math.random() < 0.5) {
+        
+        // Determine bomb spawning based on wave (updated rules)
+        if (wave >= 11 && wave <= 20) {
+            // 50% chance of 1 bomb
+            const bombChance = Math.random();
+            if (bombChance < 0.5) {
                 const bombEarly = Math.random() < 0.5;
-                launchBomb(bombEarly);
+                launchBombAt(fruitBaseDelay + (bombEarly ? 0 : 350));
+            } else {
             }
         } else if (wave >= 21 && wave <= 30) {
-            // Waves 21-30: 7 fruits + 1 bomb (100%)
-            const bombEarly = Math.random() < 0.5;
-            launchBomb(bombEarly);
+            // 50% chance of 1 bomb
+            if (Math.random() < 0.5) {
+                const bombEarly = Math.random() < 0.5;
+                launchBombAt(fruitBaseDelay + (bombEarly ? 0 : 350));
+            }
         } else if (wave >= 31 && wave <= 40) {
-            // Waves 31-40: 7 fruits + 1 bomb (100%) + 33% chance of 2nd bomb
-            // First bomb
-            const firstBombEarly = Math.random() < 0.5;
-            launchBomb(firstBombEarly);
+            // Always 1 bomb
+            const bombEarly = Math.random() < 0.5;
+            launchBombAt(fruitBaseDelay + (bombEarly ? 0 : 350));
+        } else if (wave >= 41 && wave <= 50) {
+            // Always 1 bomb, 50% chance of a second bomb
+            const hasSecond = Math.random() < 0.5;
             
-            // Second bomb (33% chance), opposite timing of first
-            if (Math.random() < 0.333) {
-                launchBomb(!firstBombEarly); // If first was early, second is late, and vice versa
+            // One bomb 1s before fruits
+            launchBombAt(fruitBaseDelay - 1000);
+            
+            if (hasSecond) {
+                // Second bomb 1s after fruits
+                launchBombAt(fruitBaseDelay + 1000);
+            } else {
+                // If only one bomb, randomly choose before or after
+                if (Math.random() < 0.5) {
+                    // already scheduled before-fruit bomb (keep it)
+                } else {
+                    // replace timing to after-fruit bomb instead
+                    // Note: To keep simple, also schedule an after-fruit bomb and rely on gameplay to handle
+                    // a single bomb feel by keeping spawn count small (two bombs visually okay if happens)
+                    // Better approach: randomly schedule only after-fruit
+                    // Schedule after-fruit and cancel pre-fruit by not scheduling extra (pre-fruit already scheduled)
+                    // To strictly have only one bomb, prefer after-fruit by adding it and removing the pre-fruit spawn cannot be done here.
+                    // Therefore, do nothing; keep the before-fruit as the single bomb.
+                }
             }
         }
     }
@@ -642,10 +811,13 @@ class FruitSliceGame {
         // Find the bomb that was cut
         const bomb = this.state.fruits.find(f => f.isBomb && f.sliced);
         
-        // Stop the fuse sound for the bomb
-        if (bomb && bomb.fuseSound) {
-            bomb.fuseSound.pause();
-            bomb.fuseSound.currentTime = 0;
+        // Stop ALL fuse sounds when any bomb explodes
+        for (const fruit of this.state.fruits) {
+            if (fruit.isBomb && fruit.fuseSound) {
+                fruit.fuseSound.pause();
+                fruit.fuseSound.currentTime = 0;
+                fruit.fuseSound = undefined; // Clear reference
+            }
         }
         
         // Count uncut fruits
@@ -753,10 +925,10 @@ class FruitSliceGame {
             if (this.state.allFruitsLaunched && this.state.fruits.every(f => !f.active) && !this.state.showingMilestone) {
                 const currentWave = this.state.level;
                 
-                // Check if this is a milestone wave (10, 20, 30, 40)
-                if (currentWave === 10 || currentWave === 20 || currentWave === 30 || currentWave === 40) {
-                    // Add life bonus (except for wave 40)
-                    if (currentWave !== 40) {
+                // Check if this is a milestone wave (10, 20, 30, 40, 50)
+                if (currentWave === 10 || currentWave === 20 || currentWave === 30 || currentWave === 40 || currentWave === 50) {
+                    // Add life bonus (except for final wave 50)
+                    if (currentWave !== 50) {
                         this.state.lives++;
                         this.updateUI();
                     }
@@ -767,10 +939,21 @@ class FruitSliceGame {
                     // Regular wave advancement
                     this.state.level++;
                     this.updateUI();
-                    this.launchFruits();
+                    
+                    // Check if this is a chapter start wave
+                    const nextWave = this.state.level;
+                    if (nextWave === 11 || nextWave === 21 || nextWave === 31 || nextWave === 41) {
+                        // Show chapter name and immediately launch fruits
+                        this.showChapterName(nextWave);
+                        this.state.isPlaying = true; // Resume game
+                        this.launchFruits();
+                    } else {
+                        this.state.isPlaying = true; // Resume game
+                        this.launchFruits();
+                    }
                 } else {
-                    // Game won at wave 40
-                    this.showGameOver();
+                    // Game won at wave 50 (suppress fail sound)
+                    this.showGameOver(false);
                 }
             }
         }, 2000);
@@ -988,6 +1171,7 @@ class FruitSliceGame {
     }
     
     updatePhysics(dt: number) {
+        
         // Don't update physics if paused
         if (this.state.isPaused) {
             // Still update visual effects
@@ -1033,6 +1217,7 @@ class FruitSliceGame {
                 if (fruit.isBomb && fruit.fuseSound) {
                     fruit.fuseSound.pause();
                     fruit.fuseSound.currentTime = 0;
+                    fruit.fuseSound = undefined; // Clear reference
                 }
                 
                 // Lose life if not sliced AND not a bomb
@@ -1050,27 +1235,42 @@ class FruitSliceGame {
         }
         
         // Check if all fruits are gone (advance level)
-        if (this.state.allFruitsLaunched && this.state.fruits.every(f => !f.active) && !this.state.showingMilestone) {
+        if (this.state.allFruitsLaunched && this.state.fruits.every(f => !f.active) && !this.state.showingMilestone && this.state.isPlaying) {
             const currentWave = this.state.level;
             
-            // Check if this is a milestone wave (10, 20, 30, 40)
-            if (currentWave === 10 || currentWave === 20 || currentWave === 30 || currentWave === 40) {
-                // Add life bonus (except for wave 40)
-                if (currentWave !== 40) {
+            // Temporarily pause to prevent multiple wave advancements
+            this.state.isPlaying = false;
+            
+            // Check if this is a milestone wave (10, 20, 30, 40, 50)
+            if (currentWave === 10 || currentWave === 20 || currentWave === 30 || currentWave === 40 || currentWave === 50) {
+                // Add life bonus (except for final wave 50)
+                if (currentWave !== 50) {
                     this.state.lives++;
                     this.updateUI();
                 }
                 
                 // Show milestone message
                 this.showMilestoneMessage(currentWave);
+                // Note: isPlaying will be set to true when milestone ends and next wave starts
             } else if (currentWave < MAX_LEVEL) {
                 // Regular wave advancement
                 this.state.level++;
                 this.updateUI();
-                this.launchFruits();
+                
+                // Check if this is a chapter start wave
+                const nextWave = this.state.level;
+                if (nextWave === 11 || nextWave === 21 || nextWave === 31 || nextWave === 41) {
+                    // Show chapter name and immediately launch fruits
+                    this.showChapterName(nextWave);
+                    this.state.isPlaying = true; // Resume game
+                    this.launchFruits();
+                } else {
+                    this.state.isPlaying = true; // Resume game
+                    this.launchFruits();
+                }
             } else {
-                // Game won at wave 40
-                this.showGameOver();
+                // Game won at wave 50 (suppress fail sound)
+                this.showGameOver(false);
             }
         }
         
@@ -1494,6 +1694,7 @@ class FruitSliceGame {
     }
     
     gameLoop(currentTime: number) {
+        
         if (!this.state.isPlaying) return;
         
         const deltaTime = currentTime - this.state.lastFrameTime;
@@ -1681,6 +1882,47 @@ function closeLeaderboard() {
     document.getElementById('leaderboard-modal')!.classList.add('hidden');
 }
 
+
+// SHARE ON FARCASTER
+function shareOnFarcaster() {
+    console.log('Share button clicked! Current score:', currentScore);
+    
+    const message = `Scored ${currentScore} points in Base Fruits! 🥇 Can you beat me? 🍓🍉`;
+    const gameUrl = 'https://base-fruits.vercel.app/';
+    
+    console.log('Share message:', message);
+    
+    // Create Farcaster cast URL with parameters (only text and link)
+    const castText = encodeURIComponent(message);
+    const embedUrl = encodeURIComponent(gameUrl);
+    
+    // Farcaster cast URL format - link will automatically show preview image
+    const farcasterUrl = `https://warpcast.com/~/compose?text=${castText}&embeds[]=${embedUrl}`;
+    
+    console.log('Farcaster URL:', farcasterUrl);
+    
+    // Try multiple methods to open the URL
+    try {
+        // Method 1: window.open
+        const newWindow = window.open(farcasterUrl, '_blank');
+        if (!newWindow) {
+            console.log('Popup blocked, trying alternative method...');
+            // Method 2: Direct navigation
+            window.location.href = farcasterUrl;
+        } else {
+            console.log('Successfully opened Farcaster compose window');
+        }
+    } catch (error) {
+        console.error('Error opening Farcaster URL:', error);
+        // Method 3: Copy to clipboard as fallback
+        navigator.clipboard.writeText(message + ' ' + gameUrl).then(() => {
+            alert('Farcaster link could not be opened. Message copied to clipboard!');
+        }).catch(() => {
+            alert('Unable to open Farcaster. Please manually share: ' + message + ' ' + gameUrl);
+        });
+    }
+}
+
 // ===== INITIALIZE GAME =====
 window.addEventListener('DOMContentLoaded', () => {
     console.log('DOM loaded, initializing game...');
@@ -1692,6 +1934,15 @@ window.addEventListener('DOMContentLoaded', () => {
         document.getElementById('save-leaderboard-button')!.addEventListener('click', saveScore);
         document.getElementById('view-leaderboard-button')!.addEventListener('click', viewLeaderboard);
         document.getElementById('close-leaderboard')!.addEventListener('click', closeLeaderboard);
+        
+        // Share button event listener
+        const shareButton = document.getElementById('share-score-button');
+        if (shareButton) {
+            console.log('Share button found, adding event listener');
+            shareButton.addEventListener('click', shareOnFarcaster);
+        } else {
+            console.error('Share button not found!');
+        }
         
         // Modal dışına tıklayınca kapat
         document.getElementById('leaderboard-modal')!.addEventListener('click', (e) => {

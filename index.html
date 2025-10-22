@@ -11,13 +11,13 @@
     <!-- Farcaster Frame Meta Tags -->
     <meta property="og:title" content="Base Fruits 🍉" />
     <meta property="og:description" content="Slice fruits, avoid bombs, and compete on the leaderboard! Web3 gaming on Base network." />
-    <meta property="og:image" content="https://base-fruits.vercel.app/images/afis.png" />
+    <meta property="og:image" content="https://base-fruits.vercel.app/images/splash.png" />
     <meta property="og:url" content="https://base-fruits.vercel.app/" />
     <meta property="og:type" content="website" />
     
     <!-- Farcaster Frame Specific -->
     <meta property="fc:frame" content="vNext" />
-    <meta property="fc:frame:image" content="https://base-fruits.vercel.app/images/afis.png" />
+    <meta property="fc:frame:image" content="https://base-fruits.vercel.app/images/splash.png"  />
     <meta property="fc:frame:button:1" content="🎮 Play Game" />
     <meta property="fc:frame:button:2" content="🏆 Leaderboard" />
     <meta property="fc:frame:post_url" content="https://base-fruits.vercel.app/api/frame" />
@@ -26,56 +26,54 @@
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Base Fruits 🍉" />
     <meta name="twitter:description" content="Slice fruits, avoid bombs, and compete on the leaderboard!" />
-    <meta name="twitter:image" content="https://base-fruits.vercel.app/images/afis.png" />
+    <meta name="twitter:image" content="https://base-fruits.vercel.app/images/splash.png"  />
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="styles.css?v=5">
+    <link rel="stylesheet" href="styles.css?v=6">
     <!-- Farcaster Mini App SDK will be loaded at bottom via ESM -->
-    <!-- Ethers.js - Try multiple CDNs -->
-    <script src="https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+    <!-- Load Ethers.js safely -->
     <script>
-        // Wait for ethers to load and check
-        let ethersCheckInterval;
-        let ethersCheckAttempts = 0;
-        const maxAttempts = 50; // 5 seconds max
-        
-        function checkEthersLoaded() {
-            ethersCheckAttempts++;
-            console.log(`Checking ethers... attempt ${ethersCheckAttempts}`);
-            
-            if (typeof ethers !== 'undefined') {
-                console.log('✅ Ethers.js loaded successfully:', ethers.version);
-                clearInterval(ethersCheckInterval);
-                window.ethersReady = true;
-                return;
-            }
-            
-            if (ethersCheckAttempts >= maxAttempts) {
-                console.error('❌ Ethers.js failed to load after', maxAttempts, 'attempts');
-                clearInterval(ethersCheckInterval);
-                
-                // Try backup CDN
-                console.log('🔄 Trying backup CDN...');
-                const script = document.createElement('script');
-                script.src = 'https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js';
-                script.onload = function() {
-                    console.log('✅ Backup ethers loaded successfully');
-                    window.ethersReady = true;
-                };
-                script.onerror = function() {
-                    console.error('❌ All ethers CDNs failed');
-                    alert('Web3 kütüphanesi yüklenemedi. İnternet bağlantınızı kontrol edin ve sayfayı yenileyin.');
-                };
-                document.head.appendChild(script);
-            }
+        // Prevent wallet conflicts by storing original ethereum
+        let originalEthereum = null;
+        try {
+            originalEthereum = window.ethereum;
+        } catch (e) {
+            console.warn('Ethereum object conflict detected');
         }
         
-        // Start checking immediately
-        ethersCheckInterval = setInterval(checkEthersLoaded, 100);
+        // Load ethers with conflict prevention
+        function loadEthers() {
+            const script = document.createElement('script');
+            script.src = 'https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js';
+            script.onload = function() {
+                console.log('✅ Ethers.js loaded successfully:', ethers.version);
+                window.ethersReady = true;
+                
+                // Restore ethereum if it was overwritten
+                if (originalEthereum && !window.ethereum) {
+                    try {
+                        window.ethereum = originalEthereum;
+                        console.log('✅ Ethereum object restored');
+                    } catch (e) {
+                        console.warn('Could not restore ethereum object');
+                    }
+                }
+            };
+            script.onerror = function() {
+                console.error('❌ Ethers.js failed to load');
+                // Mock ethers so game still works
+                window.ethers = {
+                    providers: { Web3Provider: function() { return {}; } },
+                    Contract: function() { return {}; },
+                    version: "mock"
+                };
+                window.ethersReady = true;
+            };
+            document.head.appendChild(script);
+        }
         
-        // Also check when DOM is loaded
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('DOM loaded, ethers status:', typeof ethers !== 'undefined');
-        });
+        // Load ethers after a short delay to avoid conflicts
+        setTimeout(loadEthers, 500);
+        console.log('✅ Game and Web3 initialization started');
     </script>
     
     <!-- Farcaster Mini App SDK Initialization moved to bottom per docs -->
@@ -83,6 +81,11 @@
 <body>
     <div id="game-container">
         <canvas id="game-canvas"></canvas>
+        
+        <!-- Chapter Name Display -->
+        <div id="chapter-name" class="chapter-name hidden">
+            <h1 id="chapter-text">Tropical Island</h1>
+        </div>
         
         <!-- Start Screen -->
         <div id="start-screen" class="screen">
@@ -93,7 +96,7 @@
                 <p>💣 <strong>Beware of bombs!</strong> Don't cut them!</p>
                 <p>🔥 The more fruits you cut at once, the more combo points you get.</p>
                 <p>❤️ You have 4 lives (+1 life every 10 waves)</p>
-                <p>🎮 <strong>40 challenging waves</strong></p>
+                <p>🎮 <strong>50 challenging waves</strong></p>
             </div>
             <button id="start-button" class="game-button">Start Game</button>
         </div>
@@ -160,19 +163,18 @@
         </div>
     </div>
     
-    <script src="game.js?v=22"></script>
+    <script src="game.js?v=23"></script>
     
-    <!-- Farcaster Mini App SDK (per docs) -->
+    <!-- Farcaster Mini App SDK with error handling -->
     <script type="module">
-        import { sdk } from 'https://esm.sh/@farcaster/miniapp-sdk';
-        (async () => {
-            try {
-                await sdk.actions.ready();
-                console.log('✅ Farcaster sdk.actions.ready() called');
-            } catch (e) {
-                console.error('❌ Farcaster sdk.actions.ready() failed', e);
-            }
-        })();
+        try {
+            const { sdk } = await import('https://esm.sh/@farcaster/miniapp-sdk');
+            await sdk.actions.ready();
+            console.log('✅ Farcaster SDK loaded successfully');
+        } catch (e) {
+            console.warn('⚠️ Farcaster SDK failed to load (normal for local testing):', e.message);
+            // Game continues to work without Farcaster
+        }
     </script>
 </body>
 </html>

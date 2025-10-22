@@ -1,6 +1,6 @@
 {
-  "name": "Farcaster Fruit Slice",
-  "short_name": "Fruit Slice",
+  "name": "Base Fruits",
+  "short_name": "Base Fruits",
   "description": "Slice fruits and earn combo points in this addictive Web3 mini game",
   "start_url": "/",
   "display": "fullscreen",
