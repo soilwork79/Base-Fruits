@@ -8,6 +8,35 @@
     <meta name="description" content="Farcaster Fruit Slice - Web3 Mini Game">
     <title>Base Fruits 🍉</title>
     
+    <!-- Immediate ethereum conflict prevention - must be first script -->
+    <script>
+        (function() {
+            // Immediately prevent ethereum property redefinition
+            const originalDefineProperty = Object.defineProperty;
+            Object.defineProperty = function(obj, prop, descriptor) {
+                if (obj === window && prop === 'ethereum') {
+                    console.warn('⚠️ Blocked ethereum property redefinition attempt');
+                    // Return the existing ethereum or the object itself
+                    return window.ethereum || obj;
+                }
+                return originalDefineProperty.call(this, obj, prop, descriptor);
+            };
+            
+            // Store for later restoration
+            window.__originalDefineProperty = originalDefineProperty;
+            
+            // Also freeze ethereum if it exists
+            if (window.ethereum) {
+                try {
+                    Object.freeze(window.ethereum);
+                    console.log('✅ Ethereum object frozen to prevent modifications');
+                } catch (e) {
+                    console.warn('Could not freeze ethereum object:', e.message);
+                }
+            }
+        })();
+    </script>
+    
     <!-- Open Graph Meta Tags -->
     <meta property="og:title" content="Base Fruits 🍉" />
     <meta property="og:description" content="Slice fruits, avoid bombs, and compete on the leaderboard! Web3 gaming on Base network." />
@@ -33,48 +62,21 @@
     <!-- Farcaster Mini App SDK will be loaded at bottom via ESM -->
     <!-- Load Ethers.js safely -->
     <script>
-        // Enhanced wallet conflict prevention
-        let originalEthereum = null;
+        // Store ethereum backup if available
         let ethereumBackup = null;
         
-        // Store original ethereum object safely
-        try {
-            if (window.ethereum) {
-                originalEthereum = window.ethereum;
-                // Create a deep backup to prevent reference issues
-                ethereumBackup = { ...window.ethereum };
-                console.log('✅ Ethereum object backed up');
-            }
-        } catch (e) {
-            console.warn('⚠️ Ethereum object access restricted:', e.message);
-        }
-        
-        // Prevent property redefinition errors
-        function safeDefineProperty(obj, prop, descriptor) {
+        // Unfreeze ethereum temporarily for ethers.js if needed
+        if (window.ethereum && Object.isFrozen(window.ethereum)) {
             try {
-                if (Object.hasOwnProperty.call(obj, prop)) {
-                    console.warn(`⚠️ Property ${prop} already exists, skipping redefinition`);
-                    return false;
-                }
-                Object.defineProperty(obj, prop, descriptor);
-                return true;
+                // Create a backup before any modifications
+                ethereumBackup = { ...window.ethereum };
+                console.log('✅ Ethereum object backed up before ethers.js load');
             } catch (e) {
-                console.warn(`⚠️ Could not define property ${prop}:`, e.message);
-                return false;
+                console.warn('⚠️ Could not backup ethereum object:', e.message);
             }
         }
         
-        // Override Object.defineProperty temporarily for ethereum conflicts
-        const originalDefineProperty = Object.defineProperty;
-        Object.defineProperty = function(obj, prop, descriptor) {
-            if (obj === window && prop === 'ethereum') {
-                console.warn('⚠️ Prevented ethereum property redefinition');
-                return obj;
-            }
-            return originalDefineProperty.call(this, obj, prop, descriptor);
-        };
-        
-        // Load ethers with enhanced conflict prevention
+        // Load ethers with conflict prevention
         function loadEthers() {
             const script = document.createElement('script');
             script.src = 'https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js';
@@ -82,14 +84,17 @@
                 console.log('✅ Ethers.js loaded successfully:', ethers.version);
                 window.ethersReady = true;
                 
-                // Restore original defineProperty
-                Object.defineProperty = originalDefineProperty;
+                // Restore original defineProperty if stored
+                if (window.__originalDefineProperty) {
+                    Object.defineProperty = window.__originalDefineProperty;
+                    console.log('✅ Restored original Object.defineProperty');
+                }
                 
                 // Ensure ethereum object is available
-                if (!window.ethereum && (originalEthereum || ethereumBackup)) {
+                if (!window.ethereum && ethereumBackup) {
                     try {
-                        window.ethereum = originalEthereum || ethereumBackup;
-                        console.log('✅ Ethereum object restored');
+                        window.ethereum = ethereumBackup;
+                        console.log('✅ Ethereum object restored from backup');
                     } catch (e) {
                         console.warn('⚠️ Could not restore ethereum object:', e.message);
                     }
@@ -97,8 +102,10 @@
             };
             script.onerror = function() {
                 console.error('❌ Ethers.js failed to load');
-                // Restore original defineProperty
-                Object.defineProperty = originalDefineProperty;
+                // Restore original defineProperty if stored
+                if (window.__originalDefineProperty) {
+                    Object.defineProperty = window.__originalDefineProperty;
+                }
                 
                 // Mock ethers so game still works
                 window.ethers = {

@@ -4,6 +4,34 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Base Fruits - Embed</title>
+    <!-- Immediate ethereum conflict prevention - must be first script -->
+    <script>
+        (function() {
+            // Immediately prevent ethereum property redefinition
+            const originalDefineProperty = Object.defineProperty;
+            Object.defineProperty = function(obj, prop, descriptor) {
+                if (obj === window && prop === 'ethereum') {
+                    console.warn('⚠️ Blocked ethereum property redefinition attempt');
+                    // Return the existing ethereum or the object itself
+                    return window.ethereum || obj;
+                }
+                return originalDefineProperty.call(this, obj, prop, descriptor);
+            };
+            
+            // Store for later restoration
+            window.__originalDefineProperty = originalDefineProperty;
+            
+            // Also freeze ethereum if it exists
+            if (window.ethereum) {
+                try {
+                    Object.freeze(window.ethereum);
+                    console.log('✅ Ethereum object frozen to prevent modifications');
+                } catch (e) {
+                    console.warn('Could not freeze ethereum object:', e.message);
+                }
+            }
+        })();
+    </script>
     <style>
         body {
             margin: 0;
@@ -88,27 +116,18 @@
         </a>
     </div>
 
-    <!-- Ethereum conflict prevention for embed -->
+    <!-- Additional ethereum handling -->
     <script>
-        // Prevent ethereum property redefinition conflicts in embed
-        const originalDefineProperty = Object.defineProperty;
-        Object.defineProperty = function(obj, prop, descriptor) {
-            if (obj === window && prop === 'ethereum') {
-                console.warn('⚠️ Prevented ethereum property redefinition in embed');
-                return obj;
+        // Log ethereum status after initial prevention
+        if (window.ethereum) {
+            console.log('✅ Ethereum object is available in embed');
+            
+            // Try to unfreeze if needed for legitimate operations
+            if (Object.isFrozen(window.ethereum)) {
+                console.log('ℹ️ Ethereum object is frozen for protection');
             }
-            return originalDefineProperty.call(this, obj, prop, descriptor);
-        };
-        
-        // Store original ethereum object if available
-        let originalEthereum = null;
-        try {
-            if (window.ethereum) {
-                originalEthereum = window.ethereum;
-                console.log('✅ Ethereum object detected in embed');
-            }
-        } catch (e) {
-            console.warn('⚠️ Ethereum object access restricted in embed:', e.message);
+        } else {
+            console.log('ℹ️ No ethereum object detected in embed');
         }
     </script>
     
@@ -239,8 +258,11 @@
                 console.log("⚠️ Running in fallback mode");
             } finally {
                 // Restore original defineProperty after SDK loading
-                Object.defineProperty = originalDefineProperty;
-                console.log('✅ Restored original Object.defineProperty in embed');
+                if (window.__originalDefineProperty) {
+                    Object.defineProperty = window.__originalDefineProperty;
+                    console.log('✅ Restored original Object.defineProperty in embed');
+                    delete window.__originalDefineProperty;
+                }
             }
         }
         
