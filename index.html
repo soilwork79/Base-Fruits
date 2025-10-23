@@ -50,12 +50,10 @@
     <meta property="fc:frame:button:1" content="🎮 Play" />
     <meta property="fc:frame:button:1:action" content="link" />
     <meta property="fc:frame:button:1:target" content="https://base-fruits-farcaster-miniapp.vercel.app/" />
-    <meta property="fc:frame:post_url" content="https://base-fruits-farcaster-miniapp.vercel.app/api/frame" />
-
     
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="styles.css?v=6">
-    <!-- Farcaster Mini App SDK will be loaded at bottom via ESM -->
+    <link rel="stylesheet" href="styles.css?v=7">
+    
     <!-- Load Ethers.js safely -->
     <script>
         // Store ethereum backup if available
@@ -118,8 +116,6 @@
         setTimeout(loadEthers, 1000);
         console.log('✅ Game and Web3 initialization started with conflict prevention');
     </script>
-    
-    <!-- Farcaster Mini App SDK Initialization moved to bottom per docs -->
 </head>
 <body>
     <div id="game-container">
@@ -206,98 +202,42 @@
         </div>
     </div>
     
-    <script src="game.js?v=23"></script>
+    <script src="game.js?v=24"></script>
     
-    <!-- Farcaster Mini App SDK with enhanced error handling -->
-    <script>
-        // Load Farcaster SDK with fallback methods
+    <!-- ✅ FIXED: Farcaster Mini App SDK with proper ready() call -->
+    <script type="module">
+        // Load Farcaster SDK
         async function initializeFarcasterSDK() {
             try {
                 console.log('🔄 Initializing Farcaster Mini App SDK...');
                 
-                // Method 1: Try loading via script tag first
-                const loadViaScript = () => {
-                    return new Promise((resolve, reject) => {
-                        const script = document.createElement('script');
-                        script.src = 'https://unpkg.com/@farcaster/miniapp-sdk@latest/dist/index.umd.js';
-                        script.onload = () => {
-                            if (window.FarcasterSDK || window.sdk) {
-                                resolve(window.FarcasterSDK || window.sdk);
-                            } else {
-                                reject(new Error('SDK not found on window object'));
-                            }
-                        };
-                        script.onerror = () => reject(new Error('Script failed to load'));
-                        document.head.appendChild(script);
-                    });
-                };
+                // Import SDK from CDN
+                const { sdk } = await import('https://esm.sh/@farcaster/frame-sdk');
                 
-                // Method 2: Try ES module import as fallback
-                const loadViaESM = async () => {
-                    try {
-                        const module = await import('https://esm.sh/@farcaster/miniapp-sdk');
-                        return module.sdk || module.default || module;
-                    } catch (e) {
-                        throw new Error(`ESM import failed: ${e.message}`);
-                    }
-                };
+                console.log('✅ SDK imported:', sdk);
                 
-                let sdk = null;
+                // Store SDK globally
+                window.farcasterSDK = sdk;
                 
-                // Try script tag method first
-                try {
-                    sdk = await loadViaScript();
-                    console.log('✅ Farcaster SDK loaded via script tag');
-                } catch (scriptError) {
-                    console.log('⚠️ Script tag method failed, trying ESM import...');
-                    
-                    // Fallback to ESM import
-                    try {
-                        sdk = await loadViaESM();
-                        console.log('✅ Farcaster SDK loaded via ESM import');
-                    } catch (esmError) {
-                        console.warn('⚠️ Both loading methods failed:', {
-                            script: scriptError.message,
-                            esm: esmError.message
-                        });
-                        return;
-                    }
-                }
+                // ✅ CRITICAL: Call ready() to hide splash screen
+                const context = await sdk.actions.ready();
+                console.log('✅ SDK ready() called successfully!');
+                console.log('📱 Farcaster context:', context);
                 
-                // Initialize SDK if available
-                if (sdk && typeof sdk.ready === 'function') {
-                    await sdk.ready();
-                    console.log('✅ Farcaster SDK initialized successfully');
-                    
-                    // Store SDK globally for game use
-                    window.farcasterSDK = sdk;
-                    
-                    // Try to get context if available
-                    if (typeof sdk.context === 'function') {
-                        try {
-                            const context = await sdk.context();
-                            console.log('👤 Farcaster context:', context);
-                            window.farcasterContext = context;
-                        } catch (contextError) {
-                            console.log('ℹ️ Context not available:', contextError.message);
-                        }
-                    }
-                } else {
-                    console.warn('⚠️ SDK loaded but ready method not available');
-                }
+                // Store context globally
+                window.farcasterContext = context;
                 
             } catch (error) {
-                console.warn('⚠️ Farcaster SDK initialization failed (normal for local testing):', error.message);
-                // Game continues to work without Farcaster
+                console.warn('⚠️ Farcaster SDK initialization failed:', error);
+                console.log('ℹ️ App will work without Farcaster features');
+                
+                // For local testing: simulate ready
+                console.log('🧪 Local testing mode - no splash screen');
             }
         }
         
-        // Initialize after DOM is ready
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', initializeFarcasterSDK);
-        } else {
-            initializeFarcasterSDK();
-        }
+        // Initialize immediately
+        initializeFarcasterSDK();
     </script>
 </body>
 </html>
