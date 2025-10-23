@@ -114,36 +114,38 @@ class GameState {
     
     // ✅ WEBVIEW FIX: Enhanced resize with DPR support
     resize() {
-        const container = this.canvas.parentElement;
-        
-        // Force layout calculation
-        container.style.display = 'block';
-        
-        // Get actual dimensions with fallback
-        this.width = container.clientWidth || window.innerWidth;
-        this.height = container.clientHeight || window.innerHeight;
-        
-        // Ensure minimum dimensions
-        if (this.width === 0) this.width = window.innerWidth;
-        if (this.height === 0) this.height = window.innerHeight;
-        
-        // Set canvas dimensions with device pixel ratio
-        const dpr = window.devicePixelRatio || 1;
-        this.canvas.width = this.width * dpr;
-        this.canvas.height = this.height * dpr;
-        this.canvas.style.width = this.width + 'px';
-        this.canvas.style.height = this.height + 'px';
-        
-        // Scale context for high DPI
-        this.ctx.scale(dpr, dpr);
-        
-        console.log('✅ Canvas resized:', {
-            width: this.width,
-            height: this.height,
-            dpr: dpr,
-            actualCanvasSize: `${this.canvas.width}x${this.canvas.height}`
-        });
-    }
+    const container = this.canvas.parentElement;
+    
+    // Force layout calculation
+    container.style.display = 'block';
+    
+    // Get actual dimensions with fallback
+    this.width = container.clientWidth || window.innerWidth;
+    this.height = container.clientHeight || window.innerHeight;
+    
+    // Ensure minimum dimensions
+    if (this.width === 0) this.width = window.innerWidth;
+    if (this.height === 0) this.height = window.innerHeight;
+    
+    // ✅ PERFORMANCE: Limit DPR to 2 for better performance on high-DPI devices
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    
+    this.canvas.width = this.width * dpr;
+    this.canvas.height = this.height * dpr;
+    this.canvas.style.width = this.width + 'px';
+    this.canvas.style.height = this.height + 'px';
+    
+    // Scale context for DPR
+    this.ctx.scale(dpr, dpr);
+    
+    console.log('✅ Canvas resized:', {
+        width: this.width,
+        height: this.height,
+        dpr: dpr,
+        actualCanvasSize: `${this.canvas.width}x${this.canvas.height}`,
+        pixelCount: this.canvas.width * this.canvas.height
+    });
+}
     
     // ✅ WEBVIEW FIX: Audio unlock for mobile webview
     unlockAudio() {
