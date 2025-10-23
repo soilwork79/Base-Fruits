@@ -10,10 +10,12 @@
     "iconUrl": "https://base-fruits-farcaster-miniapp.vercel.app/images/fruit.png",
     "homeUrl": "https://base-fruits-farcaster-miniapp.vercel.app/",
     "imageUrl": "https://base-fruits-farcaster-miniapp.vercel.app/images/splash.png",
+    "splashImageUrl": "https://base-fruits-farcaster-miniapp.vercel.app/images/fruit.png?v=2",
     "buttonTitle": "🎮 Play",
     "subtitle": "Arcade fruit slicing on Base",
     "description": "Slice fruits, avoid bombs, and climb the leaderboard. Fast, mobile-friendly Farcaster Mini App on Base.",
     "splashBackgroundColor": "#0b0b0f",
+    
     "primaryCategory": "games",
     "tags": ["game", "arcade", "fruits", "base", "slice"],
     "requiredChains": ["eip155:8453"],
