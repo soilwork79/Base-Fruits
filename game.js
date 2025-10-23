@@ -520,7 +520,8 @@ class FruitSliceGame {
                     const x = this.state.width * (0.3 + Math.random() * 0.4);
                     // Random angle (75-105 degrees) - more vertical, less horizontal spread
                     const angle = (75 + Math.random() * 30) * Math.PI / 180;
-                    const speed = 12 + Math.random() * 2.4; // Reduced by 20% to match gravity
+                    // ✅ BALANCE: Reduced fruit speed for easier gameplay
+                    const speed = 9 + Math.random() * 2; // Reduced from 12 + 2.4
                     this.state.fruits.push({
                         x: x,
                         y: this.state.height,
@@ -558,7 +559,8 @@ class FruitSliceGame {
                 // Random launch position
                 const x = this.state.width * (0.3 + Math.random() * 0.4);
                 const angle = (75 + Math.random() * 30) * Math.PI / 180;
-                const speed = 12 + Math.random() * 2.4; // Reduced by 20% to match gravity
+                // ✅ BALANCE: Bombs are much slower than fruits
+                const speed = 6 + Math.random() * 1.5; // Much slower than fruits (9-11)
                 // Create a new fuse sound instance for this bomb
                 const bombFuseSound = this.state.fuseSound.cloneNode();
                 bombFuseSound.volume = this.state.fuseSound.volume;
