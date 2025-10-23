@@ -18,6 +18,7 @@ const FRUIT_TYPES = [
     { name: 'pineapple', emoji: '🍍', color: '#ffe66d', imagePath: 'images/pineapple.png', halfImagePath: 'images/half_pineapple.png' }
 ];
 const SCORE_TABLE = [0, 10, 30, 135, 200, 375, 675, 1200];
+
 // ===== GAME STATE =====
 class GameState {
     constructor() {
@@ -53,12 +54,28 @@ class GameState {
         // Fruit images
         this.fruitImages = new Map();
         this.halfFruitImages = new Map();
+        
         this.canvas = document.getElementById('game-canvas');
-        this.ctx = this.canvas.getContext('2d');
+        
+        // ✅ WEBVIEW FIX: Enhanced canvas context
+        this.ctx = this.canvas.getContext('2d', {
+            alpha: false,
+            desynchronized: true // Better performance in webview
+        });
+        
+        // ✅ WEBVIEW FIX: Audio context with unlock
         this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        this.unlockAudio(); // Unlock audio on first touch
+        
         this.width = 0;
         this.height = 0;
-        this.resize();
+        
+        // ✅ WEBVIEW FIX: Delay resize until DOM is ready
+        setTimeout(() => {
+            this.resize();
+            console.log('🎮 Initial canvas setup complete');
+        }, 100);
+        
         // Load audio files
         this.swooshSound = new Audio('sounds/swoosh.mp3');
         this.sliceSound = new Audio('sounds/slice.mp3');
@@ -69,6 +86,7 @@ class GameState {
         this.amazingSound = new Audio('sounds/amazing.mp3');
         this.legendarySound = new Audio('sounds/legendary.mp3');
         this.failSound = new Audio('sounds/fail.mp3');
+        
         // Set volume levels
         this.swooshSound.volume = 0.3;
         this.sliceSound.volume = 0.4;
@@ -80,6 +98,7 @@ class GameState {
         this.amazingSound.volume = 0.6;
         this.legendarySound.volume = 0.6;
         this.failSound.volume = 0.7;
+        
         // Load fruit images
         FRUIT_TYPES.forEach(fruitType => {
             const img = new Image();
@@ -89,23 +108,75 @@ class GameState {
             halfImg.src = fruitType.halfImagePath;
             this.halfFruitImages.set(fruitType.name, halfImg);
         });
+        
         window.addEventListener('resize', () => this.resize());
     }
+    
+    // ✅ WEBVIEW FIX: Enhanced resize with DPR support
     resize() {
         const container = this.canvas.parentElement;
-        this.width = container.clientWidth;
-        this.height = container.clientHeight;
-        this.canvas.width = this.width;
-        this.canvas.height = this.height;
+        
+        // Force layout calculation
+        container.style.display = 'block';
+        
+        // Get actual dimensions with fallback
+        this.width = container.clientWidth || window.innerWidth;
+        this.height = container.clientHeight || window.innerHeight;
+        
+        // Ensure minimum dimensions
+        if (this.width === 0) this.width = window.innerWidth;
+        if (this.height === 0) this.height = window.innerHeight;
+        
+        // Set canvas dimensions with device pixel ratio
+        const dpr = window.devicePixelRatio || 1;
+        this.canvas.width = this.width * dpr;
+        this.canvas.height = this.height * dpr;
+        this.canvas.style.width = this.width + 'px';
+        this.canvas.style.height = this.height + 'px';
+        
+        // Scale context for high DPI
+        this.ctx.scale(dpr, dpr);
+        
+        console.log('✅ Canvas resized:', {
+            width: this.width,
+            height: this.height,
+            dpr: dpr,
+            actualCanvasSize: `${this.canvas.width}x${this.canvas.height}`
+        });
+    }
+    
+    // ✅ WEBVIEW FIX: Audio unlock for mobile webview
+    unlockAudio() {
+        const unlock = () => {
+            if (this.audioContext.state === 'suspended') {
+                this.audioContext.resume().then(() => {
+                    console.log('✅ Audio context unlocked');
+                }).catch(err => {
+                    console.warn('⚠️ Audio unlock failed:', err);
+                });
+            }
+        };
+        
+        // Add listeners for first touch/click
+        document.addEventListener('touchstart', unlock, { once: true });
+        document.addEventListener('click', unlock, { once: true });
+        
+        // Try to unlock immediately if possible
+        unlock();
     }
 }
+
 // ===== GAME LOGIC =====
 class FruitSliceGame {
     constructor() {
         this.state = new GameState();
         this.setupEventListeners();
         this.showStartScreen();
+        
+        // ✅ WEBVIEW FIX: Visibility handler
+        this.setupVisibilityHandler();
     }
+    
     setupEventListeners() {
         // Start button
         const startButton = document.getElementById('start-button');
@@ -116,36 +187,54 @@ class FruitSliceGame {
                 this.startGame();
             });
         }
+        
         // Restart button
         document.getElementById('restart-button').addEventListener('click', () => {
             this.startGame();
         });
+        
         // Mouse events
         this.state.canvas.addEventListener('mousedown', (e) => this.handleInputStart(e.clientX, e.clientY));
         this.state.canvas.addEventListener('mousemove', (e) => this.handleInputMove(e.clientX, e.clientY));
         this.state.canvas.addEventListener('mouseup', () => this.handleInputEnd());
         this.state.canvas.addEventListener('mouseleave', () => this.handleInputEnd());
+        
         // Touch events
         this.state.canvas.addEventListener('touchstart', (e) => {
             e.preventDefault();
             const touch = e.touches[0];
             this.handleInputStart(touch.clientX, touch.clientY);
         }, { passive: false });
+        
         this.state.canvas.addEventListener('touchmove', (e) => {
             e.preventDefault();
             const touch = e.touches[0];
             this.handleInputMove(touch.clientX, touch.clientY);
         }, { passive: false });
+        
         this.state.canvas.addEventListener('touchend', (e) => {
             e.preventDefault();
             this.handleInputEnd();
         }, { passive: false });
     }
+    
+    // ✅ WEBVIEW FIX: Visibility handler for webview
+    setupVisibilityHandler() {
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden && this.state.isPlaying) {
+                console.log('🔄 Page visible, resuming game loop');
+                this.state.lastFrameTime = performance.now();
+                this.gameLoop(this.state.lastFrameTime);
+            }
+        });
+    }
+    
     showStartScreen() {
         document.getElementById('start-screen').classList.remove('hidden');
         document.getElementById('game-hud').classList.add('hidden');
         document.getElementById('game-over-screen').classList.add('hidden');
     }
+    
     showGameOver(playFailSound = true) {
         this.state.isPlaying = false;
         // Stop all fuse sounds
@@ -167,6 +256,7 @@ class FruitSliceGame {
         document.getElementById('game-over-screen').classList.remove('hidden');
         document.getElementById('game-hud').classList.add('hidden');
     }
+    
     getBackgroundForWave(wave) {
         // Determine which background to use based on wave ranges
         if (wave >= 1 && wave <= 10)
@@ -181,12 +271,14 @@ class FruitSliceGame {
             return "desert_background.png";
         return "island_background.png"; // Default fallback
     }
+    
     changeBackground(wave) {
         const backgroundImage = this.getBackgroundForWave(wave);
         console.log(`Changing background to: ${backgroundImage} for wave ${wave}`);
         const gameContainer = document.getElementById('game-container');
         gameContainer.style.backgroundImage = `url('images/${backgroundImage}')`;
     }
+    
     showChapterName(wave) {
         const chapterNames = {
             1: "Tropical Island",
