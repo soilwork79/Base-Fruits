@@ -169,13 +169,20 @@ class GameState {
 // ===== GAME LOGIC =====
 class FruitSliceGame {
     constructor() {
-        this.state = new GameState();
-        this.setupEventListeners();
-        this.showStartScreen();
-        
-        // ✅ WEBVIEW FIX: Visibility handler
-        this.setupVisibilityHandler();
-    }
+    this.state = new GameState();
+    this.setupEventListeners();
+    
+    // ✅ WEBVIEW TEST: Skip splash screen, start immediately
+    // this.showStartScreen();  // Yorum satırı yap
+    
+    // ✅ WEBVIEW FIX: Visibility handler
+    this.setupVisibilityHandler();
+    
+    // ✅ WEBVIEW TEST: Auto-start game for testing
+    setTimeout(() => {
+        this.startGame();
+    }, 500); // Canvas hazır olana kadar bekle
+}
     
     setupEventListeners() {
         // Start button
