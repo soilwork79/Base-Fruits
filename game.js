@@ -18,7 +18,10 @@ const FRUIT_TYPES = [
     { name: 'pineapple', emoji: '🍍', color: '#ffe66d', imagePath: 'images/pineapple.png', halfImagePath: 'images/half_pineapple.png' }
 ];
 const SCORE_TABLE = [0, 10, 30, 135, 200, 375, 675, 1200];
-
+// ✅ PERFORMANCE: Limits for mobile optimization
+const MAX_PARTICLES = 50;
+const MAX_FRUIT_HALVES = 20;
+const MAX_TRAILS = 5;
 // ===== GAME STATE =====
 class GameState {
     constructor() {
@@ -54,18 +57,21 @@ class GameState {
         // Fruit images
         this.fruitImages = new Map();
         this.halfFruitImages = new Map();
-        
         this.canvas = document.getElementById('game-canvas');
-        
         // ✅ WEBVIEW FIX: Enhanced canvas context
         this.ctx = this.canvas.getContext('2d', {
             alpha: false,
-            desynchronized: true // Better performance in webview
+            desynchronized: true
         });
+        // ✅ PERFORMANCE: Disable image smoothing for better performance
+        this.ctx.imageSmoothingEnabled = false;
+        this.ctx.webkitImageSmoothingEnabled = false;
+        this.ctx.mozImageSmoothingEnabled = false;
+        this.ctx.msImageSmoothingEnabled = false;
         
         // ✅ WEBVIEW FIX: Audio context with unlock
         this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        this.unlockAudio(); // Unlock audio on first touch
+        this.unlockAudio();
         
         this.width = 0;
         this.height = 0;
@@ -75,7 +81,6 @@ class GameState {
             this.resize();
             console.log('🎮 Initial canvas setup complete');
         }, 100);
-        
         // Load audio files
         this.swooshSound = new Audio('sounds/swoosh.mp3');
         this.sliceSound = new Audio('sounds/slice.mp3');
@@ -86,7 +91,6 @@ class GameState {
         this.amazingSound = new Audio('sounds/amazing.mp3');
         this.legendarySound = new Audio('sounds/legendary.mp3');
         this.failSound = new Audio('sounds/fail.mp3');
-        
         // Set volume levels
         this.swooshSound.volume = 0.3;
         this.sliceSound.volume = 0.4;
@@ -98,7 +102,6 @@ class GameState {
         this.amazingSound.volume = 0.6;
         this.legendarySound.volume = 0.6;
         this.failSound.volume = 0.7;
-        
         // Load fruit images
         FRUIT_TYPES.forEach(fruitType => {
             const img = new Image();
@@ -108,84 +111,67 @@ class GameState {
             halfImg.src = fruitType.halfImagePath;
             this.halfFruitImages.set(fruitType.name, halfImg);
         });
-        
         window.addEventListener('resize', () => this.resize());
     }
-    
-    // ✅ WEBVIEW FIX: Enhanced resize with DPR support
     resize() {
-    const container = this.canvas.parentElement;
+        const container = this.canvas.parentElement;
+        
+        // Force layout calculation
+        container.style.display = 'block';
+        
+        // Get actual dimensions with fallback
+        this.width = container.clientWidth || window.innerWidth;
+        this.height = container.clientHeight || window.innerHeight;
+        
+        // Ensure minimum dimensions
+        if (this.width === 0) this.width = window.innerWidth;
+        if (this.height === 0) this.height = window.innerHeight;
+        
+        // ✅ PERFORMANCE: Limit DPR to 2 for better performance
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        
+        this.canvas.width = this.width * dpr;
+        this.canvas.height = this.height * dpr;
+        this.canvas.style.width = this.width + 'px';
+        this.canvas.style.height = this.height + 'px';
+        
+        // Scale context for DPR
+        this.ctx.scale(dpr, dpr);
+        
+        console.log('✅ Canvas resized:', {
+            width: this.width,
+            height: this.height,
+            dpr: dpr,
+            pixels: this.canvas.width * this.canvas.height
+        });
+    }
     
-    // Force layout calculation
-    container.style.display = 'block';
-    
-    // Get actual dimensions with fallback
-    this.width = container.clientWidth || window.innerWidth;
-    this.height = container.clientHeight || window.innerHeight;
-    
-    // Ensure minimum dimensions
-    if (this.width === 0) this.width = window.innerWidth;
-    if (this.height === 0) this.height = window.innerHeight;
-    
-    // ✅ PERFORMANCE: Limit DPR to 2 for better performance on high-DPI devices
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    
-    this.canvas.width = this.width * dpr;
-    this.canvas.height = this.height * dpr;
-    this.canvas.style.width = this.width + 'px';
-    this.canvas.style.height = this.height + 'px';
-    
-    // Scale context for DPR
-    this.ctx.scale(dpr, dpr);
-    
-    console.log('✅ Canvas resized:', {
-        width: this.width,
-        height: this.height,
-        dpr: dpr,
-        actualCanvasSize: `${this.canvas.width}x${this.canvas.height}`,
-        pixelCount: this.canvas.width * this.canvas.height
-    });
-}
-    
-    // ✅ WEBVIEW FIX: Audio unlock for mobile webview
+    // ✅ WEBVIEW FIX: Audio unlock for mobile
     unlockAudio() {
         const unlock = () => {
             if (this.audioContext.state === 'suspended') {
                 this.audioContext.resume().then(() => {
-                    console.log('✅ Audio context unlocked');
+                    console.log('✅ Audio unlocked');
                 }).catch(err => {
                     console.warn('⚠️ Audio unlock failed:', err);
                 });
             }
         };
-        
-        // Add listeners for first touch/click
         document.addEventListener('touchstart', unlock, { once: true });
         document.addEventListener('click', unlock, { once: true });
-        
-        // Try to unlock immediately if possible
         unlock();
     }
 }
-
 // ===== GAME LOGIC =====
 class FruitSliceGame {
     constructor() {
-    this.state = new GameState();
-    this.setupEventListeners();
-    
-    // ✅ WEBVIEW TEST: Skip splash screen, start immediately
-    // this.showStartScreen();  // Yorum satırı yap
-    
-    // ✅ WEBVIEW FIX: Visibility handler
-    this.setupVisibilityHandler();
-    
-    // ✅ WEBVIEW TEST: Auto-start game for testing
-    setTimeout(() => {
-        this.startGame();
-    }, 500); // Canvas hazır olana kadar bekle
-}
-    
+        this.state = new GameState();
+        this.setupEventListeners();
+        this.showStartScreen();
+        
+        // ✅ WEBVIEW FIX: Visibility handler
+        this.setupVisibilityHandler();
+    }
     setupEventListeners() {
         // Start button
         const startButton = document.getElementById('start-button');
@@ -196,42 +182,37 @@ class FruitSliceGame {
                 this.startGame();
             });
         }
-        
         // Restart button
         document.getElementById('restart-button').addEventListener('click', () => {
             this.startGame();
         });
-        
         // Mouse events
         this.state.canvas.addEventListener('mousedown', (e) => this.handleInputStart(e.clientX, e.clientY));
         this.state.canvas.addEventListener('mousemove', (e) => this.handleInputMove(e.clientX, e.clientY));
         this.state.canvas.addEventListener('mouseup', () => this.handleInputEnd());
         this.state.canvas.addEventListener('mouseleave', () => this.handleInputEnd());
-        
         // Touch events
         this.state.canvas.addEventListener('touchstart', (e) => {
             e.preventDefault();
             const touch = e.touches[0];
             this.handleInputStart(touch.clientX, touch.clientY);
         }, { passive: false });
-        
         this.state.canvas.addEventListener('touchmove', (e) => {
             e.preventDefault();
             const touch = e.touches[0];
             this.handleInputMove(touch.clientX, touch.clientY);
         }, { passive: false });
-        
         this.state.canvas.addEventListener('touchend', (e) => {
             e.preventDefault();
             this.handleInputEnd();
         }, { passive: false });
     }
     
-    // ✅ WEBVIEW FIX: Visibility handler for webview
+    // ✅ WEBVIEW FIX: Visibility handler
     setupVisibilityHandler() {
         document.addEventListener('visibilitychange', () => {
             if (!document.hidden && this.state.isPlaying) {
-                console.log('🔄 Page visible, resuming game loop');
+                console.log('🔄 Page visible, resuming game');
                 this.state.lastFrameTime = performance.now();
                 this.gameLoop(this.state.lastFrameTime);
             }
@@ -243,7 +224,6 @@ class FruitSliceGame {
         document.getElementById('game-hud').classList.add('hidden');
         document.getElementById('game-over-screen').classList.add('hidden');
     }
-    
     showGameOver(playFailSound = true) {
         this.state.isPlaying = false;
         // Stop all fuse sounds
@@ -265,7 +245,6 @@ class FruitSliceGame {
         document.getElementById('game-over-screen').classList.remove('hidden');
         document.getElementById('game-hud').classList.add('hidden');
     }
-    
     getBackgroundForWave(wave) {
         // Determine which background to use based on wave ranges
         if (wave >= 1 && wave <= 10)
@@ -280,14 +259,12 @@ class FruitSliceGame {
             return "desert_background.png";
         return "island_background.png"; // Default fallback
     }
-    
     changeBackground(wave) {
         const backgroundImage = this.getBackgroundForWave(wave);
         console.log(`Changing background to: ${backgroundImage} for wave ${wave}`);
         const gameContainer = document.getElementById('game-container');
         gameContainer.style.backgroundImage = `url('images/${backgroundImage}')`;
     }
-    
     showChapterName(wave) {
         const chapterNames = {
             1: "Tropical Island",
@@ -423,7 +400,16 @@ class FruitSliceGame {
         }, 3000);
     }
     startGame() {
-        console.log('startGame() called');
+        console.log('🎮 startGame() called');
+        
+        // ✅ WEBVIEW FIX: Force canvas refresh
+        this.state.canvas.style.display = 'none';
+        this.state.canvas.offsetHeight; // Force reflow
+        this.state.canvas.style.display = 'block';
+        
+        // ✅ WEBVIEW FIX: Reset and resize canvas
+        this.state.resize();
+        
         // Stop all fuse sounds from previous game
         for (const fruit of this.state.fruits) {
             if (fruit.isBomb && fruit.fuseSound) {
@@ -474,12 +460,20 @@ class FruitSliceGame {
         // Change background and show chapter name for wave 1
         this.changeBackground(1);
         this.showChapterName(1);
+        
+        // ✅ WEBVIEW FIX: Force initial render
+        this.render();
+        
         // Launch first level after chapter name appears
         setTimeout(() => {
             this.launchFruits();
         }, 4000); // Wait for chapter name to finish (4s total)
+        
         // Start game loop
-        this.gameLoop(performance.now());
+        this.state.lastFrameTime = performance.now();
+        this.gameLoop(this.state.lastFrameTime);
+        
+        console.log('✅ Game started successfully');
     }
     launchFruits() {
         const wave = this.state.level;
@@ -1224,6 +1218,17 @@ class FruitSliceGame {
             if (this.state.redFlash < 0)
                 this.state.redFlash = 0;
         }
+        
+        // ✅ PERFORMANCE: Limit arrays for mobile
+        while (this.state.particles.length > MAX_PARTICLES) {
+            this.state.particles.shift();
+        }
+        while (this.state.fruitHalves.length > MAX_FRUIT_HALVES) {
+            this.state.fruitHalves.shift();
+        }
+        while (this.state.trails.length > MAX_TRAILS) {
+            this.state.trails.shift();
+        }
     }
     render() {
         const ctx = this.state.ctx;
@@ -1514,9 +1519,23 @@ class FruitSliceGame {
     gameLoop(currentTime) {
         if (!this.state.isPlaying)
             return;
+        
+        // ✅ PERFORMANCE: FPS limiting
+        const targetFPS = 60;
+        const targetFrameTime = 1000 / targetFPS;
         const deltaTime = currentTime - this.state.lastFrameTime;
+        
+        // Skip frame if too fast
+        if (deltaTime < targetFrameTime - 1) {
+            requestAnimationFrame((time) => this.gameLoop(time));
+            return;
+        }
+        
+        // Cap delta time to prevent spiral of death
+        const cappedDt = Math.min(deltaTime, 100);
         this.state.lastFrameTime = currentTime;
-        this.updatePhysics(deltaTime);
+        
+        this.updatePhysics(cappedDt);
         this.render();
         requestAnimationFrame((time) => this.gameLoop(time));
     }
