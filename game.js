@@ -1569,8 +1569,8 @@ async function saveScore() {
         catch (frameError) {
             console.log('Frame check error:', frameError);
 // ===== LEADERBOARD INTEGRATION WITH BLOCKCHAIN =====
-const API_URL = 'https://base-fruits.vercel.app'; // Backend API URL
-const CONTRACT_ADDRESS = '0xYourContractAddress'; // Base Mainnet Contract Address
+const API_URL = 'https://base-fruits-farcaster-miniapp.vercel.app'; // Backend API URL
+const CONTRACT_ADDRESS = '0xa4f109Eb679970C0b30C21812C99318837A81c73'; // BURAYA CONTRACT ADRESİNİZİ YAZIN!
 let currentScore = 0;
 
 // SAVE SCORE TO BLOCKCHAIN - FIXED VERSION
@@ -1601,7 +1601,6 @@ async function saveScore() {
                     };
                     console.log('Farcaster user:', userInfo);
 
-                    // Farcaster wallet provider
                     if (window.ethereum) {
                         rawProvider = window.ethereum;
                         console.log('Using Farcaster wallet');
@@ -1623,7 +1622,6 @@ async function saveScore() {
             // CRITICAL FIX: DO NOT modify window.ethereum!
             let provider = window.ethereum;
             
-            // If multiple wallets exist, find MetaMask
             if (window.ethereum.providers?.length > 0) {
                 console.log('Multiple wallets detected');
                 const metamaskProvider = window.ethereum.providers.find(
@@ -1637,14 +1635,12 @@ async function saveScore() {
             
             rawProvider = provider;
 
-            // Request account access
             const accounts = await rawProvider.request({
                 method: 'eth_requestAccounts'
             });
             walletAddress = accounts[0];
             console.log('Wallet connected:', walletAddress);
 
-            // Get FID from wallet (if exists)
             try {
                 const fidResponse = await fetch(`${API_URL}/api/get-fid?address=${walletAddress}`);
                 const fidData = await fidResponse.json();
@@ -1673,7 +1669,7 @@ async function saveScore() {
         const chainId = await rawProvider.request({ method: 'eth_chainId' });
         console.log('Current chain:', chainId);
 
-        if (chainId !== '0x2105') { // Base Mainnet = 8453 = 0x2105
+        if (chainId !== '0x2105') {
             try {
                 await rawProvider.request({
                     method: 'wallet_switchEthereumChain',
@@ -1681,7 +1677,6 @@ async function saveScore() {
                 });
             } catch (switchError) {
                 if (switchError.code === 4902) {
-                    // Chain not added, add it
                     await rawProvider.request({
                         method: 'wallet_addEthereumChain',
                         params: [{
@@ -1699,7 +1694,7 @@ async function saveScore() {
         }
 
         // ============================================
-        // 5) GET WALLET ADDRESS (if not already set)
+        // 5) GET WALLET ADDRESS
         // ============================================
         if (!walletAddress) {
             const accounts = await rawProvider.request({ method: 'eth_accounts' });
@@ -1707,7 +1702,7 @@ async function saveScore() {
         }
 
         // ============================================
-        // 6) CREATE SIGNER if ethers.js available
+        // 6) CREATE SIGNER
         // ============================================
         if (window.ethers && rawProvider) {
             try {
@@ -1746,7 +1741,6 @@ async function saveScore() {
         btn.textContent = '⏳ Submitting score...';
         
         if (signer && window.ethers?.Contract) {
-            // Use ethers.js
             const ethers = window.ethers;
             const contract = new ethers.Contract(
                 CONTRACT_ADDRESS,
@@ -1766,7 +1760,6 @@ async function saveScore() {
             await tx.wait();
         } 
         else if (rawProvider && window.ethers?.utils) {
-            // Use raw provider with ethers utils for encoding
             const ethers = window.ethers;
             const iface = new ethers.utils.Interface([
                 'function submitScore(string memory _farcasterUsername, uint256 _fid, uint256 _score, uint256 _nonce, bytes memory _signature) external'
@@ -1794,7 +1787,6 @@ async function saveScore() {
 
             btn.textContent = '⏳ Waiting confirmation...';
             
-            // Wait for receipt
             let receipt = null;
             let attempts = 0;
             while (!receipt && attempts < 60) {
