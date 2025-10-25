@@ -1470,6 +1470,104 @@ class FruitSliceGame {
         requestAnimationFrame((time) => { this.gameLoop(time); });
     }
 }
+// ===== LEADERBOARD FUNCTIONALITY =====
+const CONTRACT_ADDRESS = '0xa4f109Eb679970C0b30C21812C99318837A81c73';
+const API_URL = 'https://base-fruits-game.vercel.app';
+let currentScore = 0;
+// SAVE LEADERBOARD - Farcaster SDK veya MetaMask
+async function saveScore() {
+    console.log('=== SAVE SCORE STARTED ===');
+    console.log('Current score:', currentScore);
+    console.log('Window parent:', window.parent);
+    console.log('Farcaster available:', !!window.parent?.farcaster);
+    // Farcaster kullanıcı adını çek veya test için rastgele oluştur
+    let username = '';
+    let fid = 0;
+    // Farcaster bağlantısını kontrol et
+    try {
+        if (window.parent && window.parent !== window) {
+            console.log('Attempting to access parent.farcaster...');
+            const farcasterUser = await window.parent.farcaster.getUser();
+            username = farcasterUser.username;
+            fid = farcasterUser.fid;
+            console.log('Farcaster user:', { username, fid });
+        }
+        else {
+            console.log('No parent frame or same origin');
+        }
+    }
+    catch (error) {
+        console.log('Farcaster access error (expected in preview):', error.message);
+        // Cross-origin hatası beklenen bir durum
+    }
+    // Test ortamı için rastgele kullanıcı adı
+    if (!username) {
+        const testUsernames = ['Player1', 'FruitNinja', 'SliceKing', 'BombAvoider', 'ComboMaster', 'FruitHero'];
+        username = testUsernames[Math.floor(Math.random() * testUsernames.length)] + Math.floor(Math.random() * 1000);
+        fid = Math.floor(Math.random() * 100000); // Test FID
+    }
+    const btn = document.getElementById('save-leaderboard-button');
+    btn.disabled = true;
+    btn.textContent = '⏳ Processing...';
+    try {
+        let provider;
+        let signer;
+        let walletAddress;
+        let rawProvider; // Store the raw EIP-1193 provider
+        // First check if we're in Farcaster Mini App
+        let inFarcasterFrame = false;
+        let farcasterWalletAvailable = false;
+        // Check if we're in an iframe and potentially in Farcaster
+        try {
+            inFarcasterFrame = window.parent !== window;
+            console.log('In iframe:', inFarcasterFrame);
+            if (inFarcasterFrame) {
+                // Try to access Farcaster SDK
+                const hasFarcasterSDK = !!window.parent?.farcaster;
+                console.log('Has Farcaster SDK:', hasFarcasterSDK);
+                if (hasFarcasterSDK) {
+                    try {
+                        console.log('Attempting Farcaster wallet connection...');
+                        rawProvider = await window.parent.farcaster.wallet.getEthereumProvider();
+                        console.log('Farcaster provider obtained:', rawProvider);
+                        if (rawProvider) {
+                            farcasterWalletAvailable = true;
+                            // Wait for ethers.js if needed
+                            if (!window.ethers) {
+                                console.log('Waiting for ethers.js...');
+                                let attempts = 0;
+                                while (!window.ethers && attempts < 30) {
+                                    await new Promise(resolve => setTimeout(resolve, 100));
+                                    attempts++;
+                                }
+                            }
+                            // Use ethers if available, otherwise use raw provider
+                            if (window.ethers && window.ethers.providers) {
+                                const ethers = window.ethers;
+                                provider = new ethers.providers.Web3Provider(rawProvider);
+                                await provider.send("eth_requestAccounts", []);
+                                signer = provider.getSigner();
+                                walletAddress = await signer.getAddress();
+                            }
+                            else {
+                                // Fallback: use raw provider directly
+                                console.log('Using raw provider without ethers.js');
+                                const accounts = await rawProvider.request({ method: 'eth_requestAccounts' });
+                                walletAddress = accounts[0];
+                                // We'll handle contract interaction differently below
+                            }
+                            console.log('Farcaster wallet connected:', walletAddress);
+                        }
+                    }
+                    catch (e) {
+                        console.error('Farcaster wallet error:', e);
+                        farcasterWalletAvailable = false;
+                    }
+                }
+            }
+        }
+        catch (frameError) {
+            console.log('Frame check error:', frameError);
 // ===== LEADERBOARD INTEGRATION WITH BLOCKCHAIN =====
 const API_URL = 'https://base-fruits-farcaster-miniapp.vercel.app'; // Backend API URL
 const CONTRACT_ADDRESS = '0xYourContractAddress'; // BURAYA CONTRACT ADRESİNİZİ YAZIN!
@@ -1486,62 +1584,97 @@ async function saveScore() {
         let walletAddress = null;
         let signer = null;
         let userInfo = { username: '', fid: 0 };
-        let farcasterSDK = null; // Farcaster SDK'sını bulmak için
+
+        // DEBUG INFO
+        let debugInfo = '';
 
         // ============================================
-        // 1) FARCASTER SDK CHECK - DÜZELTİLMİŞ
+        // 1) FARCASTER SDK CHECK - WITH DEBUG
         // ============================================
-        // Farcaster client'ının (Warpcast) enjekte ettiği SDK'yı arayın
-        
-        if (typeof window.farcaster !== 'undefined' && window.farcaster) {
-            farcasterSDK = window.farcaster;
-            console.log('✅ Farcaster SDK detected (window.farcaster)');
-        } else if (window.parent !== window && typeof window.parent.farcaster !== 'undefined' && window.parent.farcaster) {
-            // iframe içinde olma ihtimaline karşı parent'ı da kontrol et
-            farcasterSDK = window.parent.farcaster;
-            console.log('✅ Farcaster SDK detected (window.parent.farcaster)');
-        }
+        debugInfo += '🔍 SDK Check:\n';
+        debugInfo += `- window.sdk: ${typeof window.sdk}\n`;
+        debugInfo += `- window.farcasterContext: ${typeof window.farcasterContext}\n`;
+        debugInfo += `- window.ethereum: ${typeof window.ethereum}\n\n`;
 
-        if (farcasterSDK) {
-            console.log('✅ Farcaster SDK bulundu!');
+        if (typeof window.sdk !== 'undefined' && window.sdk) {
+            debugInfo += '✅ SDK Found!\n';
+            console.log('✅ Farcaster SDK detected');
+            
             try {
-                // SDK'dan kullanıcı bilgilerini al
-                const user = await farcasterSDK.getUser();
-                if (user?.fid && user?.username) {
-                    userInfo = {
-                        username: user.username,
-                        fid: user.fid
-                    };
-                    console.log('Farcaster user:', userInfo);
-                } else {
-                    console.log('⚠️ Farcaster context incomplete:', user);
-                    // Kullanıcı bilgisi olmadan da cüzdanı almayı dene
-                }
-
-                // SDK'dan cüzdan sağlayıcısını (provider) al
-                // Mobil uygulamada "window.ethereum" yerine bu kullanılır!
-                rawProvider = await farcasterSDK.wallet.getEthereumProvider();
+                // Try to get context from multiple sources
+                let context = window.farcasterContext;
                 
-                if (rawProvider) {
-                    console.log('✅ Farcaster wallet provider obtained');
+                if (!context) {
+                    debugInfo += 'Getting context from SDK...\n';
+                    console.log('Attempting to get context from SDK...');
+                    
+                    // Try synchronous first
+                    if (window.sdk.context && typeof window.sdk.context === 'object') {
+                        context = window.sdk.context;
+                        debugInfo += '✅ Got context (sync)\n';
+                    } else {
+                        // Try async
+                        try {
+                            context = await window.sdk.context;
+                            debugInfo += '✅ Got context (async)\n';
+                        } catch (e) {
+                            debugInfo += `❌ Context error: ${e.message}\n`;
+                        }
+                    }
                 } else {
-                    console.log('⚠️ Farcaster SDK bulundu, ancak provider alınamadı.');
+                    debugInfo += '✅ Using stored context\n';
+                }
+                
+                debugInfo += `Context exists: ${context !== undefined}\n`;
+                debugInfo += `Has user: ${context?.user !== undefined}\n`;
+                debugInfo += `FID: ${context?.user?.fid || 'none'}\n`;
+                debugInfo += `Username: ${context?.user?.username || 'none'}\n\n`;
+                
+                console.log('Farcaster context:', context);
+                
+                if (context?.user?.fid && context?.user?.username) {
+                    userInfo = {
+                        username: context.user.username,
+                        fid: context.user.fid
+                    };
+                    debugInfo += `✅ User found: ${userInfo.username} (${userInfo.fid})\n`;
+                    console.log('Farcaster user:', userInfo);
+
+                    if (window.ethereum) {
+                        rawProvider = window.ethereum;
+                        debugInfo += '✅ Ethereum wallet found\n';
+                        console.log('Using Farcaster wallet');
+                    } else {
+                        debugInfo += '⚠️ No ethereum wallet\n';
+                    }
+                } else {
+                    debugInfo += '❌ Context incomplete\n';
+                    debugInfo += `Context: ${JSON.stringify(context)}\n`;
+                    console.log('⚠️ Farcaster context incomplete:', context);
                 }
             } catch (sdkError) {
+                debugInfo += `❌ SDK Error: ${sdkError.message}\n`;
                 console.error('Farcaster SDK error:', sdkError);
             }
         } else {
+            debugInfo += '❌ SDK Not Found!\n';
             console.log('⚠️ Farcaster SDK not detected');
         }
 
+        // Show debug info
+        alert(debugInfo + '\n(Check after this)');
+        
+        // Continue with rest of code
+        if (!rawProvider && typeof window.ethereum !== 'undefined') {
+            debugInfo = ''; // Clear for next alert
+
         // ============================================
-        // 2) METAMASK/WALLET FALLBACK - (Masaüstü tarayıcılar için)
+        // 2) METAMASK/WALLET FALLBACK - FIXED
         // ============================================
-        // Eğer Farcaster SDK'sından provider alamadıysak (örn. masaüstü tarayıcı)
-        // 'window.ethereum'u (MetaMask) kontrol et.
         if (!rawProvider && typeof window.ethereum !== 'undefined') {
             console.log('Using MetaMask/Browser wallet');
             
+            // CRITICAL FIX: DO NOT modify window.ethereum!
             let provider = window.ethereum;
             
             if (window.ethereum.providers?.length > 0) {
@@ -1557,14 +1690,12 @@ async function saveScore() {
             
             rawProvider = provider;
 
-            // MetaMask için hesapları iste
             const accounts = await rawProvider.request({
                 method: 'eth_requestAccounts'
             });
             walletAddress = accounts[0];
             console.log('Wallet connected:', walletAddress);
 
-            // Masaüstünde FID/kullanıcı adı almak için API'nızı kullanın
             try {
                 const fidResponse = await fetch(`${API_URL}/api/get-fid?address=${walletAddress}`);
                 const fidData = await fidResponse.json();
@@ -1580,10 +1711,9 @@ async function saveScore() {
         }
 
         // ============================================
-        // 3) NO WALLET AVAILABLE - (Hata kontrolü)
+        // 3) NO WALLET AVAILABLE
         // ============================================
         if (!rawProvider) {
-            // Bu hatayı alıyorsanız, ne Farcaster SDK'sı ne de MetaMask bulundu demektir.
             throw new Error('Bu özellik Farcaster mini app içinde çalışır veya MetaMask gerektirir!');
         }
 
