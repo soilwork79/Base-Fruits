@@ -56,69 +56,45 @@
     
     <!-- Load Ethers.js safely -->
     <script>
-        // Store ethereum backup if available
-        let ethereumBackup = null;
-        
-        // Unfreeze ethereum temporarily for ethers.js if needed
-        if (window.ethereum && Object.isFrozen(window.ethereum)) {
-            try {
-                // Create a backup before any modifications
-                ethereumBackup = { ...window.ethereum };
-                console.log('✅ Ethereum object backed up before ethers.js load');
-            } catch (e) {
-                console.warn('⚠️ Could not backup ethereum object:', e.message);
-            }
-        }
-        
-        // Load ethers with conflict prevention
+        // Load ethers.js immediately
         function loadEthers() {
+            // Check if already loaded
+            if (window.ethers) {
+                console.log('✅ Ethers.js already loaded:', window.ethers.version);
+                window.ethersReady = true;
+                return;
+            }
+            
             const script = document.createElement('script');
             script.src = 'https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js';
+            script.async = false; // Load synchronously
+            
             script.onload = function() {
-                console.log('✅ Ethers.js loaded successfully:', window.ethers?.version);
-                
-                // Verify ethers loaded correctly
                 if (window.ethers && window.ethers.providers && window.ethers.providers.Web3Provider) {
-                    console.log('✅ Ethers.js providers available');
+                    console.log('✅ Ethers.js loaded successfully:', window.ethers.version);
                     window.ethersReady = true;
                 } else {
-                    console.error('❌ Ethers.js loaded but providers not available');
+                    console.error('❌ Ethers.js loaded but incomplete');
                     window.ethersReady = false;
                 }
-                
-                // Restore original defineProperty if stored
-                if (window.__originalDefineProperty) {
-                    Object.defineProperty = window.__originalDefineProperty;
-                    console.log('✅ Restored original Object.defineProperty');
-                }
-                
-                // Ensure ethereum object is available
-                if (!window.ethereum && ethereumBackup) {
-                    try {
-                        window.ethereum = ethereumBackup;
-                        console.log('✅ Ethereum object restored from backup');
-                    } catch (e) {
-                        console.warn('⚠️ Could not restore ethereum object:', e.message);
-                    }
-                }
             };
+            
             script.onerror = function() {
-                console.error('❌ Ethers.js failed to load from CDN');
-                // Restore original defineProperty if stored
-                if (window.__originalDefineProperty) {
-                    Object.defineProperty = window.__originalDefineProperty;
-                }
-                
-                // Don't create mock - let the app handle missing ethers
+                console.error('❌ Ethers.js failed to load');
                 window.ethersReady = false;
-                console.error('❌ Wallet features will not be available');
+                // Don't create mock objects - let the app handle it
             };
+            
             document.head.appendChild(script);
         }
         
-        // Load ethers after wallet extensions have initialized
-        setTimeout(loadEthers, 1000);
-        console.log('✅ Game and Web3 initialization started with conflict prevention');
+        // Load immediately
+        loadEthers();
+        
+        // Also try loading after DOM ready as backup
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', loadEthers);
+        }
     </script>
 </head>
 <body>
