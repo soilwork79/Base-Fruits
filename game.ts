@@ -1818,7 +1818,12 @@ async function saveScore() {
                 const farcasterProvider = await (window as any).parent.farcaster.wallet.getEthereumProvider();
                 console.log('Farcaster provider obtained:', farcasterProvider);
                 
-                provider = new (window as any).ethers.providers.Web3Provider(farcasterProvider);
+                const ethers = (window as any).ethers;
+                const Web3Provider = ethers.providers?.Web3Provider || ethers.Web3Provider;
+                if (!Web3Provider) {
+                    throw new Error('Web3Provider not available');
+                }
+                provider = new Web3Provider(farcasterProvider);
                 console.log('Ethers provider created');
                 
                 // Wallet bağlantısını iste
@@ -1846,7 +1851,12 @@ async function saveScore() {
                 return;
             }
             
-            provider = new (window as any).ethers.providers.Web3Provider((window as any).ethereum);
+            const ethers = (window as any).ethers;
+            const Web3Provider = ethers.providers?.Web3Provider || ethers.Web3Provider;
+            if (!Web3Provider) {
+                throw new Error('Web3Provider not available');
+            }
+            provider = new Web3Provider((window as any).ethereum);
             await provider.send("eth_requestAccounts", []);
             signer = provider.getSigner();
             walletAddress = await signer.getAddress();
@@ -1922,7 +1932,12 @@ async function saveScore() {
         }
 
         // Contract'a yaz - MetaMask tekrar açılır
-        const contract = new (window as any).ethers.Contract(
+        const ethers = (window as any).ethers;
+        const Contract = ethers.Contract;
+        if (!Contract) {
+            throw new Error('Contract class not available');
+        }
+        const contract = new Contract(
             CONTRACT_ADDRESS,
             ['function submitScore(string memory _farcasterUsername, uint256 _fid, uint256 _score, uint256 _nonce, bytes memory _signature) external'],
             signer
