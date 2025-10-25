@@ -644,7 +644,7 @@ class FruitSliceGame {
                 console.log('Playing fuse sound for bomb');
                 bombFuseSound.play().then(() => {
                     console.log('Fuse sound started successfully');
-                }).catch(e => {
+                }).catch((e: any) => {
                     console.error('Fuse sound play failed:', e);
                 });
                 
@@ -1133,29 +1133,25 @@ class FruitSliceGame {
         }
     }
     
-    playKnifeSwooshSound() {
-        // Play swoosh sound from file
+    playKnifeSwooshSound(): void {
         const sound = this.state.swooshSound.cloneNode() as HTMLAudioElement;
         sound.volume = this.state.swooshSound.volume;
-        sound.play().catch(e => console.log('Audio play failed:', e));
+        sound.play().catch((e: any) => console.log('Audio play failed:', e));
     }
     
-    playBurningSound() {
-        // Play explosion sound from file
+    playBurningSound(): void {
         const sound = this.state.explosionSound.cloneNode() as HTMLAudioElement;
         sound.volume = this.state.explosionSound.volume;
-        sound.play().catch(e => console.log('Audio play failed:', e));
+        sound.play().catch((e: any) => console.log('Audio play failed:', e));
     }
     
-    playFallSound() {
-        // Play fall sound when fruit is missed
+    playFallSound(): void {
         const sound = this.state.fallSound.cloneNode() as HTMLAudioElement;
         sound.volume = this.state.fallSound.volume;
-        sound.play().catch(e => console.log('Audio play failed:', e));
+        sound.play().catch((e: any) => console.log('Audio play failed:', e));
     }
     
-    playComboSound(type: 'excellent' | 'amazing' | 'legendary') {
-        // Play combo sound based on type
+    playComboSound(type: 'excellent' | 'amazing' | 'legendary'): void {
         let sourceSound: HTMLAudioElement;
         if (type === 'excellent') {
             sourceSound = this.state.excellentSound;
@@ -1167,25 +1163,22 @@ class FruitSliceGame {
         
         const sound = sourceSound.cloneNode() as HTMLAudioElement;
         sound.volume = sourceSound.volume;
-        sound.play().catch(e => console.log('Audio play failed:', e));
+        sound.play().catch((e: any) => console.log('Audio play failed:', e));
     }
     
-    playSliceSound(comboCount: number) {
-        // Play slice sound from file
+    playSliceSound(comboCount: number): void {
         const sound = this.state.sliceSound.cloneNode() as HTMLAudioElement;
-        // Slightly increase volume for combos
         sound.volume = Math.min(1.0, this.state.sliceSound.volume * (1 + comboCount * 0.1));
-        sound.play().catch(e => console.log('Audio play failed:', e));
+        sound.play().catch((e: any) => console.log('Audio play failed:', e));
     }
     
-    playFailSound() {
-        // Play fail sound when game is over
+    playFailSound(): void {
         const sound = this.state.failSound.cloneNode() as HTMLAudioElement;
         sound.volume = this.state.failSound.volume;
-        sound.play().catch(e => console.log('Fail audio play failed:', e));
+        sound.play().catch((e: any) => console.log('Fail audio play failed:', e));
     }
     
-    createFireworks(x: number, y: number) {
+    createFireworks(x: number, y: number): void {
         const colors = ['#ff6b6b', '#ffa500', '#ffd93d', '#6bcf7f', '#c471f5', '#ff4757'];
         const particles: Particle[] = [];
         
@@ -1207,8 +1200,7 @@ class FruitSliceGame {
         this.state.fireworks.push({ x, y, particles });
     }
     
-    updatePhysics(dt: number) {
-        
+    updatePhysics(dt: number): void {
         // Don't update physics if paused
         if (this.state.isPaused) {
             // Still update visual effects
@@ -1610,7 +1602,7 @@ class FruitSliceGame {
     
     getFleshColor(emoji: string): string {
         // Return realistic flesh colors for different fruits
-        switch(emoji) {
+        switch (emoji) {
             case '🍎': return '#f5f5dc'; // Apple - pale cream/white
             case '🍊': return '#ffd699'; // Orange - light orange
             case '🍋': return '#fffacd'; // Lemon - pale yellow
@@ -1649,7 +1641,7 @@ class FruitSliceGame {
         return `rgb(${darker(r)}, ${darker(g)}, ${darker(b)})`;
     }
     
-    drawFruitDetails(ctx: CanvasRenderingContext2D, half: FruitHalf) {
+    drawFruitDetails(ctx: CanvasRenderingContext2D, half: FruitHalf): void {
         // Add seeds or details based on fruit type
         const fruitType = half.fruitType;
         
@@ -1703,7 +1695,7 @@ class FruitSliceGame {
             }
         }
     }
-    drawTrail(points: Point[], opacity: number) {
+    drawTrail(points: Point[], opacity: number): void {
         if (points.length < 2) return;
         
         const ctx = this.state.ctx;
@@ -1726,7 +1718,7 @@ class FruitSliceGame {
         ctx.globalAlpha = 1;
     }
     
-    updateUI() {
+    updateUI(): void {
         document.getElementById('score')!.textContent = this.state.score.toString();
         document.getElementById('level')!.textContent = this.state.level.toString();
         
@@ -1736,8 +1728,7 @@ class FruitSliceGame {
         document.getElementById('lives')!.textContent = hearts;
     }
     
-    gameLoop(currentTime: number) {
-        
+    gameLoop(currentTime: number): void {
         if (!this.state.isPlaying) return;
         
         const deltaTime = currentTime - this.state.lastFrameTime;
@@ -1763,7 +1754,7 @@ class FruitSliceGame {
             this.render();
         }
         
-        requestAnimationFrame((time) => this.gameLoop(time));
+        requestAnimationFrame((time) => { this.gameLoop(time); });
     }
 }
 
