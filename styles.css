@@ -583,7 +583,7 @@ body {
     }
     
     .button-group-vertical {
-        gap: 0.6rem;
+        gap: 1rem;
     }
     
     .button-group-vertical .game-button {
@@ -641,7 +641,7 @@ body {
     }
     
     .button-group-vertical {
-        gap: 0.5rem;
+        gap: 1.2rem;
     }
     
     .button-group-vertical .game-button {
@@ -654,7 +654,7 @@ body {
     }
     
     .button-group-horizontal {
-        gap: 0.3rem;
+        gap: 0.8rem;
     }
     
     .compact-btn {
