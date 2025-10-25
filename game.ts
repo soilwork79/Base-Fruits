@@ -308,7 +308,7 @@ class FruitSliceGame {
     showChapterName(wave: number) {
         const chapterNames: { [key: number]: string } = {
             1: "Tropical Island",
-            11: "Valley of Purple Rocks", 
+            11: "Valley of\nPurple Rocks", 
             21: "Silent Sword Dojo",
             31: "Wild Forest",
             41: "Desert Night"
@@ -328,20 +328,20 @@ class FruitSliceGame {
         
         // Force h1 styles
         chapterTextElement.style.cssText = `
-            font-size: 2.5rem !important;
-            color: #ff0000 !important;
+            font-size: 2rem !important;
+            color: #ffffff !important;
             text-align: center !important;
             text-shadow: 
-                0 0 10px rgba(255, 0, 0, 0.9),
-                0 0 20px rgba(255, 0, 0, 0.7),
-                0 0 30px rgba(255, 0, 0, 0.5),
-                0 0 40px rgba(255, 0, 0, 0.3),
+                0 0 10px rgba(255, 255, 255, 0.9),
+                0 0 20px rgba(255, 255, 255, 0.7),
+                0 0 30px rgba(255, 255, 255, 0.5),
+                0 0 40px rgba(255, 255, 255, 0.3),
                 2px 2px 8px rgba(0, 0, 0, 0.9) !important;
             font-weight: bold !important;
             letter-spacing: 3px !important;
             margin: 0 !important;
             padding: 20px !important;
-            white-space: nowrap !important;
+            white-space: pre-line !important;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
         `;
         
