@@ -76,9 +76,12 @@ const INITIAL_LIVES = 4;
 const MAX_LEVEL = 50;
 const FRUIT_RADIUS = 26.46; // 40% smaller than original 44.1
 const TRAIL_FADE_SPEED = 0.35;
-const MAX_TRAIL_POINTS = 30;
+const MAX_TRAIL_POINTS = 15; // Reduced for mobile performance
 const WALL_BOUNCE_DAMPING = 0.7;
 const MAX_FRUITS = 7;
+const MAX_PARTICLES = 100; // Limit particles for performance
+const MAX_TRAILS = 3; // Limit simultaneous trails
+const MAX_SCORE_POPUPS = 5; // Limit score popups
 
 const FRUIT_TYPES = [
     { name: 'apple', emoji: '🍎', color: '#ff6b6b', imagePath: 'images/apple.png', halfImagePath: 'images/half_apple.png' },
@@ -135,6 +138,8 @@ class GameState {
     
     // Animation
     lastFrameTime: number = 0;
+    frameSkipCounter: number = 0;
+    isLowPerformance: boolean = false;
     
     // Audio files
     swooshSound: HTMLAudioElement;
@@ -759,8 +764,12 @@ class FruitSliceGame {
             this.playKnifeSwooshSound();
         }
         
-        // Add trail to fading trails
+        // Add trail to fading trails (limit for performance)
         if (this.state.currentTrail.length > 1) {
+            // Remove oldest trail if we have too many
+            if (this.state.trails.length >= MAX_TRAILS) {
+                this.state.trails.shift();
+            }
             this.state.trails.push({
                 points: [...this.state.currentTrail],
                 opacity: 1
@@ -807,6 +816,10 @@ class FruitSliceGame {
         
         // For combos (3+), show text in center of screen
         if (count >= 3) {
+            // Limit score popups for performance
+            if (this.state.scorePopups.length >= MAX_SCORE_POPUPS) {
+                this.state.scorePopups.shift();
+            }
             this.state.scorePopups.push({
                 x: this.state.width / 2,
                 y: this.state.height / 2,
@@ -842,9 +855,10 @@ class FruitSliceGame {
         const uncutFruits = this.state.fruits.filter(f => f.active && !f.sliced && !f.isBomb);
         const livesLost = uncutFruits.length;
         
-        // Create massive explosion particles from bomb center
-        if (bomb) {
-            for (let i = 0; i < 50; i++) {
+        // Create massive explosion particles from bomb center (reduced for mobile)
+        if (bomb && this.state.particles.length < MAX_PARTICLES) {
+            const particleCount = Math.min(25, MAX_PARTICLES - this.state.particles.length);
+            for (let i = 0; i < particleCount; i++) {
                 const angle = Math.random() * Math.PI * 2;
                 const speed = 5 + Math.random() * 10;
                 
@@ -865,10 +879,12 @@ class FruitSliceGame {
             fruit.active = false;
             fruit.sliced = true;
             
-            // Create explosion particles for each destroyed fruit
-            for (let i = 0; i < 15; i++) {
-                const angle = Math.random() * Math.PI * 2;
-                const speed = 3 + Math.random() * 5;
+            // Create explosion particles for each destroyed fruit (reduced for mobile)
+            if (this.state.particles.length < MAX_PARTICLES) {
+                const particleCount = Math.min(8, MAX_PARTICLES - this.state.particles.length);
+                for (let i = 0; i < particleCount; i++) {
+                    const angle = Math.random() * Math.PI * 2;
+                    const speed = 3 + Math.random() * 5;
                 
                 this.state.particles.push({
                     x: fruit.x,
@@ -1097,9 +1113,12 @@ class FruitSliceGame {
     }
     
     createSliceParticles(fruit: Fruit) {
-        for (let i = 0; i < 8; i++) {
-            const angle = Math.random() * Math.PI * 2;
-            const speed = 2 + Math.random() * 3;
+        // Create juice particles (reduced for mobile)
+        if (this.state.particles.length < MAX_PARTICLES) {
+            const particleCount = Math.min(10, MAX_PARTICLES - this.state.particles.length);
+            for (let i = 0; i < particleCount; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = 2 + Math.random() * 3;
             
             this.state.particles.push({
                 x: fruit.x,
@@ -1310,7 +1329,7 @@ class FruitSliceGame {
             }
         }
         
-        // Update particles
+        // Update particles (more aggressive cleanup for performance)
         for (let i = this.state.particles.length - 1; i >= 0; i--) {
             const p = this.state.particles[i];
             p.x += p.vx * dt;
@@ -1318,7 +1337,8 @@ class FruitSliceGame {
             p.vy += GRAVITY * 0.3 * dt;
             p.life -= 0.02 * dt;
             
-            if (p.life <= 0) {
+            // Remove particles that are off-screen or dead
+            if (p.life <= 0 || p.y > this.state.height || p.x < 0 || p.x > this.state.width) {
                 this.state.particles.splice(i, 1);
             }
         }
@@ -1362,14 +1382,24 @@ class FruitSliceGame {
             );
         }
         
-        // Update trails
+        // Update trails (fade out and cleanup)
         for (let i = this.state.trails.length - 1; i >= 0; i--) {
             const trail = this.state.trails[i];
             trail.opacity -= TRAIL_FADE_SPEED * dt;
             
+            // Remove old points from trail for performance
+            if (trail.points.length > MAX_TRAIL_POINTS) {
+                trail.points = trail.points.slice(-MAX_TRAIL_POINTS);
+            }
+            
             if (trail.opacity <= 0) {
                 this.state.trails.splice(i, 1);
             }
+        }
+        
+        // Limit score popups to prevent memory leaks
+        if (this.state.scorePopups.length > MAX_SCORE_POPUPS) {
+            this.state.scorePopups = this.state.scorePopups.slice(-MAX_SCORE_POPUPS);
         }
         
         // Update screen shake
@@ -1414,20 +1444,17 @@ class FruitSliceGame {
             ctx.fill();
         }
         
-        // Draw fireworks
+        // Draw fireworks (skip shadows on mobile for performance)
         for (const fw of this.state.fireworks) {
             for (const p of fw.particles) {
                 ctx.globalAlpha = p.life;
                 ctx.fillStyle = p.color;
-                ctx.shadowBlur = 10;
-                ctx.shadowColor = p.color;
+                // Skip shadows for better mobile performance
                 ctx.beginPath();
                 ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
                 ctx.fill();
             }
         }
-        
-        ctx.shadowBlur = 0;
         ctx.globalAlpha = 1;
         
         // Draw fruits (only unsliced ones)
@@ -1675,34 +1702,26 @@ class FruitSliceGame {
             }
         }
     }
-    
     drawTrail(points: Point[], opacity: number) {
         if (points.length < 2) return;
         
         const ctx = this.state.ctx;
+        ctx.globalAlpha = opacity;
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+        ctx.lineWidth = 3;
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
         
-        // Draw trail segments with varying thickness (comet effect)
-        // Newest point (end) is thickest, oldest point (start) is thinnest
-        for (let i = 0; i < points.length - 1; i++) {
-            const progress = i / (points.length - 1); // 0 to 1
-            const thickness = 1 + progress * 7; // 1px at start, 8px at end
-            const segmentOpacity = opacity * (0.3 + progress * 0.7); // Fade older segments
-            
-            ctx.globalAlpha = segmentOpacity;
-            ctx.strokeStyle = '#00d4ff';
-            ctx.lineWidth = thickness;
-            ctx.shadowBlur = 10 + progress * 10; // More glow at thick end
-            ctx.shadowColor = '#00d4ff';
-            
-            ctx.beginPath();
-            ctx.moveTo(points[i].x, points[i].y);
-            ctx.lineTo(points[i + 1].x, points[i + 1].y);
-            ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(points[0].x, points[0].y);
+        
+        // Draw every other point on low performance devices
+        const step = this.state.isLowPerformance ? 2 : 1;
+        for (let i = step; i < points.length; i += step) {
+            ctx.lineTo(points[i].x, points[i].y);
         }
         
-        ctx.shadowBlur = 0;
+        ctx.stroke();
         ctx.globalAlpha = 1;
     }
     
@@ -1721,10 +1740,27 @@ class FruitSliceGame {
         if (!this.state.isPlaying) return;
         
         const deltaTime = currentTime - this.state.lastFrameTime;
+        
+        // Detect low performance (FPS < 30)
+        if (deltaTime > 33 && !this.state.isLowPerformance) {
+            this.state.frameSkipCounter++;
+            if (this.state.frameSkipCounter > 10) {
+                console.log('Low performance detected, enabling optimizations');
+                this.state.isLowPerformance = true;
+            }
+        } else if (deltaTime < 20 && this.state.isLowPerformance) {
+            this.state.frameSkipCounter = 0;
+        }
+        
         this.state.lastFrameTime = currentTime;
         
+        // Always update physics
         this.updatePhysics(deltaTime);
-        this.render();
+        
+        // Skip rendering every other frame on low performance devices
+        if (!this.state.isLowPerformance || this.state.frameSkipCounter % 2 === 0) {
+            this.render();
+        }
         
         requestAnimationFrame((time) => this.gameLoop(time));
     }
