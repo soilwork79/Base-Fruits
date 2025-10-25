@@ -449,7 +449,8 @@ class FruitSliceGame {
                 if (nextWave === 11 || nextWave === 21 || nextWave === 31 || nextWave === 41) {
                     // Show chapter name and launch fruits 3 seconds after it disappears
                     this.showChapterName(nextWave, () => {
-                        this.state.isPlaying = true; // Resume game when fruits launch
+                        console.log(`Chapter ${nextWave}: Setting isPlaying = true and launching fruits`);
+                        this.state.isPlaying = true; // Resume game BEFORE launching fruits
                         this.launchFruits();
                     });
                 } else {
@@ -568,6 +569,7 @@ class FruitSliceGame {
                 
                 setTimeout(() => {
                     if (!this.state.isPlaying) {
+                        console.log(`Fruit launch cancelled: isPlaying = false at wave ${wave}`);
                         return;
                     }
                     
@@ -597,10 +599,13 @@ class FruitSliceGame {
                     
                     launchedCount++;
                     if (launchedCount === fruitCount) {
-                        // All fruits have been launched, wait a bit then mark as complete
+                        // All fruits have been launched, wait for bombs to spawn too
+                        // Bombs can spawn up to 350ms after fruits (or 1000ms in waves 41-50)
+                        const bombDelay = (wave >= 41 && wave <= 50) ? 1500 : 600;
                         setTimeout(() => {
                             this.state.allFruitsLaunched = true;
-                        }, 100);
+                            console.log(`Wave ${wave}: All fruits and bombs launched`);
+                        }, bombDelay);
                     }
                 }, fruitBaseDelay + launchDelay);
             }
@@ -615,7 +620,10 @@ class FruitSliceGame {
         const launchBombAt = (delayMs: number) => {
             const delay = Math.max(0, delayMs);
             setTimeout(() => {
-                if (!this.state.isPlaying) return;
+                if (!this.state.isPlaying) {
+                    console.log(`Bomb launch cancelled: isPlaying = false at wave ${wave}`);
+                    return;
+                }
                 
                 // Random launch position
                 const x = this.state.width * (0.3 + Math.random() * 0.4);
