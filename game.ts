@@ -654,7 +654,9 @@ class FruitSliceGame {
                     sliced: false,
                     active: true,
                     isBomb: true,
-                    fuseSound: bombFuseSound
+                    fuseSound: bombFuseSound,
+                    rotation: Math.random() * Math.PI * 2,
+                    rotationSpeed: (Math.random() - 0.5) * 0.1
                 });
             }, delay);
         };
