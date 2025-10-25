@@ -444,20 +444,17 @@ class FruitSliceGame {
                 this.state.level++;
                 this.updateUI();
                 
-                // Resume game immediately after milestone
-                this.state.isPlaying = true;
-                
-                // Restart game loop if it was stopped
-                requestAnimationFrame((time) => this.gameLoop(time));
-                
                 // Check if this is a chapter start wave
                 const nextWave = this.state.level;
                 if (nextWave === 11 || nextWave === 21 || nextWave === 31 || nextWave === 41) {
                     // Show chapter name and launch fruits 3 seconds after it disappears
                     this.showChapterName(nextWave, () => {
+                        this.state.isPlaying = true; // Resume game when fruits launch
                         this.launchFruits();
                     });
                 } else {
+                    // Resume game and launch fruits immediately for non-chapter waves
+                    this.state.isPlaying = true;
                     this.launchFruits();
                 }
             }
