@@ -313,9 +313,9 @@ class FruitSliceGame {
         this.state.isDrawing = true;
         this.state.currentTrail = [{ x, y, time: Date.now() }];
         this.state.slicedThisSwipe = [];
+        this.state.swooshPlayed = false; // ✅ Swoosh çalındı mı flag'i
         
         this.createTrail();
-        this.playSound(this.state.swooshSound);
     }
     
     handleInputMove(x, y) {
@@ -332,6 +332,12 @@ class FruitSliceGame {
         if (distance > 5) { // Sadece 5 piksel üzeri hareketleri kaydet
             trail.push({ x, y, time: Date.now() });
             
+            // ✅ YENİ: Belli bir uzunluğa gelince swoosh sesi çal
+            if (!this.state.swooshPlayed && trail.length >= 3) {
+                this.playSound(this.state.swooshSound);
+                this.state.swooshPlayed = true;
+            }
+            
             // Trail point limitini kontrol et
             if (trail.length > MAX_TRAIL_POINTS) {
                 trail.shift();
@@ -345,6 +351,7 @@ class FruitSliceGame {
         this.state.isDrawing = false;
         this.state.currentTrail = [];
         this.state.slicedThisSwipe = [];
+        this.state.swooshPlayed = false; // ✅ Reset flag
     }
     
     createTrail() {
