@@ -61,6 +61,7 @@ class GameState {
         // Level management
         this.allFruitsLaunched = false;
         this.showingMilestone = false;
+        this.currentMilestoneMessage = ''; // ✅ Gösterilecek mesaj
         
         // Animation
         this.lastFrameTime = 0;
@@ -805,26 +806,49 @@ class FruitSliceGame {
     showMilestone() {
         this.state.showingMilestone = true;
         
-        const messages = {
-            5: "Nice Start!",
-            10: "Getting Good!",
-            15: "Impressive!",
-            20: "Amazing!",
-            25: "Incredible!",
-            30: "Legendary!",
-            35: "Unstoppable!",
-            40: "Master Slicer!",
-            45: "Almost There!",
-            50: "Final Level!"
+        // ✅ Her 10 levelda bir bölüm başlıkları (1-11-21-31-41)
+        const chapterMessages = {
+            1: "Chapter 1:\nFresh Fruits",
+            11: "Chapter 2:\nJuicy Journey",
+            21: "Chapter 3:\nFruit Frenzy",
+            31: "Chapter 4:\nSlice Master",
+            41: "Chapter 5:\nLegendary Harvest"
         };
         
-        const message = messages[this.state.level] || "Keep Going!";
+        // Eğer bölüm başlığı varsa onu göster, yoksa normal mesajı göster
+        const message = chapterMessages[this.state.level];
         
-        // Create milestone display
-        setTimeout(() => {
-            this.state.showingMilestone = false;
-            this.startLevel();
-        }, 2000);
+        if (message) {
+            // Bölüm başlıkları için daha uzun süre göster
+            this.state.currentMilestoneMessage = message;
+            setTimeout(() => {
+                this.state.showingMilestone = false;
+                // ✅ Başlık kaybolduktan 3 saniye sonra meyveler gelsin
+                setTimeout(() => {
+                    this.startLevel();
+                }, 3000);
+            }, 3000); // Başlığı 3 saniye göster
+        } else {
+            // Normal milestone mesajları (5-15-25 vb.)
+            const normalMessages = {
+                5: "Nice Start!",
+                10: "Getting Good!",
+                15: "Impressive!",
+                20: "Amazing!",
+                25: "Incredible!",
+                30: "Legendary!",
+                35: "Unstoppable!",
+                40: "Master Slicer!",
+                45: "Almost There!",
+                50: "Final Level!"
+            };
+            
+            this.state.currentMilestoneMessage = normalMessages[this.state.level] || "Keep Going!";
+            setTimeout(() => {
+                this.state.showingMilestone = false;
+                this.startLevel();
+            }, 2000);
+        }
     }
     
     processCombo() {
@@ -1053,16 +1077,37 @@ class FruitSliceGame {
     
     drawMilestoneMessage(ctx) {
         ctx.save();
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
         ctx.fillRect(0, 0, this.state.width, this.state.height);
         
         ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 48px Arial';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         
-        const message = `Level ${this.state.level}!`;
-        ctx.fillText(message, this.state.width / 2, this.state.height / 2);
+        const message = this.state.currentMilestoneMessage || `Level ${this.state.level}!`;
+        
+        // ✅ Responsive font size - mobilde küçült
+        const fontSize = Math.min(48, this.state.width / 10);
+        ctx.font = `bold ${fontSize}px Arial`;
+        
+        // ✅ Metni satırlara böl (\n karakterine göre)
+        const lines = message.split('\n');
+        const lineHeight = fontSize * 1.4;
+        const totalHeight = lines.length * lineHeight;
+        const startY = (this.state.height / 2) - (totalHeight / 2) + (lineHeight / 2);
+        
+        // ✅ Her satırı ayrı çiz
+        lines.forEach((line, index) => {
+            const y = startY + (index * lineHeight);
+            
+            // Gölge efekti
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+            ctx.shadowBlur = 10;
+            ctx.shadowOffsetX = 3;
+            ctx.shadowOffsetY = 3;
+            
+            ctx.fillText(line, this.state.width / 2, y);
+        });
         
         ctx.restore();
     }
