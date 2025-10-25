@@ -305,17 +305,20 @@ class FruitSliceGame {
         gameContainer.style.backgroundImage = `url('images/${backgroundImage}')`;
     }
 
-    showChapterName(wave: number) {
+    showChapterName(wave: number, onComplete?: () => void) {
         const chapterNames: { [key: number]: string } = {
             1: "Tropical Island",
-            11: "Valley of Purple Rocks", 
+            11: "Valley of\nPurple Rocks", 
             21: "Silent Sword Dojo",
             31: "Wild Forest",
             41: "Desert Night"
         };
         
         const chapterName = chapterNames[wave];
-        if (!chapterName) return;
+        if (!chapterName) {
+            if (onComplete) onComplete();
+            return;
+        }
         
         console.log(`Showing chapter: ${chapterName} for wave ${wave}`);
         
@@ -328,7 +331,7 @@ class FruitSliceGame {
         
         // Force h1 styles
         chapterTextElement.style.cssText = `
-            font-size: 2.5rem !important;
+            font-size: 2rem !important;
             color: #ffffff !important;
             text-align: center !important;
             text-shadow: 
@@ -341,7 +344,7 @@ class FruitSliceGame {
             letter-spacing: 3px !important;
             margin: 0 !important;
             padding: 20px !important;
-            white-space: nowrap !important;
+            white-space: pre-line !important;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
         `;
         
@@ -383,6 +386,13 @@ class FruitSliceGame {
             setTimeout(() => {
                 chapterElement.classList.add('hidden');
                 chapterElement.style.display = 'none';
+                
+                // Wait 3 more seconds after chapter disappears, then call callback
+                if (onComplete) {
+                    setTimeout(() => {
+                        onComplete();
+                    }, 3000);
+                }
             }, 1000);
         }, 3000);
     }
@@ -513,12 +523,10 @@ class FruitSliceGame {
         
         // Change background and show chapter name for wave 1
         this.changeBackground(1);
-        this.showChapterName(1);
-        
-        // Launch first level after chapter name appears
-        setTimeout(() => {
+        this.showChapterName(1, () => {
+            // Launch fruits 3 seconds after chapter disappears
             this.launchFruits();
-        }, 4000); // Wait for chapter name to finish (4s total)
+        }); // Wait for chapter name to finish (4s total)
         
         // Start game loop
         this.gameLoop(performance.now());
@@ -944,11 +952,10 @@ class FruitSliceGame {
                     const nextWave = this.state.level;
                     if (nextWave === 11 || nextWave === 21 || nextWave === 31 || nextWave === 41) {
                         // Show chapter name and immediately launch fruits
-                        this.showChapterName(nextWave);
-                        this.state.isPlaying = true; // Resume game
-                        this.launchFruits();
+                        this.showChapterName(nextWave, () => {
+                            this.launchFruits();
+                        });
                     } else {
-                        this.state.isPlaying = true; // Resume game
                         this.launchFruits();
                     }
                 } else {
@@ -1261,11 +1268,10 @@ class FruitSliceGame {
                 const nextWave = this.state.level;
                 if (nextWave === 11 || nextWave === 21 || nextWave === 31 || nextWave === 41) {
                     // Show chapter name and immediately launch fruits
-                    this.showChapterName(nextWave);
-                    this.state.isPlaying = true; // Resume game
-                    this.launchFruits();
+                    this.showChapterName(nextWave, () => {
+                        this.launchFruits();
+                    });
                 } else {
-                    this.state.isPlaying = true; // Resume game
                     this.launchFruits();
                 }
             } else {
