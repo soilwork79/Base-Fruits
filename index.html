@@ -8,96 +8,31 @@
     <meta name="description" content="Farcaster Fruit Slice - Web3 Mini Game">
     <title>Base Fruits 🍉</title>
     
-    <!-- ⚡ CRITICAL: SDK FIRST -->
+    <!-- ⚡ CRITICAL: Call ready() as EARLY as possible -->
     <script type="module">
+        // Method 1: Try immediate ready() call
         (async function() {
             try {
-                console.log('🔄 Loading Farcaster SDK...');
-                
-                // Import SDK
+                // Import SDK immediately
                 const { sdk } = await import('https://esm.sh/@farcaster/frame-sdk@0.1.0');
                 
-                console.log('✅ SDK imported');
-                window.sdk = sdk;
-                
-                // Call ready() immediately
+                // Call ready() BEFORE anything else
                 await sdk.actions.ready();
-                console.log('✅ Ready called');
+                console.log('✅ Splash screen removed!');
                 
-                // Get context - try both sync and async
-                let context;
-                try {
-                    // Try sync first
-                    if (sdk.context && typeof sdk.context === 'object' && sdk.context.user) {
-                        context = sdk.context;
-                        console.log('✅ Got context (sync)');
-                    } else {
-                        // Try async
-                        context = await sdk.context;
-                        console.log('✅ Got context (async)');
-                    }
-                } catch (e) {
-                    console.error('Context error:', e);
-                }
-                
-                // Store context
-                window.farcasterContext = context;
+                // Store SDK globally
+                window.sdk = sdk;
                 window.farcasterReady = true;
                 
+                // Get context
+                const context = await sdk.context;
+                window.farcasterContext = context;
                 console.log('📱 Context:', context);
-                console.log('👤 User:', context?.user);
                 
-                // Add visual indicator on page
-                setTimeout(() => {
-                    const indicator = document.createElement('div');
-                    indicator.style.cssText = `
-                        position: fixed;
-                        top: 10px;
-                        right: 10px;
-                        background: rgba(0,255,0,0.8);
-                        color: white;
-                        padding: 10px;
-                        border-radius: 5px;
-                        z-index: 9999;
-                        font-size: 12px;
-                        max-width: 200px;
-                    `;
-                    indicator.innerHTML = `
-                        <strong>Farcaster SDK:</strong><br>
-                        User: ${context?.user?.username || 'N/A'}<br>
-                        FID: ${context?.user?.fid || 'N/A'}
-                    `;
-                    document.body.appendChild(indicator);
-                    
-                    // Remove after 5 seconds
-                    setTimeout(() => indicator.remove(), 5000);
-                }, 1000);
-                
-            } catch (error) {
-                console.error('❌ SDK error:', error);
+            } catch (e) {
+                console.log('ℹ️ Not in Farcaster or SDK error:', e);
                 window.sdk = null;
-                window.farcasterContext = null;
                 window.farcasterReady = false;
-                
-                // Show error on page
-                setTimeout(() => {
-                    const indicator = document.createElement('div');
-                    indicator.style.cssText = `
-                        position: fixed;
-                        top: 10px;
-                        right: 10px;
-                        background: rgba(255,0,0,0.8);
-                        color: white;
-                        padding: 10px;
-                        border-radius: 5px;
-                        z-index: 9999;
-                        font-size: 12px;
-                    `;
-                    indicator.textContent = 'SDK Error: ' + error.message;
-                    document.body.appendChild(indicator);
-                    
-                    setTimeout(() => indicator.remove(), 5000);
-                }, 1000);
             }
         })();
     </script>
@@ -121,6 +56,11 @@
     
     <!-- Ethers.js -->
     <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+    <script>
+        if (window.ethers) {
+            console.log('✅ Ethers.js loaded');
+        }
+    </script>
 </head>
 <body>
     <div id="game-container">
@@ -208,6 +148,6 @@
     </div>
     
     <!-- Game Script -->
-    <script src="game.js?v=7"></script>
+    <script src="game.js?v=6"></script>
 </body>
 </html>
