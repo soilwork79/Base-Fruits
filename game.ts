@@ -453,9 +453,10 @@ class FruitSliceGame {
                 // Check if this is a chapter start wave
                 const nextWave = this.state.level;
                 if (nextWave === 11 || nextWave === 21 || nextWave === 31 || nextWave === 41) {
-                    // Show chapter name and immediately launch fruits
-                    this.showChapterName(nextWave);
-                    this.launchFruits();
+                    // Show chapter name and launch fruits 3 seconds after it disappears
+                    this.showChapterName(nextWave, () => {
+                        this.launchFruits();
+                    });
                 } else {
                     this.launchFruits();
                 }
