@@ -8,35 +8,6 @@
     <meta name="description" content="Farcaster Fruit Slice - Web3 Mini Game">
     <title>Base Fruits 🍉</title>
     
-    <!-- Immediate ethereum conflict prevention - must be first script -->
-    <script>
-        (function() {
-            // Immediately prevent ethereum property redefinition
-            const originalDefineProperty = Object.defineProperty;
-            Object.defineProperty = function(obj, prop, descriptor) {
-                if (obj === window && prop === 'ethereum') {
-                    console.warn('⚠️ Blocked ethereum property redefinition attempt');
-                    // Return the existing ethereum or the object itself
-                    return window.ethereum || obj;
-                }
-                return originalDefineProperty.call(this, obj, prop, descriptor);
-            };
-            
-            // Store for later restoration
-            window.__originalDefineProperty = originalDefineProperty;
-            
-            // Also freeze ethereum if it exists
-            if (window.ethereum) {
-                try {
-                    Object.freeze(window.ethereum);
-                    console.log('✅ Ethereum object frozen to prevent modifications');
-                } catch (e) {
-                    console.warn('Could not freeze ethereum object:', e.message);
-                }
-            }
-        })();
-    </script>
-    
     <!-- Open Graph Meta Tags -->
     <meta property="og:title" content="Base Fruits 🍉" />
     <meta property="og:description" content="Slice fruits, avoid bombs, and compete on the leaderboard! Web3 gaming on Base network." />
@@ -54,31 +25,57 @@
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="styles.css?v=8">
     
-    <!-- Load Ethers.js with multiple fallbacks -->
-    <script src="https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+    <!-- ⚠️ CRITICAL: Load scripts in correct order -->
+    
+    <!-- 1. Ethers.js FIRST (v5.7.2) -->
+    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
     <script>
-        // Verify ethers loaded and set flag
+        // Verify ethers loaded
         if (window.ethers && window.ethers.providers) {
-            console.log('✅ Ethers.js loaded:', window.ethers.version);
+            console.log('✅ Ethers.js v' + window.ethers.version + ' loaded');
             window.ethersReady = true;
         } else {
-            console.error('❌ Ethers.js not loaded properly');
+            console.error('❌ Ethers.js failed to load!');
             window.ethersReady = false;
-            
-            // Try alternative CDN
-            const script = document.createElement('script');
-            script.src = 'https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js';
-            script.onload = function() {
-                if (window.ethers && window.ethers.providers) {
-                    console.log('✅ Ethers.js loaded from backup CDN');
-                    window.ethersReady = true;
-                } else {
-                    console.error('❌ Ethers.js still not available');
-                    window.ethersReady = false;
-                }
-            };
-            document.head.appendChild(script);
         }
+    </script>
+    
+    <!-- 2. Farcaster SDK SECOND -->
+    <script src="https://cdn.jsdelivr.net/npm/@farcaster/frame-sdk@0.0.9/dist/index.js"></script>
+    
+    <!-- 3. Initialize SDK BEFORE game.js -->
+    <script>
+        // Initialize Farcaster SDK globally as window.sdk (for game.js compatibility)
+        (async function() {
+            try {
+                console.log('🔄 Initializing Farcaster SDK...');
+                
+                // Check if SDK is available
+                if (typeof window.farcaster !== 'undefined') {
+                    // Create SDK instance
+                    window.sdk = window.farcaster.createFrameSDK();
+                    console.log('✅ Farcaster SDK initialized:', window.sdk);
+                    
+                    // Call ready() to signal app is ready
+                    try {
+                        const context = await window.sdk.actions.ready();
+                        console.log('✅ SDK ready() called');
+                        console.log('📱 Context:', context);
+                        
+                        // Store context for easy access
+                        window.farcasterContext = context;
+                    } catch (readyError) {
+                        console.warn('⚠️ SDK ready() failed:', readyError);
+                    }
+                } else {
+                    console.log('ℹ️ Farcaster SDK not available (browser mode)');
+                    window.sdk = null;
+                }
+            } catch (error) {
+                console.error('❌ SDK initialization error:', error);
+                window.sdk = null;
+            }
+        })();
     </script>
 </head>
 <body>
@@ -166,42 +163,7 @@
         </div>
     </div>
     
-    <script src="game.js?v=2"></script>
-    
-    <!-- ✅ FIXED: Farcaster Mini App SDK with proper ready() call -->
-    <script type="module">
-        // Load Farcaster SDK
-        async function initializeFarcasterSDK() {
-            try {
-                console.log('🔄 Initializing Farcaster Mini App SDK...');
-                
-                // Import SDK from CDN
-                const { sdk } = await import('https://esm.sh/@farcaster/frame-sdk');
-                
-                console.log('✅ SDK imported:', sdk);
-                
-                // Store SDK globally
-                window.farcasterSDK = sdk;
-                
-                // ✅ CRITICAL: Call ready() to hide splash screen
-                const context = await sdk.actions.ready();
-                console.log('✅ SDK ready() called successfully!');
-                console.log('📱 Farcaster context:', context);
-                
-                // Store context globally
-                window.farcasterContext = context;
-                
-            } catch (error) {
-                console.warn('⚠️ Farcaster SDK initialization failed:', error);
-                console.log('ℹ️ App will work without Farcaster features');
-                
-                // For local testing: simulate ready
-                console.log('🧪 Local testing mode - no splash screen');
-            }
-        }
-        
-        // Initialize immediately
-        initializeFarcasterSDK();
-    </script>
+    <!-- 4. Game script LAST -->
+    <script src="game_fixed.js?v=3"></script>
 </body>
 </html>
