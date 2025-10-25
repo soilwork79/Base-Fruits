@@ -269,7 +269,12 @@ class FruitSliceGame {
         
         // ✅ PERFORMANCE: Passive event listeners for better scroll performance
         this.state.canvas.addEventListener('mousedown', (e) => this.handleInputStart(e.clientX, e.clientY), { passive: true });
-        this.state.canvas.addEventListener('mousemove', (e) => this.handleInputMove(e.clientX, e.clientY), { passive: true });
+        this.state.canvas.addEventListener('mousemove', (e) => {
+            if (this.state.isDrawing) {
+                e.preventDefault();
+            }
+            this.handleInputMove(e.clientX, e.clientY);
+        }, { passive: false });
         this.state.canvas.addEventListener('mouseup', () => this.handleInputEnd(), { passive: true });
         
         this.state.canvas.addEventListener('touchstart', (e) => {
@@ -314,6 +319,17 @@ class FruitSliceGame {
         this.state.currentTrail = [{ x, y, time: Date.now() }];
         this.state.slicedThisSwipe = [];
         this.state.swooshPlayed = false; // ✅ Swoosh çalındı mı flag'i
+        
+        // ✅ Ses dosyasını hazırla (tarayıcı kısıtlaması için)
+        if (this.state.swooshSound) {
+            this.state.swooshSound.currentTime = 0;
+            this.state.swooshSound.volume = 0;
+            this.state.swooshSound.play().then(() => {
+                this.state.swooshSound.pause();
+                this.state.swooshSound.currentTime = 0;
+                this.state.swooshSound.volume = 0.3;
+            }).catch(() => {});
+        }
         
         this.createTrail();
     }
