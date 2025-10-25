@@ -1585,26 +1585,50 @@ async function saveScore() {
         let signer = null;
         let userInfo = { username: '', fid: 0 };
 
+        // DEBUG INFO
+        let debugInfo = '';
+
         // ============================================
-        // 1) FARCASTER SDK CHECK - FIXED
+        // 1) FARCASTER SDK CHECK - WITH DEBUG
         // ============================================
+        debugInfo += '🔍 SDK Check:\n';
+        debugInfo += `- window.sdk: ${typeof window.sdk}\n`;
+        debugInfo += `- window.farcasterContext: ${typeof window.farcasterContext}\n`;
+        debugInfo += `- window.ethereum: ${typeof window.ethereum}\n\n`;
+
         if (typeof window.sdk !== 'undefined' && window.sdk) {
+            debugInfo += '✅ SDK Found!\n';
             console.log('✅ Farcaster SDK detected');
+            
             try {
                 // Try to get context from multiple sources
-                let context = window.farcasterContext; // Stored in HTML during initialization
+                let context = window.farcasterContext;
                 
-                // If not available, try to get it from SDK
                 if (!context) {
+                    debugInfo += 'Getting context from SDK...\n';
                     console.log('Attempting to get context from SDK...');
-                    // New SDK API - context is a property, not a promise
-                    if (window.sdk.context) {
+                    
+                    // Try synchronous first
+                    if (window.sdk.context && typeof window.sdk.context === 'object') {
                         context = window.sdk.context;
+                        debugInfo += '✅ Got context (sync)\n';
                     } else {
-                        // Fallback: try as async
-                        context = await window.sdk.context;
+                        // Try async
+                        try {
+                            context = await window.sdk.context;
+                            debugInfo += '✅ Got context (async)\n';
+                        } catch (e) {
+                            debugInfo += `❌ Context error: ${e.message}\n`;
+                        }
                     }
+                } else {
+                    debugInfo += '✅ Using stored context\n';
                 }
+                
+                debugInfo += `Context exists: ${context !== undefined}\n`;
+                debugInfo += `Has user: ${context?.user !== undefined}\n`;
+                debugInfo += `FID: ${context?.user?.fid || 'none'}\n`;
+                debugInfo += `Username: ${context?.user?.username || 'none'}\n\n`;
                 
                 console.log('Farcaster context:', context);
                 
@@ -1613,22 +1637,36 @@ async function saveScore() {
                         username: context.user.username,
                         fid: context.user.fid
                     };
+                    debugInfo += `✅ User found: ${userInfo.username} (${userInfo.fid})\n`;
                     console.log('Farcaster user:', userInfo);
 
-                    // Check for Farcaster wallet provider
                     if (window.ethereum) {
                         rawProvider = window.ethereum;
+                        debugInfo += '✅ Ethereum wallet found\n';
                         console.log('Using Farcaster wallet');
+                    } else {
+                        debugInfo += '⚠️ No ethereum wallet\n';
                     }
                 } else {
+                    debugInfo += '❌ Context incomplete\n';
+                    debugInfo += `Context: ${JSON.stringify(context)}\n`;
                     console.log('⚠️ Farcaster context incomplete:', context);
                 }
             } catch (sdkError) {
+                debugInfo += `❌ SDK Error: ${sdkError.message}\n`;
                 console.error('Farcaster SDK error:', sdkError);
             }
         } else {
+            debugInfo += '❌ SDK Not Found!\n';
             console.log('⚠️ Farcaster SDK not detected');
         }
+
+        // Show debug info
+        alert(debugInfo + '\n(Check after this)');
+        
+        // Continue with rest of code
+        if (!rawProvider && typeof window.ethereum !== 'undefined') {
+            debugInfo = ''; // Clear for next alert
 
         // ============================================
         // 2) METAMASK/WALLET FALLBACK - FIXED
