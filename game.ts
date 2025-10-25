@@ -329,13 +329,13 @@ class FruitSliceGame {
         // Force h1 styles
         chapterTextElement.style.cssText = `
             font-size: 2.5rem !important;
-            color: #ffffff !important;
+            color: #ff0000 !important;
             text-align: center !important;
             text-shadow: 
-                0 0 10px rgba(255, 255, 255, 0.9),
-                0 0 20px rgba(255, 255, 255, 0.7),
-                0 0 30px rgba(255, 255, 255, 0.5),
-                0 0 40px rgba(255, 255, 255, 0.3),
+                0 0 10px rgba(255, 0, 0, 0.9),
+                0 0 20px rgba(255, 0, 0, 0.7),
+                0 0 30px rgba(255, 0, 0, 0.5),
+                0 0 40px rgba(255, 0, 0, 0.3),
                 2px 2px 8px rgba(0, 0, 0, 0.9) !important;
             font-weight: bold !important;
             letter-spacing: 3px !important;
