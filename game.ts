@@ -20,6 +20,8 @@ interface Fruit {
     sliceAngle?: number;
     isBomb?: boolean;
     fuseSound?: HTMLAudioElement;
+    rotation: number;
+    rotationSpeed: number;
 }
 
 interface FruitHalf {
@@ -387,11 +389,11 @@ class FruitSliceGame {
                 chapterElement.classList.add('hidden');
                 chapterElement.style.display = 'none';
                 
-                // Wait 3 more seconds after chapter disappears, then call callback
+                // Wait 2 seconds after chapter disappears, then call callback
                 if (onComplete) {
                     setTimeout(() => {
                         onComplete();
-                    }, 3000);
+                    }, 2000);
                 }
             }, 1000);
         }, 3000);
@@ -592,7 +594,9 @@ class FruitSliceGame {
                         halfImagePath: fruitType.halfImagePath,
                         sliced: false,
                         active: true,
-                        isBomb: false
+                        isBomb: false,
+                        rotation: Math.random() * Math.PI * 2,
+                        rotationSpeed: (Math.random() - 0.5) * 0.1
                     });
                     
                     launchedCount++;
@@ -1207,6 +1211,7 @@ class FruitSliceGame {
             fruit.x += fruit.vx * dt;
             fruit.y += fruit.vy * dt;
             fruit.vy += GRAVITY * dt;
+            fruit.rotation += fruit.rotationSpeed * dt;
             
             // Wall bouncing - left wall
             if (fruit.x - fruit.radius < 0) {
@@ -1429,12 +1434,16 @@ class FruitSliceGame {
             
             ctx.globalAlpha = 1;
             
+            ctx.save();
+            ctx.translate(fruit.x, fruit.y);
+            ctx.rotate(fruit.rotation);
+            
             if (fruit.isBomb) {
                 // Draw bomb emoji
                 ctx.font = `${fruit.radius * 2}px Arial`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                ctx.fillText('💣', fruit.x, fruit.y);
+                ctx.fillText('💣', 0, 0);
             } else {
                 // Use fruit image with custom sizes
                 const img = this.state.fruitImages.get(fruit.fruitType);
@@ -1460,9 +1469,11 @@ class FruitSliceGame {
                     }
                     
                     const imgSize = fruit.radius * sizeMultiplier;
-                    ctx.drawImage(img, fruit.x - imgSize / 2, fruit.y - imgSize / 2, imgSize, imgSize);
+                    ctx.drawImage(img, -imgSize / 2, -imgSize / 2, imgSize, imgSize);
                 }
             }
+            
+            ctx.restore();
         }
         
         // Draw fruit halves
