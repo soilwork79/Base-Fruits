@@ -45,6 +45,8 @@ class GameState {
         this.currentTrail = [];
         this.isDrawing = false;
         this.slicedThisSwipe = [];
+        this.swooshPlayed = false; // ✅ Swoosh ses flag'i
+        this.swooshShouldPlay = false; // ✅ Swoosh çalınacak mı
         
         // Combo system
         this.comboFruits = [];
@@ -318,18 +320,8 @@ class FruitSliceGame {
         this.state.isDrawing = true;
         this.state.currentTrail = [{ x, y, time: Date.now() }];
         this.state.slicedThisSwipe = [];
-        this.state.swooshPlayed = false; // ✅ Swoosh çalındı mı flag'i
-        
-        // ✅ Ses dosyasını hazırla (tarayıcı kısıtlaması için)
-        if (this.state.swooshSound) {
-            this.state.swooshSound.currentTime = 0;
-            this.state.swooshSound.volume = 0;
-            this.state.swooshSound.play().then(() => {
-                this.state.swooshSound.pause();
-                this.state.swooshSound.currentTime = 0;
-                this.state.swooshSound.volume = 0.3;
-            }).catch(() => {});
-        }
+        this.state.swooshPlayed = false;
+        this.state.swooshShouldPlay = false;
         
         this.createTrail();
     }
@@ -348,10 +340,10 @@ class FruitSliceGame {
         if (distance > 5) { // Sadece 5 piksel üzeri hareketleri kaydet
             trail.push({ x, y, time: Date.now() });
             
-            // ✅ YENİ: Belli bir uzunluğa gelince swoosh sesi çal
+            // ✅ YENİ: Belli bir uzunluğa gelince swoosh flag'ini set et
             if (!this.state.swooshPlayed && trail.length >= 3) {
-                this.playSound(this.state.swooshSound);
                 this.state.swooshPlayed = true;
+                this.state.swooshShouldPlay = true; // Sonraki frame'de çalacak
             }
             
             // Trail point limitini kontrol et
@@ -368,6 +360,7 @@ class FruitSliceGame {
         this.state.currentTrail = [];
         this.state.slicedThisSwipe = [];
         this.state.swooshPlayed = false; // ✅ Reset flag
+        this.state.swooshShouldPlay = false; // ✅ Reset flag
     }
     
     createTrail() {
@@ -984,6 +977,12 @@ class FruitSliceGame {
     }
     
     update(deltaTime) {
+        // ✅ Swoosh sesini çal (eğer flag set edilmişse)
+        if (this.state.swooshShouldPlay) {
+            this.playSound(this.state.swooshSound);
+            this.state.swooshShouldPlay = false;
+        }
+        
         // Update all game objects
         this.updateFruits(deltaTime);
         this.updateFruitHalves(deltaTime);
