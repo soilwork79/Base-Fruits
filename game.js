@@ -1570,7 +1570,7 @@ async function saveScore() {
             console.log('Frame check error:', frameError);
 // ===== LEADERBOARD INTEGRATION WITH BLOCKCHAIN =====
 const API_URL = 'https://base-fruits-farcaster-miniapp.vercel.app'; // Backend API URL
-const CONTRACT_ADDRESS = '0xa4f109Eb679970C0b30C21812C99318837A81c73'; // BURAYA CONTRACT ADRESİNİZİ YAZIN!
+const CONTRACT_ADDRESS = '0xYourContractAddress'; // BURAYA CONTRACT ADRESİNİZİ YAZIN!
 let currentScore = 0;
 
 // SAVE SCORE TO BLOCKCHAIN - FIXED VERSION
@@ -1893,7 +1893,7 @@ function shareOnFarcaster() {
 window.addEventListener('DOMContentLoaded', () => {
     console.log('DOM loaded, initializing game...');
     try {
-        const game = new FruitSliceGame();
+        window.game = new FruitSliceGame();
         console.log('Game initialized successfully:', game);
         // Leaderboard event listeners
         document.getElementById('save-leaderboard-button').addEventListener('click', saveScore);
