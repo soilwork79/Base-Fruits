@@ -1591,7 +1591,21 @@ async function saveScore() {
         if (typeof window.sdk !== 'undefined' && window.sdk) {
             console.log('✅ Farcaster SDK detected');
             try {
-                const context = await window.sdk.context;
+                // Try to get context from multiple sources
+                let context = window.farcasterContext; // Stored in HTML during initialization
+                
+                // If not available, try to get it from SDK
+                if (!context) {
+                    console.log('Attempting to get context from SDK...');
+                    // New SDK API - context is a property, not a promise
+                    if (window.sdk.context) {
+                        context = window.sdk.context;
+                    } else {
+                        // Fallback: try as async
+                        context = await window.sdk.context;
+                    }
+                }
+                
                 console.log('Farcaster context:', context);
                 
                 if (context?.user?.fid && context?.user?.username) {
@@ -1601,16 +1615,19 @@ async function saveScore() {
                     };
                     console.log('Farcaster user:', userInfo);
 
+                    // Check for Farcaster wallet provider
                     if (window.ethereum) {
                         rawProvider = window.ethereum;
                         console.log('Using Farcaster wallet');
                     }
                 } else {
-                    console.log('⚠️ Farcaster context incomplete');
+                    console.log('⚠️ Farcaster context incomplete:', context);
                 }
             } catch (sdkError) {
                 console.error('Farcaster SDK error:', sdkError);
             }
+        } else {
+            console.log('⚠️ Farcaster SDK not detected');
         }
 
         // ============================================
