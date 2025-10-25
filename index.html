@@ -54,46 +54,30 @@
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="styles.css?v=7">
     
-    <!-- Load Ethers.js safely -->
+    <!-- Load Ethers.js with multiple fallbacks -->
+    <script src="https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js"></script>
     <script>
-        // Load ethers.js immediately
-        function loadEthers() {
-            // Check if already loaded
-            if (window.ethers) {
-                console.log('✅ Ethers.js already loaded:', window.ethers.version);
-                window.ethersReady = true;
-                return;
-            }
+        // Verify ethers loaded and set flag
+        if (window.ethers && window.ethers.providers) {
+            console.log('✅ Ethers.js loaded:', window.ethers.version);
+            window.ethersReady = true;
+        } else {
+            console.error('❌ Ethers.js not loaded properly');
+            window.ethersReady = false;
             
+            // Try alternative CDN
             const script = document.createElement('script');
-            script.src = 'https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js';
-            script.async = false; // Load synchronously
-            
+            script.src = 'https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js';
             script.onload = function() {
-                if (window.ethers && window.ethers.providers && window.ethers.providers.Web3Provider) {
-                    console.log('✅ Ethers.js loaded successfully:', window.ethers.version);
+                if (window.ethers && window.ethers.providers) {
+                    console.log('✅ Ethers.js loaded from backup CDN');
                     window.ethersReady = true;
                 } else {
-                    console.error('❌ Ethers.js loaded but incomplete');
+                    console.error('❌ Ethers.js still not available');
                     window.ethersReady = false;
                 }
             };
-            
-            script.onerror = function() {
-                console.error('❌ Ethers.js failed to load');
-                window.ethersReady = false;
-                // Don't create mock objects - let the app handle it
-            };
-            
             document.head.appendChild(script);
-        }
-        
-        // Load immediately
-        loadEthers();
-        
-        // Also try loading after DOM ready as backup
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', loadEthers);
         }
     </script>
 </head>

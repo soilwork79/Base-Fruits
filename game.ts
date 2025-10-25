@@ -1409,7 +1409,7 @@ class FruitSliceGame {
         }
     }
     
-    render() {
+    render(): void {
         const ctx = this.state.ctx;
         
         // Apply screen shake
