@@ -20,11 +20,10 @@ const FRUIT_TYPES = [
 const SCORE_TABLE = [0, 10, 30, 135, 200, 375, 675, 1200];
 
 // ✅ PERFORMANCE: Daha sıkı limitler
-const MAX_PARTICLES = 30; // 50'den 30'a
-const MAX_FRUIT_HALVES = 10; // 20'den 10'a
-const MAX_TRAILS = 3; // 5'ten 3'e
-const MAX_SCORE_POPUPS = 5; // Yeni limit
-const MAX_FIREWORKS = 3; // Yeni limit
+const MAX_PARTICLES = 20; // 30'dan 20'ye düşürüldü
+const MAX_FRUIT_HALVES = 8; // 10'dan 8'e düşürüldü
+const MAX_TRAILS = 2; // 3'ten 2'ye düşürüldü
+const MAX_SCORE_POPUPS = 3; // 5'ten 3'e düşürüldü
 
 // ===== GAME STATE =====
 class GameState {
@@ -41,7 +40,6 @@ class GameState {
         this.trails = [];
         this.particles = [];
         this.scorePopups = [];
-        this.fireworks = [];
         
         // Input
         this.currentTrail = [];
@@ -235,14 +233,6 @@ class GameState {
         // Limit score popups
         if (this.scorePopups.length > MAX_SCORE_POPUPS) {
             this.scorePopups = this.scorePopups.slice(-MAX_SCORE_POPUPS);
-        }
-        
-        // Fireworks cleanup
-        this.fireworks = this.fireworks.filter(fw => fw.particles && fw.particles.length > 0);
-        
-        // Limit fireworks
-        if (this.fireworks.length > MAX_FIREWORKS) {
-            this.fireworks = this.fireworks.slice(-MAX_FIREWORKS);
         }
     }
 }
@@ -534,7 +524,7 @@ class FruitSliceGame {
             }
             
             // Create particles
-            this.createParticles(fruit.x, fruit.y, fruit.color, 8);
+            this.createParticles(fruit.x, fruit.y, fruit.color, 5); // ✅ 8'den 5'e düşürüldü
             
             // Remove fruit
             const index = this.state.fruits.indexOf(fruit);
@@ -552,7 +542,7 @@ class FruitSliceGame {
         this.state.redFlash = 1;
         
         // Create explosion particles
-        this.createParticles(bomb.x, bomb.y, '#ff0000', 15);
+        this.createParticles(bomb.x, bomb.y, '#ff0000', 10); // ✅ 15'ten 10'a düşürüldü
         
         // Remove bomb
         const index = this.state.fruits.indexOf(bomb);
@@ -926,71 +916,15 @@ class FruitSliceGame {
     }
     
     updateFireworks(deltaTime) {
-        for (let i = this.state.fireworks.length - 1; i >= 0; i--) {
-            const fw = this.state.fireworks[i];
-            
-            for (let j = fw.particles.length - 1; j >= 0; j--) {
-                const p = fw.particles[j];
-                p.x += p.vx * deltaTime;
-                p.y += p.vy * deltaTime;
-                p.vy += GRAVITY * 0.3 * deltaTime;
-                p.life -= deltaTime;
-                
-                if (p.life <= 0) {
-                    fw.particles.splice(j, 1);
-                }
-            }
-            
-            // ✅ PERFORMANCE: Boş firework'leri sil
-            if (fw.particles.length === 0) {
-                this.state.fireworks.splice(i, 1);
-            }
-        }
+        // ✅ OPTIMIZED: Fireworks devre dışı (performans için)
     }
     
     drawFireworks(ctx) {
-        this.state.fireworks.forEach(fw => {
-            fw.particles.forEach(p => {
-                if (p.life <= 0) return;
-                
-                const opacity = p.life / p.maxLife;
-                ctx.save();
-                ctx.globalAlpha = opacity;
-                ctx.fillStyle = p.color;
-                ctx.beginPath();
-                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.restore();
-            });
-        });
+        // ✅ OPTIMIZED: Fireworks devre dışı (performans için)
     }
     
     createFirework(x, y) {
-        // ✅ PERFORMANCE: Firework sayısını kontrol et
-        if (this.state.fireworks.length >= MAX_FIREWORKS) {
-            this.state.fireworks.shift();
-        }
-        
-        const colors = ['#ff6b6b', '#ffd93d', '#6bcf7f', '#6b9dff', '#ff6bff'];
-        const color = colors[Math.floor(Math.random() * colors.length)];
-        const particles = [];
-        
-        for (let i = 0; i < 20; i++) {
-            const angle = (Math.PI * 2 * i) / 20;
-            const speed = 2 + Math.random() * 3;
-            particles.push({
-                x: x,
-                y: y,
-                vx: Math.cos(angle) * speed,
-                vy: Math.sin(angle) * speed,
-                size: 2 + Math.random() * 2,
-                color: color,
-                life: 30,
-                maxLife: 30
-            });
-        }
-        
-        this.state.fireworks.push({ particles });
+        // ✅ OPTIMIZED: Fireworks devre dışı (performans için)
     }
     
     playSound(sound) {
@@ -1202,7 +1136,6 @@ class FruitSliceGame {
         this.state.trails = [];
         this.state.particles = [];
         this.state.scorePopups = [];
-        this.state.fireworks = [];
         
         this.state.score = 0;
         this.state.level = 1;
@@ -1241,18 +1174,11 @@ class FruitSliceGame {
         console.log('Victory! Score:', this.state.score);
         this.state.isPlaying = false;
         
-        // Create celebration
-        for (let i = 0; i < 5; i++) {
-            setTimeout(() => {
-                const x = Math.random() * this.state.width;
-                const y = Math.random() * this.state.height * 0.5;
-                this.createFirework(x, y);
-            }, i * 200);
-        }
+        // ✅ OPTIMIZED: Havai fişek efekti kaldırıldı (performans için)
         
         setTimeout(() => {
             this.showGameOverScreen();
-        }, 2000);
+        }, 1000); // 2000'den 1000'e düşürüldü
     }
     
     destroy() {
