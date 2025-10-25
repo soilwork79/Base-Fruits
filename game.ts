@@ -449,13 +449,11 @@ class FruitSliceGame {
                 if (nextWave === 11 || nextWave === 21 || nextWave === 31 || nextWave === 41) {
                     // Show chapter name and launch fruits 3 seconds after it disappears
                     this.showChapterName(nextWave, () => {
-                        console.log(`Chapter ${nextWave}: Setting isPlaying = true and launching fruits`);
-                        this.state.isPlaying = true; // Resume game BEFORE launching fruits
+                        console.log(`Chapter ${nextWave}: Launching fruits after chapter title`);
                         this.launchFruits();
                     });
                 } else {
-                    // Resume game and launch fruits immediately for non-chapter waves
-                    this.state.isPlaying = true;
+                    // Launch fruits immediately for non-chapter waves
                     this.launchFruits();
                 }
             }
@@ -1251,8 +1249,8 @@ class FruitSliceGame {
         if (this.state.allFruitsLaunched && this.state.fruits.every(f => !f.active) && !this.state.showingMilestone && this.state.isPlaying) {
             const currentWave = this.state.level;
             
-            // Temporarily pause to prevent multiple wave advancements
-            this.state.isPlaying = false;
+            // Reset flag to prevent multiple wave advancements (but keep game running)
+            this.state.allFruitsLaunched = false;
             
             // Check if this is a milestone wave (10, 20, 30, 40, 50)
             if (currentWave === 10 || currentWave === 20 || currentWave === 30 || currentWave === 40 || currentWave === 50) {
@@ -1275,11 +1273,9 @@ class FruitSliceGame {
                 if (nextWave === 11 || nextWave === 21 || nextWave === 31 || nextWave === 41) {
                     // Show chapter name and launch fruits after it disappears
                     this.showChapterName(nextWave, () => {
-                        this.state.isPlaying = true; // Resume game
                         this.launchFruits();
                     });
                 } else {
-                    this.state.isPlaying = true; // Resume game
                     this.launchFruits();
                 }
             } else {
