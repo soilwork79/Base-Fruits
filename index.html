@@ -75,8 +75,16 @@
             const script = document.createElement('script');
             script.src = 'https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js';
             script.onload = function() {
-                console.log('✅ Ethers.js loaded successfully:', ethers.version);
-                window.ethersReady = true;
+                console.log('✅ Ethers.js loaded successfully:', window.ethers?.version);
+                
+                // Verify ethers loaded correctly
+                if (window.ethers && window.ethers.providers && window.ethers.providers.Web3Provider) {
+                    console.log('✅ Ethers.js providers available');
+                    window.ethersReady = true;
+                } else {
+                    console.error('❌ Ethers.js loaded but providers not available');
+                    window.ethersReady = false;
+                }
                 
                 // Restore original defineProperty if stored
                 if (window.__originalDefineProperty) {
@@ -95,19 +103,15 @@
                 }
             };
             script.onerror = function() {
-                console.error('❌ Ethers.js failed to load');
+                console.error('❌ Ethers.js failed to load from CDN');
                 // Restore original defineProperty if stored
                 if (window.__originalDefineProperty) {
                     Object.defineProperty = window.__originalDefineProperty;
                 }
                 
-                // Mock ethers so game still works
-                window.ethers = {
-                    providers: { Web3Provider: function() { return {}; } },
-                    Contract: function() { return {}; },
-                    version: "mock"
-                };
-                window.ethersReady = true;
+                // Don't create mock - let the app handle missing ethers
+                window.ethersReady = false;
+                console.error('❌ Wallet features will not be available');
             };
             document.head.appendChild(script);
         }

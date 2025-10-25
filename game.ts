@@ -1803,10 +1803,25 @@ async function saveScore() {
     btn.disabled = true;
     btn.textContent = '⏳ Processing...';
 
+    // Wait for ethers.js to be ready
+    if (!(window as any).ethersReady) {
+        console.log('Waiting for ethers.js to load...');
+        let attempts = 0;
+        while (!(window as any).ethersReady && attempts < 50) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+            attempts++;
+        }
+        
+        if (!(window as any).ethersReady) {
+            throw new Error('Ethers.js failed to load. Please refresh the page.');
+        }
+    }
+
     try {
         let provider;
         let signer;
         let walletAddress;
+        let rawProvider; // Store the raw EIP-1193 provider
 
         // Farcaster Mini App içinde mi kontrol et
         let farcasterWalletAvailable = false;
@@ -1815,15 +1830,17 @@ async function saveScore() {
             // Cross-origin erişimi güvenli şekilde test et
             if ((window as any).parent && (window as any).parent !== window) {
                 console.log('Attempting Farcaster wallet connection...');
-                const farcasterProvider = await (window as any).parent.farcaster.wallet.getEthereumProvider();
-                console.log('Farcaster provider obtained:', farcasterProvider);
+                rawProvider = await (window as any).parent.farcaster.wallet.getEthereumProvider();
+                console.log('Farcaster provider obtained:', rawProvider);
                 
-                const ethers = (window as any).ethers;
-                const Web3Provider = ethers.providers?.Web3Provider || ethers.Web3Provider;
-                if (!Web3Provider) {
-                    throw new Error('Web3Provider not available');
+                // Check if ethers is available
+                if (!(window as any).ethers || !(window as any).ethers.providers) {
+                    throw new Error('Ethers.js not loaded properly');
                 }
-                provider = new Web3Provider(farcasterProvider);
+                
+                // Create provider using ethers constructor directly
+                const ethers = (window as any).ethers;
+                provider = new ethers.providers.Web3Provider(rawProvider);
                 console.log('Ethers provider created');
                 
                 // Wallet bağlantısını iste
@@ -1851,12 +1868,15 @@ async function saveScore() {
                 return;
             }
             
-            const ethers = (window as any).ethers;
-            const Web3Provider = ethers.providers?.Web3Provider || ethers.Web3Provider;
-            if (!Web3Provider) {
-                throw new Error('Web3Provider not available');
+            rawProvider = (window as any).ethereum;
+            
+            // Check if ethers is available
+            if (!(window as any).ethers || !(window as any).ethers.providers) {
+                throw new Error('Ethers.js not loaded properly');
             }
-            provider = new Web3Provider((window as any).ethereum);
+            
+            const ethers = (window as any).ethers;
+            provider = new ethers.providers.Web3Provider(rawProvider);
             await provider.send("eth_requestAccounts", []);
             signer = provider.getSigner();
             walletAddress = await signer.getAddress();
@@ -1868,14 +1888,9 @@ async function saveScore() {
         const network = await provider.getNetwork();
         if (network.chainId !== 8453) {
             try {
-                // Doğru provider'ı kullan (Farcaster varsa onu, yoksa MetaMask)
-                const walletProvider = farcasterWalletAvailable ? 
-                    await (window as any).parent.farcaster.wallet.getEthereumProvider() : 
-                    (window as any).ethereum;
-                
                 console.log('Switching to Base network...');
-                // Base ağına geçmeyi dene
-                await walletProvider.request({
+                // Base ağına geçmeyi dene - rawProvider'ı kullan
+                await rawProvider.request({
                     method: 'wallet_switchEthereumChain',
                     params: [{ chainId: '0x2105' }],
                 });
@@ -1884,12 +1899,8 @@ async function saveScore() {
                 // Eğer ağ yoksa, Base ağını ekle
                 if (switchError.code === 4902) {
                     try {
-                        const walletProvider = farcasterWalletAvailable ? 
-                            await (window as any).parent.farcaster.wallet.getEthereumProvider() : 
-                            (window as any).ethereum;
-                            
                         console.log('Adding Base network...');
-                        await walletProvider.request({
+                        await rawProvider.request({
                             method: 'wallet_addEthereumChain',
                             params: [{
                                 chainId: '0x2105',
@@ -1932,12 +1943,12 @@ async function saveScore() {
         }
 
         // Contract'a yaz - MetaMask tekrar açılır
-        const ethers = (window as any).ethers;
-        const Contract = ethers.Contract;
-        if (!Contract) {
-            throw new Error('Contract class not available');
+        if (!(window as any).ethers || !(window as any).ethers.Contract) {
+            throw new Error('Ethers.js Contract not available');
         }
-        const contract = new Contract(
+        
+        const ethers = (window as any).ethers;
+        const contract = new ethers.Contract(
             CONTRACT_ADDRESS,
             ['function submitScore(string memory _farcasterUsername, uint256 _fid, uint256 _score, uint256 _nonce, bytes memory _signature) external'],
             signer
