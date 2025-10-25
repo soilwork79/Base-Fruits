@@ -886,15 +886,16 @@ class FruitSliceGame {
                     const angle = Math.random() * Math.PI * 2;
                     const speed = 3 + Math.random() * 5;
                 
-                this.state.particles.push({
-                    x: fruit.x,
-                    y: fruit.y,
-                    vx: Math.cos(angle) * speed,
-                    vy: Math.sin(angle) * speed - 2,
-                    size: 4 + Math.random() * 4,
-                    color: '#ff4444',
-                    life: 1
-                });
+                    this.state.particles.push({
+                        x: fruit.x,
+                        y: fruit.y,
+                        vx: Math.cos(angle) * speed,
+                        vy: Math.sin(angle) * speed - 2,
+                        size: 4 + Math.random() * 4,
+                        color: '#ff4444',
+                        life: 1
+                    });
+                }
             }
         }
         
