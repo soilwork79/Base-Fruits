@@ -1762,7 +1762,7 @@ class FruitSliceGame {
 // ===== LEADERBOARD FUNCTIONALITY =====
 
 const CONTRACT_ADDRESS = '0xa4f109Eb679970C0b30C21812C99318837A81c73';
-const API_URL = 'https://base-fruits-game.vercel.app';
+const API_URL = '';
 let currentScore = 0;
 
 // SAVE LEADERBOARD - Farcaster SDK veya MetaMask
@@ -2012,18 +2012,24 @@ async function saveScore() {
             throw new Error('No provider available for transaction');
         }
         
-        alert('✅ Score saved successfully!');
+        if (!(window as any).sdk) {
+            alert('✅ Score saved successfully!');
+        }
         btn.textContent = '✅ Saved!';
         
     } catch (error: any) {
         console.error(error);
         
-        if (error.code === 'ACTION_REJECTED') {
-            alert('Transaction cancelled.');
-        } else if (error.message?.includes('insufficient funds')) {
-            alert('Insufficient ETH!');
+        if (!(window as any).sdk) {
+            if (error.code === 'ACTION_REJECTED') {
+                alert('Transaction cancelled.');
+            } else if (error.message?.includes('insufficient funds')) {
+                alert('Insufficient ETH!');
+            } else {
+                alert('Error: ' + (error.message || 'Unknown error'));
+            }
         } else {
-            alert('Error: ' + (error.message || 'Unknown error'));
+            btn.textContent = '❌ Error';
         }
         
         btn.disabled = false;

@@ -1576,7 +1576,7 @@ async function saveScoreLegacy() {
     }
 }
 // ===== LEADERBOARD INTEGRATION WITH BLOCKCHAIN =====
-const API_URL = 'https://base-fruits-game.vercel.app'; // Backend API URL
+const API_URL = ''; // Use same-origin backend to avoid CORS
 const CONTRACT_ADDRESS = '0xa4f109Eb679970C0b30C21812C99318837A81c73'; // BURAYA CONTRACT ADRESİNİZİ YAZIN!
 let currentScore = 0;
 
@@ -1838,18 +1838,25 @@ async function saveScore() {
             throw new Error('Ethers.js library not available');
         }
 
-        alert('✅ Score saved successfully!');
+        if (!window.sdk) {
+            alert('✅ Score saved successfully!');
+        }
         btn.textContent = '✅ Saved!';
 
     } catch (error) {
         console.error('Save score error:', error);
         
-        if (error.code === 'ACTION_REJECTED' || error.code === 4001) {
-            alert('❌ Transaction cancelled.');
-        } else if (error.message?.includes('insufficient funds')) {
-            alert('❌ Insufficient ETH for gas!');
+        if (!window.sdk) {
+            if (error.code === 'ACTION_REJECTED' || error.code === 4001) {
+                alert('❌ Transaction cancelled.');
+            } else if (error.message?.includes('insufficient funds')) {
+                alert('❌ Insufficient ETH for gas!');
+            } else {
+                alert('❌ Error: ' + (error.message || 'Unknown error'));
+            }
         } else {
-            alert('❌ Error: ' + (error.message || 'Unknown error'));
+            // Sandboxed: show status on button only
+            btn.textContent = '❌ Error';
         }
         
         btn.disabled = false;
