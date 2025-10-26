@@ -7,124 +7,76 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="description" content="Farcaster Fruit Slice - Web3 Mini Game">
     <title>Base Fruits 🍉</title>
-
-    <!-- ⚡ CRITICAL: SDK FIRST -->
-    <script type="module">
-        (async function() {
-            try {
-                console.log('🔄 Loading Farcaster SDK...');
-                
-                // Import SDK
-                const { sdk } = await import('https://esm.sh/@farcaster/frame-sdk@0.1.0');
-                
-                console.log('✅ SDK imported');
-                window.sdk = sdk;
-                
-                // Call ready() immediately
-                await sdk.actions.ready();
-                console.log('✅ Ready called');
-                
-                // Get context - try both sync and async
-                let context;
-                try {
-                    // Try sync first
-                    if (sdk.context && typeof sdk.context === 'object' && sdk.context.user) {
-                        context = sdk.context;
-                        console.log('✅ Got context (sync)');
-                    } else {
-                        // Try async
-                        context = await sdk.context;
-                        console.log('✅ Got context (async)');
-                    }
-                } catch (e) {
-                    console.error('Context error:', e);
-                }
-                
-                // Store context
-                window.farcasterContext = context;
-                window.farcasterReady = true;
-                
-                console.log('📱 Context:', context);
-                console.log('👤 User:', context?.user);
-                
-                // Add visual indicator on page
-                setTimeout(() => {
-                    const indicator = document.createElement('div');
-                    indicator.style.cssText = `
-                        position: fixed;
-                        top: 10px;
-                        right: 10px;
-                        background: rgba(0,255,0,0.8);
-                        color: white;
-                        padding: 10px;
-                        border-radius: 5px;
-                        z-index: 9999;
-                        font-size: 12px;
-                        max-width: 200px;
-                    `;
-                    indicator.innerHTML = `
-                        <strong>Farcaster SDK:</strong><br>
-                        User: ${context?.user?.username || 'N/A'}<br>
-                        FID: ${context?.user?.fid || 'N/A'}
-                    `;
-                    document.body.appendChild(indicator);
-                    
-                    // Remove after 5 seconds
-                    setTimeout(() => indicator.remove(), 5000);
-                }, 1000);
-                
-            } catch (error) {
-                console.error('❌ SDK error:', error);
-                window.sdk = null;
-                window.farcasterContext = null;
-                window.farcasterReady = false;
-                
-                // Show error on page
-                setTimeout(() => {
-                    const indicator = document.createElement('div');
-                    indicator.style.cssText = `
-                        position: fixed;
-                        top: 10px;
-                        right: 10px;
-                        background: rgba(255,0,0,0.8);
-                        color: white;
-                        padding: 10px;
-                        border-radius: 5px;
-                        z-index: 9999;
-                        font-size: 12px;
-                    `;
-                    indicator.textContent = 'SDK Error: ' + error.message;
-                    document.body.appendChild(indicator);
-                    
-                    setTimeout(() => indicator.remove(), 5000);
-                }, 1000);
-            }
-        })();
-    </script>
     
-    <!-- Farcaster Frame Metadata - CRITICAL FOR VALIDATION -->
-    <meta property="fc:frame" content="vNext" />
-    <meta property="fc:frame:image" content="https://base-fruits-farcaster-miniapp.vercel.app/images/splash.png" />
-    <meta property="fc:frame:image:aspect_ratio" content="1:1" />
-    <meta property="fc:frame:button:1" content="🎮 Play Game" />
-    <meta property="fc:frame:button:1:action" content="link" />
-    <meta property="fc:frame:button:1:target" content="https://base-fruits-farcaster-miniapp.vercel.app/" />
-    
-    <!-- Open Graph for Social Sharing -->
-    <meta property="og:title" content="Base Fruits 🍉 - Farcaster Mini Game" />
-    <meta property="og:description" content="Slice fruits, avoid bombs, and compete on the blockchain leaderboard! 🍓🍉🍊" />
+    <!-- Open Graph Meta Tags -->
+    <meta property="og:title" content="Base Fruits 🍉" />
+    <meta property="og:description" content="Slice fruits, avoid bombs, and compete on the leaderboard! Web3 gaming on Base network." />
     <meta property="og:image" content="https://base-fruits-farcaster-miniapp.vercel.app/images/splash.png" />
     <meta property="og:url" content="https://base-fruits-farcaster-miniapp.vercel.app/" />
     <meta property="og:type" content="website" />
     
-    <!-- Twitter Card -->
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Base Fruits 🍉" />
-    <meta name="twitter:description" content="Slice fruits, avoid bombs! Web3 gaming on Base." />
-    <meta name="twitter:image" content="https://base-fruits-farcaster-miniapp.vercel.app/images/splash.png" />
+    <!-- Farcaster Frame Meta Tags -->
+    <meta property="fc:frame" content="vNext" />
+    <meta property="fc:frame:image" content="https://base-fruits-farcaster-miniapp.vercel.app/images/splash.png?v=2" />
+    <meta property="fc:frame:button:1" content="🎮 Play" />
+    <meta property="fc:frame:button:1:action" content="link" />
+    <meta property="fc:frame:button:1:target" content="https://base-fruits-farcaster-miniapp.vercel.app/" />
     
-    <!-- Ethers.js -->
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="styles.css?v=8">
+    
+    <!-- ⚠️ CRITICAL: Load scripts in correct order -->
+    
+    <!-- 1. Ethers.js FIRST (v5.7.2) -->
     <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+    <script>
+        // Verify ethers loaded
+        if (window.ethers && window.ethers.providers) {
+            console.log('✅ Ethers.js v' + window.ethers.version + ' loaded');
+            window.ethersReady = true;
+        } else {
+            console.error('❌ Ethers.js failed to load!');
+            window.ethersReady = false;
+        }
+    </script>
+    
+    <!-- 2. Farcaster SDK SECOND -->
+    <script src="https://cdn.jsdelivr.net/npm/@farcaster/frame-sdk@0.0.9/dist/index.js"></script>
+    
+    <!-- 3. Initialize SDK BEFORE game.js -->
+    <script>
+        // Initialize Farcaster SDK globally as window.sdk (for game.js compatibility)
+        (async function() {
+            try {
+                console.log('🔄 Initializing Farcaster SDK...');
+                
+                // Check if SDK is available
+                if (typeof window.farcaster !== 'undefined') {
+                    // Create SDK instance
+                    window.sdk = window.farcaster.createFrameSDK();
+                    console.log('✅ Farcaster SDK initialized:', window.sdk);
+                    
+                    // Call ready() to signal app is ready
+                    try {
+                        const context = await window.sdk.actions.ready();
+                        console.log('✅ SDK ready() called');
+                        console.log('📱 Context:', context);
+                        
+                        // Store context for easy access
+                        window.farcasterContext = context;
+                    } catch (readyError) {
+                        console.warn('⚠️ SDK ready() failed:', readyError);
+                    }
+                } else {
+                    console.log('ℹ️ Farcaster SDK not available (browser mode)');
+                    window.sdk = null;
+                }
+            } catch (error) {
+                console.error('❌ SDK initialization error:', error);
+                window.sdk = null;
+            }
+        })();
+    </script>
 </head>
 <body>
     <div id="game-container">
@@ -211,7 +163,7 @@
         </div>
     </div>
     
-    <!-- Game Script -->
-    <script src="game.js?v=7"></script>
+    <!-- 4. Game script LAST -->
+    <script src="game.js?v=5"></script>
 </body>
 </html>
