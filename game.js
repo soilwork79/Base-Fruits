@@ -1422,20 +1422,40 @@ class FruitSliceGame {
         if (points.length < 2)
             return;
         const ctx = this.state.ctx;
-        ctx.globalAlpha = opacity;
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
-        ctx.lineWidth = 3;
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-        ctx.beginPath();
-        ctx.moveTo(points[0].x, points[0].y);
-        // Draw every other point on low performance devices
-        const step = this.state.isLowPerformance ? 2 : 1;
-        for (let i = step; i < points.length; i += step) {
-            ctx.lineTo(points[i].x, points[i].y);
+        // Draw trail segments with gradient from thick to thin (comet tail effect)
+        for (let i = 0; i < points.length - 1; i++) {
+            const progress = i / (points.length - 1);
+            // Width: thick at mouse (end), thin at tail (start)
+            const startWidth = 2 + (1 - progress) * 1; // Tail: 2-3px
+            const endWidth = 2 + (1 - (i + 1) / (points.length - 1)) * 6; // Mouse: 6-8px
+            // Color: cyan/blue gradient with opacity
+            const alpha = opacity * (0.3 + progress * 0.7); // Fade tail more
+            // Create gradient for each segment
+            const gradient = ctx.createLinearGradient(points[i].x, points[i].y, points[i + 1].x, points[i + 1].y);
+            // Cyan to light blue gradient
+            gradient.addColorStop(0, `rgba(100, 200, 255, ${alpha * 0.6})`);
+            gradient.addColorStop(0.5, `rgba(150, 220, 255, ${alpha * 0.8})`);
+            gradient.addColorStop(1, `rgba(200, 240, 255, ${alpha})`);
+            ctx.strokeStyle = gradient;
+            ctx.lineWidth = (startWidth + endWidth) / 2;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.beginPath();
+            ctx.moveTo(points[i].x, points[i].y);
+            ctx.lineTo(points[i + 1].x, points[i + 1].y);
+            ctx.stroke();
         }
-        ctx.stroke();
-        ctx.globalAlpha = 1;
+        // Add glow effect at the mouse tip (most recent point)
+        if (points.length > 0) {
+            const lastPoint = points[points.length - 1];
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = 'rgba(150, 220, 255, 0.8)';
+            ctx.fillStyle = `rgba(200, 240, 255, ${opacity * 0.9})`;
+            ctx.beginPath();
+            ctx.arc(lastPoint.x, lastPoint.y, 4, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+        }
     }
     updateUI() {
         document.getElementById('score').textContent = this.state.score.toString();
