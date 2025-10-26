@@ -43,8 +43,8 @@
         }
     </script>
     
-    <!-- 2. Farcaster SDK SECOND -->
-    <script src="https://cdn.jsdelivr.net/npm/@farcaster/frame-sdk@0.0.9/dist/index.js"></script>
+    <!-- 2. Farcaster SDK SECOND (UMD) -->
+    <script src="https://cdn.jsdelivr.net/npm/@farcaster/frame-sdk/dist/index.min.js"></script>
     
     <!-- 3. Initialize SDK BEFORE game.js -->
     <script>
@@ -53,19 +53,30 @@
             try {
                 console.log('🔄 Initializing Farcaster SDK...');
                 
-                // Check if SDK is available
-                if (typeof window.farcaster !== 'undefined') {
-                    // Create SDK instance
-                    window.sdk = window.farcaster.createFrameSDK();
-                    console.log('✅ Farcaster SDK initialized:', window.sdk);
-                    
-                    // Call ready() to signal app is ready
+                // Resolve SDK across possible host globals
+                const resolveSdk = () => {
+                    if (window.frame && window.frame.sdk) return window.frame.sdk;
+                    if (window.farcaster && typeof window.farcaster.createFrameSDK === 'function') return window.farcaster.createFrameSDK();
+                    if (window.farcaster && window.farcaster.sdk) return window.farcaster.sdk;
+                    return null;
+                };
+
+                let sdk = resolveSdk();
+                if (!sdk) {
+                    // Poll briefly to wait for host injection
+                    const start = Date.now();
+                    while (!sdk && (Date.now() - start) < 2000) {
+                        await new Promise(r => setTimeout(r, 50));
+                        sdk = resolveSdk();
+                    }
+                }
+
+                if (sdk && sdk.actions && typeof sdk.actions.ready === 'function') {
+                    window.sdk = sdk;
                     try {
-                        const context = await window.sdk.actions.ready();
+                        const context = await sdk.actions.ready();
                         console.log('✅ SDK ready() called');
                         console.log('📱 Context:', context);
-                        
-                        // Store context for easy access
                         window.farcasterContext = context;
                     } catch (readyError) {
                         console.warn('⚠️ SDK ready() failed:', readyError);
