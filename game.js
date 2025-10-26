@@ -1471,11 +1471,11 @@ class FruitSliceGame {
     }
 }
 // ===== LEADERBOARD FUNCTIONALITY =====
-const CONTRACT_ADDRESS = '0xa4f109Eb679970C0b30C21812C99318837A81c73';
-const API_URL = 'https://base-fruits-game.vercel.app';
-let currentScore = 0;
+const CONTRACT_ADDRESS_LEGACY = '0xa4f109Eb679970C0b30C21812C99318837A81c73';
+const API_URL_LEGACY = 'https://base-fruits-game.vercel.app';
+let currentScoreLegacyInit = 0;
 // SAVE LEADERBOARD - Farcaster SDK veya MetaMask
-async function saveScore() {
+async function saveScoreLegacy() {
     console.log('=== SAVE SCORE STARTED ===');
     console.log('Current score:', currentScore);
     console.log('Window parent:', window.parent);
@@ -1568,8 +1568,15 @@ async function saveScore() {
         }
         catch (frameError) {
             console.log('Frame check error:', frameError);
+        }
+    } catch (error) {
+        console.error('Legacy saveScore error:', error);
+        const btn = document.getElementById('save-leaderboard-button');
+        if (btn) { btn.disabled = false; btn.textContent = '💾 Save Leaderboard'; }
+    }
+}
 // ===== LEADERBOARD INTEGRATION WITH BLOCKCHAIN =====
-const API_URL = 'https://base-fruits-farcaster-miniapp.vercel.app'; // Backend API URL
+const API_URL = 'https://base-fruits-game.vercel.app'; // Backend API URL
 const CONTRACT_ADDRESS = '0xa4f109Eb679970C0b30C21812C99318837A81c73'; // BURAYA CONTRACT ADRESİNİZİ YAZIN!
 let currentScore = 0;
 
@@ -1604,6 +1611,10 @@ async function saveScore() {
                     try {
                         rawProvider = await window.sdk.wallet.getEthereumProvider();
                         console.log('Using Farcaster wallet (SDK provider)');
+                        try {
+                            const accounts = await rawProvider.request({ method: 'eth_requestAccounts' });
+                            walletAddress = accounts && accounts[0] ? accounts[0] : walletAddress;
+                        } catch {}
                     } catch (e) {
                         console.log('Farcaster SDK provider not available, checking window.ethereum');
                         if (window.ethereum) {
@@ -1625,6 +1636,10 @@ async function saveScore() {
                     await window.sdk.actions.signin();
                     rawProvider = await window.sdk.wallet.getEthereumProvider();
                     console.log('Provider acquired after signin');
+                    try {
+                        const accounts = await rawProvider.request({ method: 'eth_requestAccounts' });
+                        walletAddress = accounts && accounts[0] ? accounts[0] : walletAddress;
+                    } catch {}
                 } catch (signErr) {
                     console.log('Signin/provider retry failed');
                 }
