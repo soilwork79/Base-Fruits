@@ -1700,23 +1700,54 @@ class FruitSliceGame {
         if (points.length < 2) return;
         
         const ctx = this.state.ctx;
-        ctx.globalAlpha = opacity;
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
-        ctx.lineWidth = 3;
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
         
-        ctx.beginPath();
-        ctx.moveTo(points[0].x, points[0].y);
-        
-        // Draw every other point on low performance devices
-        const step = this.state.isLowPerformance ? 2 : 1;
-        for (let i = step; i < points.length; i += step) {
-            ctx.lineTo(points[i].x, points[i].y);
+        // Draw trail segments with gradient from thick to thin (comet tail effect)
+        for (let i = 0; i < points.length - 1; i++) {
+            const progress = i / (points.length - 1);
+            
+            // Width: thick at mouse (end), thin at tail (start)
+            const startWidth = 2 + (1 - progress) * 1; // Tail: 2-3px
+            const endWidth = 2 + (1 - (i + 1) / (points.length - 1)) * 6; // Mouse: 6-8px
+            
+            // Color: cyan/blue gradient with opacity
+            const alpha = opacity * (0.3 + progress * 0.7); // Fade tail more
+            
+            // Create gradient for each segment
+            const gradient = ctx.createLinearGradient(
+                points[i].x, points[i].y,
+                points[i + 1].x, points[i + 1].y
+            );
+            
+            // Cyan to light blue gradient
+            gradient.addColorStop(0, `rgba(100, 200, 255, ${alpha * 0.6})`);
+            gradient.addColorStop(0.5, `rgba(150, 220, 255, ${alpha * 0.8})`);
+            gradient.addColorStop(1, `rgba(200, 240, 255, ${alpha})`);
+            
+            ctx.strokeStyle = gradient;
+            ctx.lineWidth = (startWidth + endWidth) / 2;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            
+            ctx.beginPath();
+            ctx.moveTo(points[i].x, points[i].y);
+            ctx.lineTo(points[i + 1].x, points[i + 1].y);
+            ctx.stroke();
         }
         
-        ctx.stroke();
-        ctx.globalAlpha = 1;
+        // Add glow effect at the mouse tip (most recent point)
+        if (points.length > 0) {
+            const lastPoint = points[points.length - 1];
+            
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = 'rgba(150, 220, 255, 0.8)';
+            
+            ctx.fillStyle = `rgba(200, 240, 255, ${opacity * 0.9})`;
+            ctx.beginPath();
+            ctx.arc(lastPoint.x, lastPoint.y, 4, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.shadowBlur = 0;
+        }
     }
     
     updateUI(): void {
@@ -2152,34 +2183,84 @@ function shareOnFarcaster() {
 }
 
 // ===== INITIALIZE GAME =====
-window.addEventListener('DOMContentLoaded', () => {
-    console.log('DOM loaded, initializing game...');
-    try {
-        const game = new FruitSliceGame();
-        console.log('Game initialized successfully:', game);
-        
-        // Leaderboard event listeners
-        document.getElementById('save-leaderboard-button')!.addEventListener('click', saveScore);
-        document.getElementById('view-leaderboard-button')!.addEventListener('click', viewLeaderboard);
-        document.getElementById('close-leaderboard')!.addEventListener('click', closeLeaderboard);
-        
-        // Share button event listener
-        const shareButton = document.getElementById('share-score-button');
-        if (shareButton) {
-            console.log('Share button found, adding event listener');
-            shareButton.addEventListener('click', shareOnFarcaster);
-        } else {
-            console.error('Share button not found!');
-        }
-        
-        // Modal dışına tıklayınca kapat
-        document.getElementById('leaderboard-modal')!.addEventListener('click', (e) => {
-            if (e.target === document.getElementById('leaderboard-modal')) {
-                closeLeaderboard();
+// Wait for both DOM and Farcaster SDK to be ready
+let domReady = false;
+let farcasterReady = false;
+
+function tryInitializeGame() {
+    if (domReady && farcasterReady) {
+        console.log('✅ Both DOM and Farcaster SDK ready, initializing game...');
+        try {
+            // Update loading bar
+            const loadingBar = document.getElementById('loading-bar');
+            const loadingText = document.getElementById('loading-text');
+            if (loadingBar) (loadingBar as HTMLElement).style.width = '100%';
+            if (loadingText) loadingText.textContent = 'Ready!';
+            
+            const game = new FruitSliceGame();
+            console.log('Game initialized successfully:', game);
+            
+            // Hide loading screen
+            setTimeout(() => {
+                const loadingScreen = document.getElementById('loading-screen');
+                if (loadingScreen) {
+                    (loadingScreen as HTMLElement).style.opacity = '0';
+                    (loadingScreen as HTMLElement).style.transition = 'opacity 0.5s ease';
+                    setTimeout(() => {
+                        (loadingScreen as HTMLElement).style.display = 'none';
+                    }, 500);
+                }
+            }, 300);
+            
+            // Leaderboard event listeners
+            document.getElementById('save-leaderboard-button')!.addEventListener('click', saveScore);
+            document.getElementById('view-leaderboard-button')!.addEventListener('click', viewLeaderboard);
+            document.getElementById('close-leaderboard')!.addEventListener('click', closeLeaderboard);
+            
+            // Share button event listener
+            const shareButton = document.getElementById('share-score-button');
+            if (shareButton) {
+                console.log('Share button found, adding event listener');
+                shareButton.addEventListener('click', shareOnFarcaster);
+            } else {
+                console.error('Share button not found!');
             }
-        });
-        
-    } catch (error) {
-        console.error('Error initializing game:', error);
+            
+            // Modal dışına tıklayınca kapat
+            document.getElementById('leaderboard-modal')!.addEventListener('click', (e) => {
+                if (e.target === document.getElementById('leaderboard-modal')) {
+                    closeLeaderboard();
+                }
+            });
+            
+        } catch (error) {
+            console.error('Error initializing game:', error);
+            // Hide loading screen even on error
+            const loadingScreen = document.getElementById('loading-screen');
+            if (loadingScreen) {
+                (loadingScreen as HTMLElement).style.display = 'none';
+            }
+        }
     }
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+    console.log('📄 DOM loaded');
+    domReady = true;
+    tryInitializeGame();
 });
+
+window.addEventListener('farcaster-ready', () => {
+    console.log('🎯 Farcaster SDK ready');
+    farcasterReady = true;
+    tryInitializeGame();
+});
+
+// Fallback: If Farcaster SDK doesn't load in 3 seconds, initialize anyway
+setTimeout(() => {
+    if (!farcasterReady) {
+        console.log('⏱️ Farcaster SDK timeout, initializing game anyway...');
+        farcasterReady = true;
+        tryInitializeGame();
+    }
+}, 3000);
