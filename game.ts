@@ -2152,34 +2152,84 @@ function shareOnFarcaster() {
 }
 
 // ===== INITIALIZE GAME =====
-window.addEventListener('DOMContentLoaded', () => {
-    console.log('DOM loaded, initializing game...');
-    try {
-        const game = new FruitSliceGame();
-        console.log('Game initialized successfully:', game);
-        
-        // Leaderboard event listeners
-        document.getElementById('save-leaderboard-button')!.addEventListener('click', saveScore);
-        document.getElementById('view-leaderboard-button')!.addEventListener('click', viewLeaderboard);
-        document.getElementById('close-leaderboard')!.addEventListener('click', closeLeaderboard);
-        
-        // Share button event listener
-        const shareButton = document.getElementById('share-score-button');
-        if (shareButton) {
-            console.log('Share button found, adding event listener');
-            shareButton.addEventListener('click', shareOnFarcaster);
-        } else {
-            console.error('Share button not found!');
-        }
-        
-        // Modal dışına tıklayınca kapat
-        document.getElementById('leaderboard-modal')!.addEventListener('click', (e) => {
-            if (e.target === document.getElementById('leaderboard-modal')) {
-                closeLeaderboard();
+// Wait for both DOM and Farcaster SDK to be ready
+let domReady = false;
+let farcasterReady = false;
+
+function tryInitializeGame() {
+    if (domReady && farcasterReady) {
+        console.log('✅ Both DOM and Farcaster SDK ready, initializing game...');
+        try {
+            // Update loading bar
+            const loadingBar = document.getElementById('loading-bar');
+            const loadingText = document.getElementById('loading-text');
+            if (loadingBar) (loadingBar as HTMLElement).style.width = '100%';
+            if (loadingText) loadingText.textContent = 'Ready!';
+            
+            const game = new FruitSliceGame();
+            console.log('Game initialized successfully:', game);
+            
+            // Hide loading screen
+            setTimeout(() => {
+                const loadingScreen = document.getElementById('loading-screen');
+                if (loadingScreen) {
+                    (loadingScreen as HTMLElement).style.opacity = '0';
+                    (loadingScreen as HTMLElement).style.transition = 'opacity 0.5s ease';
+                    setTimeout(() => {
+                        (loadingScreen as HTMLElement).style.display = 'none';
+                    }, 500);
+                }
+            }, 300);
+            
+            // Leaderboard event listeners
+            document.getElementById('save-leaderboard-button')!.addEventListener('click', saveScore);
+            document.getElementById('view-leaderboard-button')!.addEventListener('click', viewLeaderboard);
+            document.getElementById('close-leaderboard')!.addEventListener('click', closeLeaderboard);
+            
+            // Share button event listener
+            const shareButton = document.getElementById('share-score-button');
+            if (shareButton) {
+                console.log('Share button found, adding event listener');
+                shareButton.addEventListener('click', shareOnFarcaster);
+            } else {
+                console.error('Share button not found!');
             }
-        });
-        
-    } catch (error) {
-        console.error('Error initializing game:', error);
+            
+            // Modal dışına tıklayınca kapat
+            document.getElementById('leaderboard-modal')!.addEventListener('click', (e) => {
+                if (e.target === document.getElementById('leaderboard-modal')) {
+                    closeLeaderboard();
+                }
+            });
+            
+        } catch (error) {
+            console.error('Error initializing game:', error);
+            // Hide loading screen even on error
+            const loadingScreen = document.getElementById('loading-screen');
+            if (loadingScreen) {
+                (loadingScreen as HTMLElement).style.display = 'none';
+            }
+        }
     }
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+    console.log('📄 DOM loaded');
+    domReady = true;
+    tryInitializeGame();
 });
+
+window.addEventListener('farcaster-ready', () => {
+    console.log('🎯 Farcaster SDK ready');
+    farcasterReady = true;
+    tryInitializeGame();
+});
+
+// Fallback: If Farcaster SDK doesn't load in 3 seconds, initialize anyway
+setTimeout(() => {
+    if (!farcasterReady) {
+        console.log('⏱️ Farcaster SDK timeout, initializing game anyway...');
+        farcasterReady = true;
+        tryInitializeGame();
+    }
+}, 3000);

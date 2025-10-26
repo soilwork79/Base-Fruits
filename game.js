@@ -1568,262 +1568,187 @@ async function saveScore() {
         }
         catch (frameError) {
             console.log('Frame check error:', frameError);
-// ===== LEADERBOARD INTEGRATION WITH BLOCKCHAIN =====
-const API_URL = 'https://base-fruits-farcaster-miniapp.vercel.app'; // Backend API URL
-const CONTRACT_ADDRESS = '0xYourContractAddress'; // BURAYA CONTRACT ADRESİNİZİ YAZIN!
-let currentScore = 0;
-
-// SAVE SCORE TO BLOCKCHAIN - FIXED VERSION
-async function saveScore() {
-    const btn = document.getElementById('save-leaderboard-button');
-    btn.disabled = true;
-    btn.textContent = '⏳ Connecting...';
-
-    try {
-        let rawProvider = null;
-        let walletAddress = null;
-        let signer = null;
-        let userInfo = { username: '', fid: 0 };
-
-        // ============================================
-        // 1) FARCASTER SDK CHECK - FIXED
-        // ============================================
-        if (typeof window.sdk !== 'undefined' && window.sdk) {
-            console.log('✅ Farcaster SDK detected');
-            try {
-                const context = await window.sdk.context;
-                console.log('Farcaster context:', context);
-                
-                if (context?.user?.fid && context?.user?.username) {
-                    userInfo = {
-                        username: context.user.username,
-                        fid: context.user.fid
-                    };
-                    console.log('Farcaster user:', userInfo);
-
-                    if (window.ethereum) {
-                        rawProvider = window.ethereum;
-                        console.log('Using Farcaster wallet');
-                    }
-                } else {
-                    console.log('⚠️ Farcaster context incomplete');
-                }
-            } catch (sdkError) {
-                console.error('Farcaster SDK error:', sdkError);
-            }
+            inFarcasterFrame = false;
         }
-
-        // ============================================
-        // 2) METAMASK/WALLET FALLBACK - FIXED
-        // ============================================
-        if (!rawProvider && typeof window.ethereum !== 'undefined') {
-            console.log('Using MetaMask/Browser wallet');
-            
-            // CRITICAL FIX: DO NOT modify window.ethereum!
-            let provider = window.ethereum;
-            
-            if (window.ethereum.providers?.length > 0) {
-                console.log('Multiple wallets detected');
-                const metamaskProvider = window.ethereum.providers.find(
-                    (p) => p.isMetaMask
-                );
-                if (metamaskProvider) {
-                    provider = metamaskProvider;
-                    console.log('Using MetaMask');
+        // If not in Farcaster or Farcaster wallet failed, try MetaMask
+        if (!farcasterWalletAvailable) {
+            console.log('Trying MetaMask/browser wallet...');
+            if (!window.ethereum) {
+                console.error('No wallet provider available');
+                if (inFarcasterFrame) {
+                    alert('Wallet connection failed in Farcaster. Please try refreshing the app.');
+                }
+                else {
+                    alert('Please install MetaMask or use this app in Farcaster!');
+                }
+                return;
+            }
+            rawProvider = window.ethereum;
+            // Wait for ethers.js
+            if (!window.ethers) {
+                console.log('Waiting for ethers.js...');
+                let attempts = 0;
+                while (!window.ethers && attempts < 30) {
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    attempts++;
                 }
             }
-            
-            rawProvider = provider;
-
-            const accounts = await rawProvider.request({
-                method: 'eth_requestAccounts'
-            });
-            walletAddress = accounts[0];
-            console.log('Wallet connected:', walletAddress);
-
-            try {
-                const fidResponse = await fetch(`${API_URL}/api/get-fid?address=${walletAddress}`);
-                const fidData = await fidResponse.json();
-                if (fidData.success && fidData.fid) {
-                    userInfo.fid = fidData.fid;
-                    userInfo.username = fidData.username || `User${walletAddress.slice(2, 8)}`;
-                }
-            } catch (e) {
-                console.log('Could not fetch FID, using wallet address');
-                userInfo.username = `User${walletAddress.slice(2, 8)}`;
-                userInfo.fid = 0;
+            if (window.ethers && window.ethers.providers) {
+                const ethers = window.ethers;
+                provider = new ethers.providers.Web3Provider(rawProvider);
+                await provider.send("eth_requestAccounts", []);
+                signer = provider.getSigner();
+                walletAddress = await signer.getAddress();
+                console.log('MetaMask wallet connected:', walletAddress);
+            }
+            else {
+                // Fallback: use raw provider directly
+                console.log('Using raw provider without ethers.js');
+                const accounts = await rawProvider.request({ method: 'eth_requestAccounts' });
+                walletAddress = accounts[0];
             }
         }
-
-        // ============================================
-        // 3) NO WALLET AVAILABLE
-        // ============================================
-        if (!rawProvider) {
-            throw new Error('Bu özellik Farcaster mini app içinde çalışır veya MetaMask gerektirir!');
-        }
-
-        // ============================================
-        // 4) CHAIN CHECK - Base Mainnet
-        // ============================================
-        btn.textContent = '⏳ Checking network...';
-        const chainId = await rawProvider.request({ method: 'eth_chainId' });
-        console.log('Current chain:', chainId);
-
-        if (chainId !== '0x2105') {
+        // Base Mainnet kontrolü
+        const network = await provider.getNetwork();
+        if (network.chainId !== 8453) {
             try {
+                console.log('Switching to Base network...');
+                // Base ağına geçmeyi dene - rawProvider'ı kullan
                 await rawProvider.request({
                     method: 'wallet_switchEthereumChain',
-                    params: [{ chainId: '0x2105' }]
+                    params: [{ chainId: '0x2105' }],
                 });
-            } catch (switchError) {
+            }
+            catch (switchError) {
+                console.log('Network switch error:', switchError);
+                // Eğer ağ yoksa, Base ağını ekle
                 if (switchError.code === 4902) {
-                    await rawProvider.request({
-                        method: 'wallet_addEthereumChain',
-                        params: [{
-                            chainId: '0x2105',
-                            chainName: 'Base Mainnet',
-                            nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
-                            rpcUrls: ['https://mainnet.base.org'],
-                            blockExplorerUrls: ['https://basescan.org']
-                        }]
-                    });
-                } else {
-                    throw switchError;
+                    try {
+                        console.log('Adding Base network...');
+                        await rawProvider.request({
+                            method: 'wallet_addEthereumChain',
+                            params: [{
+                                    chainId: '0x2105',
+                                    chainName: 'Base Mainnet',
+                                    nativeCurrency: {
+                                        name: 'Ethereum',
+                                        symbol: 'ETH',
+                                        decimals: 18
+                                    },
+                                    rpcUrls: ['https://mainnet.base.org'],
+                                    blockExplorerUrls: ['https://basescan.org']
+                                }]
+                        });
+                    }
+                    catch (addError) {
+                        console.error('Failed to add Base network:', addError);
+                        throw new Error('Base ağı eklenemedi. Lütfen manuel olarak ekleyin.');
+                    }
+                }
+                else {
+                    throw new Error('Base ağına geçilemedi: ' + switchError.message);
                 }
             }
         }
-
-        // ============================================
-        // 5) GET WALLET ADDRESS
-        // ============================================
-        if (!walletAddress) {
-            const accounts = await rawProvider.request({ method: 'eth_accounts' });
-            walletAddress = accounts[0];
-        }
-
-        // ============================================
-        // 6) CREATE SIGNER
-        // ============================================
-        if (window.ethers && rawProvider) {
-            try {
-                const ethers = window.ethers;
-                const provider = new ethers.providers.Web3Provider(rawProvider);
-                signer = provider.getSigner();
-                console.log('Ethers.js signer created');
-            } catch (e) {
-                console.log('Could not create ethers signer, will use raw provider');
-            }
-        }
-
-        // ============================================
-        // 7) GET BACKEND SIGNATURE
-        // ============================================
-        btn.textContent = '⏳ Getting signature...';
-        const signResponse = await fetch(`${API_URL}/api/sign-score`, {
+        // İmza al
+        const signResponse = await fetch(`${API_URL}/api/signScore`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                farcasterUsername: userInfo.username,
-                fid: userInfo.fid,
-                score: currentScore,
-                walletAddress: walletAddress
+                playerAddress: walletAddress,
+                farcasterUsername: username,
+                fid: fid,
+                score: currentScore
             })
         });
-
         const signData = await signResponse.json();
         if (!signData.success) {
             throw new Error(signData.message);
         }
-
-        // ============================================
-        // 8) SUBMIT TRANSACTION
-        // ============================================
-        btn.textContent = '⏳ Submitting score...';
-        
-        if (signer && window.ethers?.Contract) {
+        // Contract interaction
+        let tx;
+        if (window.ethers && window.ethers.Contract && signer) {
+            // Use ethers.js if available
             const ethers = window.ethers;
-            const contract = new ethers.Contract(
-                CONTRACT_ADDRESS,
-                ['function submitScore(string memory _farcasterUsername, uint256 _fid, uint256 _score, uint256 _nonce, bytes memory _signature) external'],
-                signer
-            );
-            
-            const tx = await contract.submitScore(
-                signData.data.params.farcasterUsername,
-                signData.data.params.fid,
-                signData.data.params.score,
-                signData.data.nonce,
-                signData.data.signature
-            );
-            
+            const contract = new ethers.Contract(CONTRACT_ADDRESS, ['function submitScore(string memory _farcasterUsername, uint256 _fid, uint256 _score, uint256 _nonce, bytes memory _signature) external'], signer);
+            tx = await contract.submitScore(signData.data.params.farcasterUsername, signData.data.params.fid, signData.data.params.score, signData.data.nonce, signData.data.signature);
             btn.textContent = '⏳ Waiting confirmation...';
             await tx.wait();
-        } 
-        else if (rawProvider && window.ethers?.utils) {
-            const ethers = window.ethers;
-            const iface = new ethers.utils.Interface([
-                'function submitScore(string memory _farcasterUsername, uint256 _fid, uint256 _score, uint256 _nonce, bytes memory _signature) external'
-            ]);
-            
-            const data = iface.encodeFunctionData('submitScore', [
-                signData.data.params.farcasterUsername,
-                signData.data.params.fid,
-                signData.data.params.score,
-                signData.data.nonce,
-                signData.data.signature
-            ]);
-
-            const txParams = {
-                to: CONTRACT_ADDRESS,
-                from: walletAddress,
-                data: data,
-                gas: '0x30000'
-            };
-
-            const txHash = await rawProvider.request({
-                method: 'eth_sendTransaction',
-                params: [txParams]
-            });
-
-            btn.textContent = '⏳ Waiting confirmation...';
-            
-            let receipt = null;
-            let attempts = 0;
-            while (!receipt && attempts < 60) {
-                await new Promise(resolve => setTimeout(resolve, 2000));
-                receipt = await rawProvider.request({
-                    method: 'eth_getTransactionReceipt',
-                    params: [txHash]
-                });
-                attempts++;
-            }
-
-            if (!receipt) throw new Error('Transaction timeout');
-            if (receipt.status === '0x0') throw new Error('Transaction failed');
-        } 
-        else {
-            throw new Error('Ethers.js library not available');
         }
-
+        else if (rawProvider) {
+            // Fallback: use raw provider to send transaction
+            console.log('Using raw transaction without ethers.js');
+            // Encode function call
+            const functionSignature = 'submitScore(string,uint256,uint256,uint256,bytes)';
+            const ethers = window.ethers;
+            if (ethers && ethers.utils) {
+                // If ethers utils is available, use it
+                const iface = new ethers.utils.Interface([
+                    'function submitScore(string memory _farcasterUsername, uint256 _fid, uint256 _score, uint256 _nonce, bytes memory _signature) external'
+                ]);
+                const data = iface.encodeFunctionData('submitScore', [
+                    signData.data.params.farcasterUsername,
+                    signData.data.params.fid,
+                    signData.data.params.score,
+                    signData.data.nonce,
+                    signData.data.signature
+                ]);
+                const txParams = {
+                    to: CONTRACT_ADDRESS,
+                    from: walletAddress,
+                    data: data,
+                    gas: '0x30000' // 196608 gas
+                };
+                btn.textContent = '⏳ Sending transaction...';
+                const txHash = await rawProvider.request({
+                    method: 'eth_sendTransaction',
+                    params: [txParams]
+                });
+                btn.textContent = '⏳ Waiting confirmation...';
+                // Wait for transaction receipt
+                let receipt = null;
+                let attempts = 0;
+                while (!receipt && attempts < 60) {
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                    receipt = await rawProvider.request({
+                        method: 'eth_getTransactionReceipt',
+                        params: [txHash]
+                    });
+                    attempts++;
+                }
+                if (!receipt) {
+                    throw new Error('Transaction timeout');
+                }
+                if (receipt.status === '0x0') {
+                    throw new Error('Transaction failed');
+                }
+            }
+            else {
+                throw new Error('Cannot encode transaction without ethers.js');
+            }
+        }
+        else {
+            throw new Error('No provider available for transaction');
+        }
         alert('✅ Score saved successfully!');
         btn.textContent = '✅ Saved!';
-
-    } catch (error) {
-        console.error('Save score error:', error);
-        
-        if (error.code === 'ACTION_REJECTED' || error.code === 4001) {
-            alert('❌ Transaction cancelled.');
-        } else if (error.message?.includes('insufficient funds')) {
-            alert('❌ Insufficient ETH for gas!');
-        } else {
-            alert('❌ Error: ' + (error.message || 'Unknown error'));
+    }
+    catch (error) {
+        console.error(error);
+        if (error.code === 'ACTION_REJECTED') {
+            alert('Transaction cancelled.');
         }
-        
+        else if (error.message?.includes('insufficient funds')) {
+            alert('Insufficient ETH!');
+        }
+        else {
+            alert('Error: ' + (error.message || 'Unknown error'));
+        }
         btn.disabled = false;
         btn.textContent = '💾 Save Leaderboard';
     }
 }
-
+// VIEW LEADERBOARD - Wallet gerekmez
 async function viewLeaderboard() {
     const modal = document.getElementById('leaderboard-modal');
     const content = document.getElementById('leaderboard-content');
@@ -1890,33 +1815,79 @@ function shareOnFarcaster() {
     }
 }
 // ===== INITIALIZE GAME =====
-window.addEventListener('DOMContentLoaded', () => {
-    console.log('DOM loaded, initializing game...');
-    try {
-        window.game = new FruitSliceGame();
-        console.log('Game initialized successfully:', game);
-        // Leaderboard event listeners
-        document.getElementById('save-leaderboard-button').addEventListener('click', saveScore);
-        document.getElementById('view-leaderboard-button').addEventListener('click', viewLeaderboard);
-        document.getElementById('close-leaderboard').addEventListener('click', closeLeaderboard);
-        // Share button event listener
-        const shareButton = document.getElementById('share-score-button');
-        if (shareButton) {
-            console.log('Share button found, adding event listener');
-            shareButton.addEventListener('click', shareOnFarcaster);
-        }
-        else {
-            console.error('Share button not found!');
-        }
-        // Modal dışına tıklayınca kapat
-        document.getElementById('leaderboard-modal').addEventListener('click', (e) => {
-            if (e.target === document.getElementById('leaderboard-modal')) {
-                closeLeaderboard();
+// Wait for both DOM and Farcaster SDK to be ready
+let domReady = false;
+let farcasterReady = false;
+function tryInitializeGame() {
+    if (domReady && farcasterReady) {
+        console.log('✅ Both DOM and Farcaster SDK ready, initializing game...');
+        try {
+            // Update loading bar
+            const loadingBar = document.getElementById('loading-bar');
+            const loadingText = document.getElementById('loading-text');
+            if (loadingBar)
+                loadingBar.style.width = '100%';
+            if (loadingText)
+                loadingText.textContent = 'Ready!';
+            const game = new FruitSliceGame();
+            console.log('Game initialized successfully:', game);
+            // Hide loading screen
+            setTimeout(() => {
+                const loadingScreen = document.getElementById('loading-screen');
+                if (loadingScreen) {
+                    loadingScreen.style.opacity = '0';
+                    loadingScreen.style.transition = 'opacity 0.5s ease';
+                    setTimeout(() => {
+                        loadingScreen.style.display = 'none';
+                    }, 500);
+                }
+            }, 300);
+            // Leaderboard event listeners
+            document.getElementById('save-leaderboard-button').addEventListener('click', saveScore);
+            document.getElementById('view-leaderboard-button').addEventListener('click', viewLeaderboard);
+            document.getElementById('close-leaderboard').addEventListener('click', closeLeaderboard);
+            // Share button event listener
+            const shareButton = document.getElementById('share-score-button');
+            if (shareButton) {
+                console.log('Share button found, adding event listener');
+                shareButton.addEventListener('click', shareOnFarcaster);
             }
-        });
+            else {
+                console.error('Share button not found!');
+            }
+            // Modal dışına tıklayınca kapat
+            document.getElementById('leaderboard-modal').addEventListener('click', (e) => {
+                if (e.target === document.getElementById('leaderboard-modal')) {
+                    closeLeaderboard();
+                }
+            });
+        }
+        catch (error) {
+            console.error('Error initializing game:', error);
+            // Hide loading screen even on error
+            const loadingScreen = document.getElementById('loading-screen');
+            if (loadingScreen) {
+                loadingScreen.style.display = 'none';
+            }
+        }
     }
-    catch (error) {
-        console.error('Error initializing game:', error);
-    }
+}
+window.addEventListener('DOMContentLoaded', () => {
+    console.log('📄 DOM loaded');
+    domReady = true;
+    tryInitializeGame();
 });
+window.addEventListener('farcaster-ready', () => {
+    console.log('🎯 Farcaster SDK ready');
+    farcasterReady = true;
+    tryInitializeGame();
+});
+// Fallback: If Farcaster SDK doesn't load in 3 seconds, initialize anyway
+setTimeout(() => {
+    if (!farcasterReady) {
+        console.log('⏱️ Farcaster SDK timeout, initializing game anyway...');
+        farcasterReady = true;
+        tryInitializeGame();
+    }
+}, 3000);
 //# sourceMappingURL=game.js.map
