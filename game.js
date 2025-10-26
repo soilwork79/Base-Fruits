@@ -1601,15 +1601,33 @@ async function saveScore() {
                     };
                     console.log('Farcaster user:', userInfo);
 
-                    if (window.ethereum) {
-                        rawProvider = window.ethereum;
-                        console.log('Using Farcaster wallet');
+                    try {
+                        rawProvider = await window.sdk.wallet.getEthereumProvider();
+                        console.log('Using Farcaster wallet (SDK provider)');
+                    } catch (e) {
+                        console.log('Farcaster SDK provider not available, checking window.ethereum');
+                        if (window.ethereum) {
+                            rawProvider = window.ethereum;
+                            console.log('Using window.ethereum');
+                        }
                     }
                 } else {
                     console.log('⚠️ Farcaster context incomplete');
                 }
             } catch (sdkError) {
                 console.error('Farcaster SDK error:', sdkError);
+            }
+
+            // If no provider yet, attempt sign-in and retry provider
+            if (!rawProvider && window.sdk?.actions?.signin) {
+                try {
+                    console.log('Attempting Farcaster signin to enable wallet...');
+                    await window.sdk.actions.signin();
+                    rawProvider = await window.sdk.wallet.getEthereumProvider();
+                    console.log('Provider acquired after signin');
+                } catch (signErr) {
+                    console.log('Signin/provider retry failed');
+                }
             }
         }
 
