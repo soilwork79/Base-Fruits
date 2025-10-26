@@ -102,18 +102,26 @@
         })();
     </script>
     
-    <!-- Open Graph Meta Tags -->
-    <meta property="og:title" content="Base Fruits 🍉" />
-    <meta property="og:description" content="Slice fruits, avoid bombs, and compete on the leaderboard! Web3 gaming on Base network." />
+    <!-- Farcaster Frame Metadata - CRITICAL FOR VALIDATION -->
+    <meta property="fc:frame" content="vNext" />
+    <meta property="fc:frame:image" content="https://base-fruits-farcaster-miniapp.vercel.app/images/splash.png" />
+    <meta property="fc:frame:image:aspect_ratio" content="1:1" />
+    <meta property="fc:frame:button:1" content="🎮 Play Game" />
+    <meta property="fc:frame:button:1:action" content="link" />
+    <meta property="fc:frame:button:1:target" content="https://base-fruits-farcaster-miniapp.vercel.app/" />
+    
+    <!-- Open Graph for Social Sharing -->
+    <meta property="og:title" content="Base Fruits 🍉 - Farcaster Mini Game" />
+    <meta property="og:description" content="Slice fruits, avoid bombs, and compete on the blockchain leaderboard! 🍓🍉🍊" />
     <meta property="og:image" content="https://base-fruits-farcaster-miniapp.vercel.app/images/splash.png" />
     <meta property="og:url" content="https://base-fruits-farcaster-miniapp.vercel.app/" />
     <meta property="og:type" content="website" />
     
-    <!-- Farcaster Mini App Meta Tag -->
-    <meta name="fc:miniapp" content='{"version":"next","imageUrl":"https://base-fruits-farcaster-miniapp.vercel.app/images/splash.png","button":{"title":"🎮 Play","action":{"type":"launch_frame","url":"https://base-fruits-farcaster-miniapp.vercel.app/"}}}' />
-    
-    <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="styles.css?v=8">
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Base Fruits 🍉" />
+    <meta name="twitter:description" content="Slice fruits, avoid bombs! Web3 gaming on Base." />
+    <meta name="twitter:image" content="https://base-fruits-farcaster-miniapp.vercel.app/images/splash.png" />
     
     <!-- Ethers.js -->
     <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
