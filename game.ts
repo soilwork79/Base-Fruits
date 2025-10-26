@@ -1770,26 +1770,24 @@ async function saveScore() {
     console.log('=== SAVE SCORE STARTED ===');
     console.log('Current score:', currentScore);
     console.log('Window parent:', (window as any).parent);
-    console.log('Farcaster available:', !!(window as any).parent?.farcaster);
+    console.log('SDK present:', !!(window as any).sdk);
     
     // Farcaster kullanıcı adını çek veya test için rastgele oluştur
     let username = '';
     let fid = 0;
     
-    // Farcaster bağlantısını kontrol et
+    // Farcaster SDK context (Mini App)
     try {
-        if ((window as any).parent && (window as any).parent !== window) {
-            console.log('Attempting to access parent.farcaster...');
-            const farcasterUser = await (window as any).parent.farcaster.getUser();
-            username = farcasterUser.username;
-            fid = farcasterUser.fid;
-            console.log('Farcaster user:', { username, fid });
-        } else {
-            console.log('No parent frame or same origin');
+        if ((window as any).sdk) {
+            const context = await (window as any).sdk.context;
+            if (context?.user?.fid && context?.user?.username) {
+                username = context.user.username;
+                fid = context.user.fid;
+                console.log('Farcaster user:', { username, fid });
+            }
         }
     } catch (error: any) {
-        console.log('Farcaster access error (expected in preview):', error.message);
-        // Cross-origin hatası beklenen bir durum
+        console.log('Farcaster SDK context error:', error?.message || error);
     }
     
     // Test ortamı için rastgele kullanıcı adı
@@ -1813,61 +1811,31 @@ async function saveScore() {
         let inFarcasterFrame = false;
         let farcasterWalletAvailable = false;
         
-        // Check if we're in an iframe and potentially in Farcaster
+        // Farcaster Mini App wallet (no cross-origin access)
         try {
-            inFarcasterFrame = window.parent !== window;
-            console.log('In iframe:', inFarcasterFrame);
-            
-            if (inFarcasterFrame) {
-                // Try to access Farcaster SDK
-                const hasFarcasterSDK = !!(window as any).parent?.farcaster;
-                console.log('Has Farcaster SDK:', hasFarcasterSDK);
-                
-                if (hasFarcasterSDK) {
+            if ((window as any).sdk?.wallet?.getEthereumProvider) {
+                rawProvider = await (window as any).sdk.wallet.getEthereumProvider();
+                if (!rawProvider && (window as any).sdk?.actions?.signin) {
+                    console.log('Attempting Farcaster signin to enable wallet...');
+                    await (window as any).sdk.actions.signin();
+                    rawProvider = await (window as any).sdk.wallet.getEthereumProvider();
+                }
+                if (rawProvider) {
+                    farcasterWalletAvailable = true;
                     try {
-                        console.log('Attempting Farcaster wallet connection...');
-                        rawProvider = await (window as any).parent.farcaster.wallet.getEthereumProvider();
-                        console.log('Farcaster provider obtained:', rawProvider);
-                        
-                        if (rawProvider) {
-                            farcasterWalletAvailable = true;
-                            
-                            // Wait for ethers.js if needed
-                            if (!(window as any).ethers) {
-                                console.log('Waiting for ethers.js...');
-                                let attempts = 0;
-                                while (!(window as any).ethers && attempts < 30) {
-                                    await new Promise(resolve => setTimeout(resolve, 100));
-                                    attempts++;
-                                }
-                            }
-                            
-                            // Use ethers if available, otherwise use raw provider
-                            if ((window as any).ethers && (window as any).ethers.providers) {
-                                const ethers = (window as any).ethers;
-                                provider = new ethers.providers.Web3Provider(rawProvider);
-                                await provider.send("eth_requestAccounts", []);
-                                signer = provider.getSigner();
-                                walletAddress = await signer.getAddress();
-                            } else {
-                                // Fallback: use raw provider directly
-                                console.log('Using raw provider without ethers.js');
-                                const accounts = await rawProvider.request({ method: 'eth_requestAccounts' });
-                                walletAddress = accounts[0];
-                                // We'll handle contract interaction differently below
-                            }
-                            
-                            console.log('Farcaster wallet connected:', walletAddress);
-                        }
-                    } catch (e: any) {
-                        console.error('Farcaster wallet error:', e);
-                        farcasterWalletAvailable = false;
+                        const accounts = await rawProvider.request({ method: 'eth_requestAccounts' });
+                        walletAddress = accounts?.[0];
+                    } catch {}
+                    if ((window as any).ethers?.providers) {
+                        const ethers = (window as any).ethers;
+                        provider = new ethers.providers.Web3Provider(rawProvider);
+                        signer = provider.getSigner();
                     }
+                    console.log('Farcaster wallet connected:', walletAddress);
                 }
             }
-        } catch (frameError: any) {
-            console.log('Frame check error:', frameError);
-            inFarcasterFrame = false;
+        } catch (sdkProvErr: any) {
+            console.log('SDK provider error:', sdkProvErr?.message || sdkProvErr);
         }
         
         // If not in Farcaster or Farcaster wallet failed, try MetaMask
@@ -1911,48 +1879,39 @@ async function saveScore() {
             }
         }
 
-        // Base Mainnet kontrolü
-        const network = await provider.getNetwork();
-        if (network.chainId !== 8453) {
-            try {
-                console.log('Switching to Base network...');
-                // Base ağına geçmeyi dene - rawProvider'ı kullan
-                await rawProvider.request({
-                    method: 'wallet_switchEthereumChain',
-                    params: [{ chainId: '0x2105' }],
-                });
-            } catch (switchError: any) {
-                console.log('Network switch error:', switchError);
-                // Eğer ağ yoksa, Base ağını ekle
-                if (switchError.code === 4902) {
-                    try {
-                        console.log('Adding Base network...');
+        // Base Mainnet kontrolü (chainId via EIP-1193)
+        try {
+            const chainIdHex = await rawProvider.request({ method: 'eth_chainId' });
+            const currentChain = typeof chainIdHex === 'string' ? chainIdHex : '0x0';
+            if (currentChain !== '0x2105') {
+                try {
+                    await rawProvider.request({
+                        method: 'wallet_switchEthereumChain',
+                        params: [{ chainId: '0x2105' }]
+                    });
+                } catch (switchError: any) {
+                    if (switchError.code === 4902) {
                         await rawProvider.request({
                             method: 'wallet_addEthereumChain',
                             params: [{
                                 chainId: '0x2105',
                                 chainName: 'Base Mainnet',
-                                nativeCurrency: {
-                                    name: 'Ethereum',
-                                    symbol: 'ETH',
-                                    decimals: 18
-                                },
+                                nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
                                 rpcUrls: ['https://mainnet.base.org'],
                                 blockExplorerUrls: ['https://basescan.org']
                             }]
                         });
-                    } catch (addError) {
-                        console.error('Failed to add Base network:', addError);
-                        throw new Error('Base ağı eklenemedi. Lütfen manuel olarak ekleyin.');
+                    } else {
+                        throw switchError;
                     }
-                } else {
-                    throw new Error('Base ağına geçilemedi: ' + switchError.message);
                 }
             }
+        } catch (netErr: any) {
+            console.log('Network check failed:', netErr?.message || netErr);
         }
 
         // İmza al
-        const signResponse = await fetch(`${API_URL}/api/signScore`, {
+        const signResponse = await fetch(`${API_URL}/api/sign-score`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
