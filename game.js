@@ -1920,18 +1920,32 @@ function closeLeaderboard() {
     document.getElementById('leaderboard-modal').classList.add('hidden');
 }
 // SHARE ON FARCASTER
-function shareOnFarcaster() {
+async function shareOnFarcaster() {
     console.log('Share button clicked! Current score:', currentScore);
     const message = `Scored ${currentScore} points in Base Fruits! 🥇 Can you beat me? 🍓🍉`;
     const gameUrl = 'https://farcaster.xyz/miniapps/9H5xXWDjE4Dw/base-fruits';
     console.log('Share message:', message);
-    // Create Farcaster cast URL with parameters (only text and link)
+    
+    // Create Farcaster cast URL with parameters
     const castText = encodeURIComponent(message);
     const embedUrl = encodeURIComponent(gameUrl);
-    // Farcaster cast URL format - link will automatically show preview image
     const farcasterUrl = `https://warpcast.com/~/compose?text=${castText}&embeds[]=${embedUrl}`;
     console.log('Farcaster URL:', farcasterUrl);
-    // Try multiple methods to open the URL
+    
+    // Check if we're in Farcaster mini app context
+    if (window.sdk && window.sdk.actions && typeof window.sdk.actions.openUrl === 'function') {
+        try {
+            console.log('Using Farcaster SDK openUrl...');
+            await window.sdk.actions.openUrl(farcasterUrl);
+            console.log('✅ Successfully opened URL via SDK');
+            return;
+        } catch (error) {
+            console.error('❌ SDK openUrl failed:', error);
+            // Fall through to browser methods
+        }
+    }
+    
+    // Fallback to browser methods
     try {
         // Method 1: window.open
         const newWindow = window.open(farcasterUrl, '_blank');
@@ -1939,12 +1953,10 @@ function shareOnFarcaster() {
             console.log('Popup blocked, trying alternative method...');
             // Method 2: Direct navigation
             window.location.href = farcasterUrl;
-        }
-        else {
+        } else {
             console.log('Successfully opened Farcaster compose window');
         }
-    }
-    catch (error) {
+    } catch (error) {
         console.error('Error opening Farcaster URL:', error);
         // Method 3: Copy to clipboard as fallback
         navigator.clipboard.writeText(message + ' ' + gameUrl).then(() => {
