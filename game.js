@@ -1423,6 +1423,9 @@ class FruitSliceGame {
             return;
         const ctx = this.state.ctx;
         
+        console.log('🎨 drawTrail called - NEW VERSION with comet effect!');
+        console.log('Points count:', points.length, 'Opacity:', opacity);
+        
         // Draw comet-like trail: thick to thin with bluish color
         const step = this.state.isLowPerformance ? 2 : 1;
         
@@ -1438,6 +1441,10 @@ class FruitSliceGame {
             const g = Math.floor(200 + 55 * (1 - progress));
             const b = 255;
             const alpha = opacity * (1 - progress * 0.3); // Slight fade at the end
+            
+            if (i === 0) {
+                console.log('First segment - Thickness:', thickness, 'Color:', `rgba(${r}, ${g}, ${b}, 0.9)`);
+            }
             
             ctx.globalAlpha = alpha;
             ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, 0.9)`;
