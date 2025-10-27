@@ -1920,7 +1920,7 @@ function closeLeaderboard() {
 function shareOnFarcaster() {
     console.log('Share button clicked! Current score:', currentScore);
     const message = `Scored ${currentScore} points in Base Fruits! 🥇 Can you beat me? 🍓🍉`;
-    const gameUrl = 'https://base-fruits.vercel.app/';
+    const gameUrl = 'https://farcaster.xyz/miniapps/9H5xXWDjE4Dw/base-fruits';
     console.log('Share message:', message);
     // Create Farcaster cast URL with parameters (only text and link)
     const castText = encodeURIComponent(message);
