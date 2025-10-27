@@ -1422,19 +1422,41 @@ class FruitSliceGame {
         if (points.length < 2)
             return;
         const ctx = this.state.ctx;
-        ctx.globalAlpha = opacity;
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
-        ctx.lineWidth = 3;
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-        ctx.beginPath();
-        ctx.moveTo(points[0].x, points[0].y);
-        // Draw every other point on low performance devices
+        
+        // Draw comet-like trail: thick to thin with bluish color
         const step = this.state.isLowPerformance ? 2 : 1;
-        for (let i = step; i < points.length; i += step) {
-            ctx.lineTo(points[i].x, points[i].y);
+        
+        for (let i = 0; i < points.length - step; i += step) {
+            const progress = i / (points.length - 1);
+            
+            // Thickness: starts thick (12px) and tapers to thin (1px)
+            const thickness = 12 * (1 - progress) + 1;
+            
+            // Color: bluish/cyan gradient with glow effect
+            // RGB values for cyan/blue: R=100-150, G=200-255, B=255
+            const r = Math.floor(100 + 50 * progress);
+            const g = Math.floor(200 + 55 * (1 - progress));
+            const b = 255;
+            const alpha = opacity * (1 - progress * 0.3); // Slight fade at the end
+            
+            ctx.globalAlpha = alpha;
+            ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, 0.9)`;
+            ctx.lineWidth = thickness;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            
+            // Add glow effect
+            ctx.shadowBlur = 8;
+            ctx.shadowColor = `rgba(${r}, ${g}, ${b}, 0.6)`;
+            
+            ctx.beginPath();
+            ctx.moveTo(points[i].x, points[i].y);
+            ctx.lineTo(points[i + step].x, points[i + step].y);
+            ctx.stroke();
         }
-        ctx.stroke();
+        
+        // Reset shadow and alpha
+        ctx.shadowBlur = 0;
         ctx.globalAlpha = 1;
     }
     updateUI() {
