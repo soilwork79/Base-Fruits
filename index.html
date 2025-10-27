@@ -35,11 +35,10 @@
     <script>
         // Verify ethers loaded
         if (window.ethers && window.ethers.providers) {
-            console.log('✅ Ethers.js v' + window.ethers.version + ' loaded');
             window.ethersReady = true;
         } else {
-            console.error('❌ Ethers.js failed to load!');
             window.ethersReady = false;
+            alert('⚠️ Failed to load required libraries. Please refresh the page.');
         }
     </script>
     
@@ -56,8 +55,6 @@
         
         (async function() {
             try {
-                console.log('🔐 Initializing Privy SDK...');
-                
                 // Initialize Privy with your app ID
                 privyClient = new window.Privy.PrivyClient({
                     appId: 'cmh9kqxh5005rlb0cqv01vxrc', // Your Privy App ID
@@ -92,9 +89,8 @@
                 });
                 
                 window.privyClient = privyClient;
-                console.log('✅ Privy initialized successfully');
             } catch (error) {
-                console.error('❌ Privy initialization error:', error);
+                // Silently fail - will try to initialize again if needed
             }
         })();
     </script>
@@ -104,8 +100,6 @@
         // Initialize Farcaster SDK globally as window.sdk (for game.js compatibility)
         (async function() {
             try {
-                console.log('🔄 Initializing Farcaster SDK...');
-                
                 // Resolve SDK across possible host globals
                 const resolveSdk = () => {
                     if (window.frame && window.frame.sdk) return window.frame.sdk;
@@ -128,18 +122,14 @@
                     window.sdk = sdk;
                     try {
                         const context = await sdk.actions.ready();
-                        console.log('✅ SDK ready() called');
-                        console.log('📱 Context:', context);
                         window.farcasterContext = context;
                     } catch (readyError) {
-                        console.warn('⚠️ SDK ready() failed:', readyError);
+                        // SDK ready failed, continue anyway
                     }
                 } else {
-                    console.log('ℹ️ Farcaster SDK not available (browser mode)');
                     window.sdk = null;
                 }
             } catch (error) {
-                console.error('❌ SDK initialization error:', error);
                 window.sdk = null;
             }
         })();
@@ -229,7 +219,7 @@
     </div>
     
     <!-- 4. Game script LAST -->
-    <script src="game.js?v=9"></script>
+    <script src="game.js?v=10"></script>
     <script src="game-privy.js?v=2"></script>
 </body>
 </html>

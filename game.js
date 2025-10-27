@@ -21,6 +21,8 @@ const FRUIT_TYPES = [
     { name: 'pineapple', emoji: '🍍', color: '#ffe66d', imagePath: 'images/pineapple.png', halfImagePath: 'images/half_pineapple.png' }
 ];
 const SCORE_TABLE = [0, 10, 30, 135, 200, 375, 675, 1200];
+// Global variable to store current score for sharing
+let currentScore = 0;
 // ===== GAME STATE =====
 class GameState {
     constructor() {
@@ -113,12 +115,8 @@ class FruitSliceGame {
     }
     setupEventListeners() {
         // Start button
-        const startButton = document.getElementById('start-button');
-        console.log('Start button found:', startButton);
-        if (startButton) {
-            startButton.addEventListener('click', () => {
-                console.log('Start button clicked!');
-                this.startGame();
+        const startButton = document.getElementById('start-button');        if (startButton) {
+            startButton.addEventListener('click', () => {                this.startGame();
             });
         }
         // Restart button
@@ -187,9 +185,7 @@ class FruitSliceGame {
         return "island_background.png"; // Default fallback
     }
     changeBackground(wave) {
-        const backgroundImage = this.getBackgroundForWave(wave);
-        console.log(`Changing background to: ${backgroundImage} for wave ${wave}`);
-        const gameContainer = document.getElementById('game-container');
+        const backgroundImage = this.getBackgroundForWave(wave);        const gameContainer = document.getElementById('game-container');
         gameContainer.style.backgroundImage = `url('images/${backgroundImage}')`;
     }
     showChapterName(wave, onComplete) {
@@ -205,9 +201,7 @@ class FruitSliceGame {
             if (onComplete)
                 onComplete();
             return;
-        }
-        console.log(`Showing chapter: ${chapterName} for wave ${wave}`);
-        // Change background first
+        }        // Change background first
         this.changeBackground(wave);
         // Update chapter text
         const chapterTextElement = document.getElementById('chapter-text');
@@ -322,9 +316,7 @@ class FruitSliceGame {
                 const nextWave = this.state.level;
                 if (nextWave === 11 || nextWave === 21 || nextWave === 31 || nextWave === 41) {
                     // Show chapter name and launch fruits 3 seconds after it disappears
-                    this.showChapterName(nextWave, () => {
-                        console.log(`Chapter ${nextWave}: Launching fruits after chapter title`);
-                        this.launchFruits();
+                    this.showChapterName(nextWave, () => {                        this.launchFruits();
                     });
                 }
                 else {
@@ -334,8 +326,7 @@ class FruitSliceGame {
             }
         }, 3000);
     }
-    startGame() {
-        console.log('startGame() called');
+    startGame() { called');
         // Stop all fuse sounds from previous game
         for (const fruit of this.state.fruits) {
             if (fruit.isBomb && fruit.fuseSound) {
@@ -393,9 +384,7 @@ class FruitSliceGame {
         this.gameLoop(performance.now());
     }
     launchFruits() {
-        const wave = this.state.level;
-        console.log(`launchFruits called for wave ${wave}`);
-        let fruitCount = 7; // Default to 7 fruits
+        const wave = this.state.level;        let fruitCount = 7; // Default to 7 fruits
         // Determine fruit count based on wave (updated rules)
         if (wave <= 2) {
             fruitCount = 1;
@@ -429,9 +418,7 @@ class FruitSliceGame {
                 // Random delay between 0 and 500ms
                 const launchDelay = Math.random() * 500;
                 setTimeout(() => {
-                    if (!this.state.isPlaying) {
-                        console.log(`Fruit launch cancelled: isPlaying = false at wave ${wave}`);
-                        return;
+                    if (!this.state.isPlaying) {                        return;
                     }
                     const fruitType = FRUIT_TYPES[Math.floor(Math.random() * FRUIT_TYPES.length)];
                     // Random launch position along bottom (more centered)
@@ -461,9 +448,7 @@ class FruitSliceGame {
                         // Bombs can spawn up to 350ms after fruits (or 1000ms in waves 41-50)
                         const bombDelay = (wave >= 41 && wave <= 50) ? 1500 : 600;
                         setTimeout(() => {
-                            this.state.allFruitsLaunched = true;
-                            console.log(`Wave ${wave}: All fruits and bombs launched`);
-                        }, bombDelay);
+                            this.state.allFruitsLaunched = true;                        }, bombDelay);
                     }
                 }, fruitBaseDelay + launchDelay);
             }
@@ -476,9 +461,7 @@ class FruitSliceGame {
         const launchBombAt = (delayMs) => {
             const delay = Math.max(0, delayMs);
             setTimeout(() => {
-                if (!this.state.isPlaying) {
-                    console.log(`Bomb launch cancelled: isPlaying = false at wave ${wave}`);
-                    return;
+                if (!this.state.isPlaying) {                    return;
                 }
                 // Random launch position
                 const x = this.state.width * (0.3 + Math.random() * 0.4);
@@ -488,11 +471,8 @@ class FruitSliceGame {
                 const bombFuseSound = this.state.fuseSound.cloneNode();
                 bombFuseSound.volume = this.state.fuseSound.volume;
                 bombFuseSound.loop = true;
-                console.log('Playing fuse sound for bomb');
-                bombFuseSound.play().then(() => {
-                    console.log('Fuse sound started successfully');
-                }).catch((e) => {
-                    console.error('Fuse sound play failed:', e);
+                bombFuseSound.play().catch(() => {
+                    // Silently ignore autoplay restrictions
                 });
                 this.state.fruits.push({
                     x: x,
@@ -926,17 +906,17 @@ class FruitSliceGame {
     playKnifeSwooshSound() {
         const sound = this.state.swooshSound.cloneNode();
         sound.volume = this.state.swooshSound.volume;
-        sound.play().catch((e) => console.log('Audio play failed:', e));
+        sound.play().catch((e) =>);
     }
     playBurningSound() {
         const sound = this.state.explosionSound.cloneNode();
         sound.volume = this.state.explosionSound.volume;
-        sound.play().catch((e) => console.log('Audio play failed:', e));
+        sound.play().catch((e) =>);
     }
     playFallSound() {
         const sound = this.state.fallSound.cloneNode();
         sound.volume = this.state.fallSound.volume;
-        sound.play().catch((e) => console.log('Audio play failed:', e));
+        sound.play().catch((e) =>);
     }
     playComboSound(type) {
         let sourceSound;
@@ -951,17 +931,17 @@ class FruitSliceGame {
         }
         const sound = sourceSound.cloneNode();
         sound.volume = sourceSound.volume;
-        sound.play().catch((e) => console.log('Audio play failed:', e));
+        sound.play().catch((e) =>);
     }
     playSliceSound(comboCount) {
         const sound = this.state.sliceSound.cloneNode();
         sound.volume = Math.min(1.0, this.state.sliceSound.volume * (1 + comboCount * 0.1));
-        sound.play().catch((e) => console.log('Audio play failed:', e));
+        sound.play().catch((e) =>);
     }
     playFailSound() {
         const sound = this.state.failSound.cloneNode();
         sound.volume = this.state.failSound.volume;
-        sound.play().catch((e) => console.log('Fail audio play failed:', e));
+        sound.play().catch((e) =>);
     }
     createFireworks(x, y) {
         const colors = ['#ff6b6b', '#ffa500', '#ffd93d', '#6bcf7f', '#c471f5', '#ff4757'];
@@ -1423,15 +1403,17 @@ class FruitSliceGame {
             return;
         const ctx = this.state.ctx;
         
-        // Draw comet-like trail: thick at mouse, thin at tail with bluish color
+        // Draw comet-like trail: THICK at mouse tip, thin at tail
         const step = this.state.isLowPerformance ? 2 : 1;
         
         for (let i = 0; i < points.length - step; i += step) {
-            // progress goes from 0 (start/tail) to 1 (end/mouse)
+            // progress goes from 0 (start/tail) to 1 (end/mouse tip)
             const progress = i / (points.length - 1);
             
-            // Thickness: thick at tail (4px) to thin at mouse (0.5px)
-            const thickness = 4 * (1 - progress) + 0.5;
+            // Thickness: thin at tail (2px) to THICK at mouse (20px)
+            const minThickness = 2;
+            const maxThickness = 20;
+            const thickness = minThickness + (maxThickness - minThickness) * progress;
             
             // Color: bluish/cyan gradient with glow effect
             // RGB values for cyan/blue: brighter at mouse tip
@@ -1447,8 +1429,8 @@ class FruitSliceGame {
             ctx.lineJoin = 'round';
             
             // Add glow effect (stronger at mouse tip)
-            ctx.shadowBlur = 5 + 3 * progress;
-            ctx.shadowColor = `rgba(${r}, ${g}, ${b}, ${0.4 + 0.3 * progress})`;
+            ctx.shadowBlur = 5 + 10 * progress; // More glow at tip
+            ctx.shadowColor = `rgba(${r}, ${g}, ${b}, ${0.5 + 0.4 * progress})`;
             
             ctx.beginPath();
             ctx.moveTo(points[i].x, points[i].y);
@@ -1475,9 +1457,7 @@ class FruitSliceGame {
         // Detect low performance (FPS < 30)
         if (deltaTime > 33 && !this.state.isLowPerformance) {
             this.state.frameSkipCounter++;
-            if (this.state.frameSkipCounter > 10) {
-                console.log('Low performance detected, enabling optimizations');
-                this.state.isLowPerformance = true;
+            if (this.state.frameSkipCounter > 10) {                this.state.isLowPerformance = true;
             }
         }
         else if (deltaTime < 20 && this.state.isLowPerformance) {
@@ -1498,29 +1478,17 @@ const CONTRACT_ADDRESS_LEGACY = '0xa4f109Eb679970C0b30C21812C99318837A81c73';
 const API_URL_LEGACY = 'https://base-fruits-game.vercel.app';
 let currentScoreLegacyInit = 0;
 // SAVE LEADERBOARD - Farcaster SDK veya MetaMask
-async function saveScoreLegacy() {
-    console.log('=== SAVE SCORE STARTED ===');
-    console.log('Current score:', currentScore);
-    console.log('Window parent:', window.parent);
-    console.log('Farcaster available:', !!window.parent?.farcaster);
-    // Farcaster kullanıcı adını çek veya test için rastgele oluştur
+async function saveScoreLegacy() {    // Farcaster kullanıcı adını çek veya test için rastgele oluştur
     let username = '';
     let fid = 0;
     // Farcaster bağlantısını kontrol et
     try {
-        if (window.parent && window.parent !== window) {
-            console.log('Attempting to access parent.farcaster...');
-            const farcasterUser = await window.parent.farcaster.getUser();
+        if (window.parent && window.parent !== window) {            const farcasterUser = await window.parent.farcaster.getUser();
             username = farcasterUser.username;
-            fid = farcasterUser.fid;
-            console.log('Farcaster user:', { username, fid });
-        }
-        else {
-            console.log('No parent frame or same origin');
-        }
+            fid = farcasterUser.fid;        }
+        else {        }
     }
-    catch (error) {
-        console.log('Farcaster access error (expected in preview):', error.message);
+    catch (error) {:', error.message);
         // Cross-origin hatası beklenen bir durum
     }
     // Test ortamı için rastgele kullanıcı adı
@@ -1542,23 +1510,13 @@ async function saveScoreLegacy() {
         let farcasterWalletAvailable = false;
         // Check if we're in an iframe and potentially in Farcaster
         try {
-            inFarcasterFrame = window.parent !== window;
-            console.log('In iframe:', inFarcasterFrame);
-            if (inFarcasterFrame) {
+            inFarcasterFrame = window.parent !== window;            if (inFarcasterFrame) {
                 // Try to access Farcaster SDK
-                const hasFarcasterSDK = !!window.parent?.farcaster;
-                console.log('Has Farcaster SDK:', hasFarcasterSDK);
-                if (hasFarcasterSDK) {
-                    try {
-                        console.log('Attempting Farcaster wallet connection...');
-                        rawProvider = await window.parent.farcaster.wallet.getEthereumProvider();
-                        console.log('Farcaster provider obtained:', rawProvider);
-                        if (rawProvider) {
+                const hasFarcasterSDK = !!window.parent?.farcaster;                if (hasFarcasterSDK) {
+                    try {                        rawProvider = await window.parent.farcaster.wallet.getEthereumProvider();                        if (rawProvider) {
                             farcasterWalletAvailable = true;
                             // Wait for ethers.js if needed
-                            if (!window.ethers) {
-                                console.log('Waiting for ethers.js...');
-                                let attempts = 0;
+                            if (!window.ethers) {                                let attempts = 0;
                                 while (!window.ethers && attempts < 30) {
                                     await new Promise(resolve => setTimeout(resolve, 100));
                                     attempts++;
@@ -1573,27 +1531,19 @@ async function saveScoreLegacy() {
                                 walletAddress = await signer.getAddress();
                             }
                             else {
-                                // Fallback: use raw provider directly
-                                console.log('Using raw provider without ethers.js');
-                                const accounts = await rawProvider.request({ method: 'eth_requestAccounts' });
+                                // Fallback: use raw provider directly                                const accounts = await rawProvider.request({ method: 'eth_requestAccounts' });
                                 walletAddress = accounts[0];
                                 // We'll handle contract interaction differently below
-                            }
-                            console.log('Farcaster wallet connected:', walletAddress);
-                        }
+                            }                        }
                     }
                     catch (e) {
-                        console.error('Farcaster wallet error:', e);
                         farcasterWalletAvailable = false;
                     }
                 }
             }
         }
-        catch (frameError) {
-            console.log('Frame check error:', frameError);
-        }
+        catch (frameError) {        }
     } catch (error) {
-        console.error('Legacy saveScore error:', error);
         const btn = document.getElementById('save-leaderboard-button');
         if (btn) { btn.disabled = false; btn.textContent = '💾 Save Leaderboard'; }
     }
@@ -1617,22 +1567,16 @@ async function saveScore() {
         // ============================================
         // 1) PRIVY WALLET CONNECTION
         // ============================================
-        if (window.privyClient) {
-            console.log('🔐 Using Privy for wallet connection');
-            
+        if (window.privyClient) {            
             // Check if user is already authenticated
             const isAuthenticated = window.privyClient.authenticated;
             
-            if (!isAuthenticated) {
-                console.log('User not authenticated, logging in with Privy...');
-                btn.textContent = '🔐 Login with Wallet...';
+            if (!isAuthenticated) {                btn.textContent = '🔐 Login with Wallet...';
                 
                 try {
                     // Login with Privy (will show wallet selection modal)
                     await window.privyClient.login();
-                    console.log('✅ Privy login successful');
                 } catch (loginError) {
-                    console.error('❌ Privy login failed:', loginError);
                     throw new Error('Login cancelled or failed');
                 }
             }
@@ -1644,26 +1588,20 @@ async function saveScore() {
             }
             
             const wallet = wallets[0];
-            walletAddress = wallet.address;
-            console.log('Connected wallet address:', walletAddress);
-            
+            walletAddress = wallet.address;            
             // Get Farcaster user info if available
             const user = window.privyClient.user;
             if (user?.farcaster) {
                 userInfo = {
                     username: user.farcaster.username || '',
                     fid: user.farcaster.fid || 0
-                };
-                console.log('Farcaster user info:', userInfo);
-            }
+                };            }
             
             // Switch to Base network
             btn.textContent = '🔄 Switching to Base...';
             try {
                 await wallet.switchChain(8453); // Base mainnet chain ID
-                console.log('✅ Switched to Base network');
             } catch (switchError) {
-                console.error('Failed to switch network:', switchError);
                 // Continue anyway, user might already be on Base
             }
             
@@ -1674,21 +1612,15 @@ async function saveScore() {
         } else if (typeof window.ethereum !== 'undefined') {
             // ============================================
             // 2) METAMASK/WALLET FALLBACK
-            // ============================================
-            console.log('Using MetaMask/Browser wallet');
-            
+            // ============================================            
             // CRITICAL FIX: DO NOT modify window.ethereum!
             let provider = window.ethereum;
             
-            if (window.ethereum.providers?.length > 0) {
-                console.log('Multiple wallets detected');
-                const metamaskProvider = window.ethereum.providers.find(
+            if (window.ethereum.providers?.length > 0) {                const metamaskProvider = window.ethereum.providers.find(
                     (p) => p.isMetaMask
                 );
                 if (metamaskProvider) {
-                    provider = metamaskProvider;
-                    console.log('Using MetaMask');
-                }
+                    provider = metamaskProvider;                }
             }
             
             rawProvider = provider;
@@ -1697,8 +1629,6 @@ async function saveScore() {
                 method: 'eth_requestAccounts'
             });
             walletAddress = accounts[0];
-            console.log('Wallet connected:', walletAddress);
-
             try {
                 const fidResponse = await fetch(`${API_URL}/api/get-fid?address=${walletAddress}`);
                 const fidData = await fidResponse.json();
@@ -1706,9 +1636,7 @@ async function saveScore() {
                     userInfo.fid = fidData.fid;
                     userInfo.username = fidData.username || `User${walletAddress.slice(2, 8)}`;
                 }
-            } catch (e) {
-                console.log('Could not fetch FID, using wallet address');
-                userInfo.username = `User${walletAddress.slice(2, 8)}`;
+            } catch (e) {                userInfo.username = `User${walletAddress.slice(2, 8)}`;
                 userInfo.fid = 0;
             }
         }
@@ -1724,8 +1652,6 @@ async function saveScore() {
         if (!window.privyClient && rawProvider) {
             btn.textContent = '⏳ Checking network...';
             const chainId = await rawProvider.request({ method: 'eth_chainId' });
-            console.log('Current chain:', chainId);
-
             if (chainId !== '0x2105') {
             try {
                 await rawProvider.request({
@@ -1766,11 +1692,7 @@ async function saveScore() {
             try {
                 const ethers = window.ethers;
                 const provider = new ethers.providers.Web3Provider(rawProvider);
-                signer = provider.getSigner();
-                console.log('Ethers.js signer created');
-            } catch (e) {
-                console.log('Could not create ethers signer, will use raw provider');
-            }
+                signer = provider.getSigner();            } catch (e) {            }
         }
 
         // ============================================
@@ -1869,8 +1791,6 @@ async function saveScore() {
         btn.textContent = '✅ Saved!';
 
     } catch (error) {
-        console.error('Save score error:', error);
-        
         if (!window.sdk) {
             if (error.code === 'ACTION_REJECTED' || error.code === 4001) {
                 alert('❌ Transaction cancelled.');
@@ -1920,68 +1840,78 @@ function closeLeaderboard() {
     document.getElementById('leaderboard-modal').classList.add('hidden');
 }
 // SHARE ON FARCASTER
-async function shareOnFarcaster() {
-    console.log('Share button clicked! Current score:', currentScore);
-    const message = `Scored ${currentScore} points in Base Fruits! 🥇 Can you beat me? 🍓🍉`;
-    const gameUrl = 'https://farcaster.xyz/miniapps/9H5xXWDjE4Dw/base-fruits';
-    console.log('Share message:', message);
-    
-    // Create Farcaster cast URL with parameters
+async function shareOnFarcaster() {    
+    const message = `🍉 Base Fruits'ta ${currentScore} puan yaptım! 🥇\n\nBeni yenebilir misin? 🍓🍉`;
+    const gameUrl = 'https://base-fruits-farcaster-miniapp.vercel.app/';    
+    // Create Farcaster cast URL with proper encoding
     const castText = encodeURIComponent(message);
     const embedUrl = encodeURIComponent(gameUrl);
-    const farcasterUrl = `https://warpcast.com/~/compose?text=${castText}&embeds[]=${embedUrl}`;
-    console.log('Farcaster URL:', farcasterUrl);
-    
+    const farcasterUrl = `https://warpcast.com/~/compose?text=${castText}&embeds[]=${embedUrl}`;    
     // Check if we're in Farcaster mini app context
-    if (window.sdk && window.sdk.actions && typeof window.sdk.actions.openUrl === 'function') {
-        try {
-            console.log('Using Farcaster SDK openUrl...');
-            await window.sdk.actions.openUrl(farcasterUrl);
-            console.log('✅ Successfully opened URL via SDK');
-            return;
-        } catch (error) {
-            console.error('❌ SDK openUrl failed:', error);
-            // Fall through to browser methods
+    if (window.sdk && window.sdk.actions) {        
+        // Try openUrl method
+        if (typeof window.sdk.actions.openUrl === 'function') {
+            try {
+                await window.sdk.actions.openUrl(farcasterUrl);
+                return;
+            } catch (error) {
+                // Silent fail, try next method
+            }
         }
-    }
+        
+        // Try shareUrl method (some SDK versions use this)
+        if (typeof window.sdk.actions.shareUrl === 'function') {
+            try {
+                await window.sdk.actions.shareUrl(farcasterUrl);
+                return;
+            } catch (error) {
+                // Silent fail, try next method
+            }
+        }
+        
+        // Try casting directly if SDK supports it
+        if (typeof window.sdk.actions.createCast === 'function') {
+            try {
+                await window.sdk.actions.createCast({
+                    text: message,
+                    embeds: [gameUrl]
+                });
+                return;
+            } catch (error) {
+                // Silent fail, fall through to browser methods
+            }
+        }    } else {    }
     
     // Fallback to browser methods
     try {
-        // Method 1: window.open
-        const newWindow = window.open(farcasterUrl, '_blank');
-        if (!newWindow) {
-            console.log('Popup blocked, trying alternative method...');
-            // Method 2: Direct navigation
-            window.location.href = farcasterUrl;
+        const newWindow = window.open(farcasterUrl, '_blank', 'noopener,noreferrer');
+        
+        if (newWindow) {
+            newWindow.focus();
         } else {
-            console.log('Successfully opened Farcaster compose window');
+            window.location.href = farcasterUrl;
         }
     } catch (error) {
-        console.error('Error opening Farcaster URL:', error);
-        // Method 3: Copy to clipboard as fallback
-        navigator.clipboard.writeText(message + ' ' + gameUrl).then(() => {
-            alert('Farcaster link could not be opened. Message copied to clipboard!');
-        }).catch(() => {
-            alert('Unable to open Farcaster. Please manually share: ' + message + ' ' + gameUrl);
-        });
+        // Final fallback: Copy to clipboard
+        try {
+            const shareText = `${message}\n\n${gameUrl}`;
+            await navigator.clipboard.writeText(shareText);
+            alert('📋 Paylaşım linki kopyalandı!\n\nWarpcast\'e yapıştırabilirsiniz.');
+        } catch (clipboardError) {
+            // Last resort: Show the message
+            const userMessage = `Lütfen manuel olarak paylaşın:\n\n${message}\n\n${gameUrl}`;
+            alert(userMessage);
+        }
     }
 }
 // ===== INITIALIZE GAME =====
-window.addEventListener('DOMContentLoaded', () => {
-    console.log('DOM loaded, initializing game...');
-    try {
-        const game = new FruitSliceGame();
-        console.log('Game initialized successfully:', game);
-        // Leaderboard event listeners
+window.addEventListener('DOMContentLoaded', () => {    try {
+        const game = new FruitSliceGame();        // Leaderboard event listeners
         document.getElementById('close-leaderboard').addEventListener('click', closeLeaderboard);
         // Share button event listener
         const shareButton = document.getElementById('share-score-button');
         if (shareButton) {
-            console.log('Share button found, adding event listener');
             shareButton.addEventListener('click', shareOnFarcaster);
-        }
-        else {
-            console.error('Share button not found!');
         }
         // Modal dışına tıklayınca kapat
         document.getElementById('leaderboard-modal').addEventListener('click', (e) => {
@@ -1991,7 +1921,7 @@ window.addEventListener('DOMContentLoaded', () => {
         });
     }
     catch (error) {
-        console.error('Error initializing game:', error);
+        alert('⚠️ Oyun başlatılamadı. Lütfen sayfayı yenileyin.');
     }
 });
 //# sourceMappingURL=game.js.map
