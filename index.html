@@ -46,7 +46,60 @@
     <!-- 2. Farcaster SDK SECOND (UMD) -->
     <script src="https://cdn.jsdelivr.net/npm/@farcaster/frame-sdk/dist/index.min.js"></script>
     
-    <!-- 3. Initialize SDK BEFORE game.js -->
+    <!-- 3. Privy SDK for wallet connection -->
+    <script src="https://unpkg.com/@privy-io/js-sdk-core@0.26.0/dist/index.global.js"></script>
+    
+    <!-- 4. Initialize Privy SDK -->
+    <script>
+        // Initialize Privy
+        let privyClient = null;
+        
+        (async function() {
+            try {
+                console.log('🔐 Initializing Privy SDK...');
+                
+                // Initialize Privy with your app ID
+                privyClient = new window.Privy.PrivyClient({
+                    appId: 'cmh9kqxh5005rlb0cqv01vxrc', // Your Privy App ID
+                    config: {
+                        loginMethods: ['wallet', 'farcaster'],
+                        appearance: {
+                            theme: 'dark',
+                            accentColor: '#8B5CF6',
+                        },
+                        defaultChain: 8453, // Base mainnet
+                        chains: [
+                            {
+                                id: 8453,
+                                name: 'Base',
+                                network: 'base',
+                                nativeCurrency: {
+                                    decimals: 18,
+                                    name: 'Ether',
+                                    symbol: 'ETH',
+                                },
+                                rpcUrls: {
+                                    default: {
+                                        http: ['https://mainnet.base.org'],
+                                    },
+                                },
+                                blockExplorers: {
+                                    default: { name: 'BaseScan', url: 'https://basescan.org' },
+                                },
+                            }
+                        ],
+                    }
+                });
+                
+                window.privyClient = privyClient;
+                console.log('✅ Privy initialized successfully');
+            } catch (error) {
+                console.error('❌ Privy initialization error:', error);
+            }
+        })();
+    </script>
+    
+    <!-- 5. Initialize SDK BEFORE game.js -->
     <script>
         // Initialize Farcaster SDK globally as window.sdk (for game.js compatibility)
         (async function() {
@@ -155,8 +208,6 @@
             <!-- Leaderboard Section -->
             <div class="leaderboard-section">
                 <div class="button-group-vertical">
-                    <button id="save-leaderboard-button" class="game-button leaderboard-btn" style="display: none;">💾 Save Leaderboard</button>
-                    <button id="view-leaderboard-button" class="game-button secondary-btn" style="display: none;">🏆 View Leaderboard</button>
                     <button id="share-score-button" class="game-button share-btn">🚀 Share on Farcaster</button>
                     <button id="restart-button" class="game-button restart-btn">🔄 Play Again</button>
                 </div>
@@ -178,6 +229,7 @@
     </div>
     
     <!-- 4. Game script LAST -->
-    <script src="game.js?v=7"></script>
+    <script src="game.js?v=9"></script>
+    <script src="game-privy.js?v=2"></script>
 </body>
 </html>

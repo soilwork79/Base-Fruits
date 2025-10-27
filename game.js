@@ -1423,28 +1423,22 @@ class FruitSliceGame {
             return;
         const ctx = this.state.ctx;
         
-        console.log('🎨 drawTrail called - NEW VERSION with comet effect!');
-        console.log('Points count:', points.length, 'Opacity:', opacity);
-        
-        // Draw comet-like trail: thick to thin with bluish color
+        // Draw comet-like trail: thick at mouse, thin at tail with bluish color
         const step = this.state.isLowPerformance ? 2 : 1;
         
         for (let i = 0; i < points.length - step; i += step) {
+            // progress goes from 0 (start/tail) to 1 (end/mouse)
             const progress = i / (points.length - 1);
             
-            // Thickness: starts thick (12px) and tapers to thin (1px)
-            const thickness = 12 * (1 - progress) + 1;
+            // Thickness: thick at tail (4px) to thin at mouse (0.5px)
+            const thickness = 4 * (1 - progress) + 0.5;
             
             // Color: bluish/cyan gradient with glow effect
-            // RGB values for cyan/blue: R=100-150, G=200-255, B=255
-            const r = Math.floor(100 + 50 * progress);
-            const g = Math.floor(200 + 55 * (1 - progress));
+            // RGB values for cyan/blue: brighter at mouse tip
+            const r = Math.floor(100 + 50 * (1 - progress));
+            const g = Math.floor(200 + 55 * progress);
             const b = 255;
-            const alpha = opacity * (1 - progress * 0.3); // Slight fade at the end
-            
-            if (i === 0) {
-                console.log('First segment - Thickness:', thickness, 'Color:', `rgba(${r}, ${g}, ${b}, 0.9)`);
-            }
+            const alpha = opacity * (0.7 + 0.3 * progress); // Brighter at mouse tip
             
             ctx.globalAlpha = alpha;
             ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, 0.9)`;
@@ -1452,9 +1446,9 @@ class FruitSliceGame {
             ctx.lineCap = 'round';
             ctx.lineJoin = 'round';
             
-            // Add glow effect
-            ctx.shadowBlur = 8;
-            ctx.shadowColor = `rgba(${r}, ${g}, ${b}, 0.6)`;
+            // Add glow effect (stronger at mouse tip)
+            ctx.shadowBlur = 5 + 3 * progress;
+            ctx.shadowColor = `rgba(${r}, ${g}, ${b}, ${0.4 + 0.3 * progress})`;
             
             ctx.beginPath();
             ctx.moveTo(points[i].x, points[i].y);
@@ -1609,76 +1603,78 @@ const API_URL = ''; // Use same-origin backend to avoid CORS
 const CONTRACT_ADDRESS = '0xa4f109Eb679970C0b30C21812C99318837A81c73'; // BURAYA CONTRACT ADRESİNİZİ YAZIN!
 let currentScore = 0;
 
-// SAVE SCORE TO BLOCKCHAIN - FIXED VERSION
+// SAVE SCORE TO BLOCKCHAIN WITH PRIVY
 async function saveScore() {
     const btn = document.getElementById('save-leaderboard-button');
     btn.disabled = true;
     btn.textContent = '⏳ Connecting...';
 
     try {
-        let rawProvider = null;
         let walletAddress = null;
         let signer = null;
         let userInfo = { username: '', fid: 0 };
 
         // ============================================
-        // 1) FARCASTER SDK CHECK - FIXED
+        // 1) PRIVY WALLET CONNECTION
         // ============================================
-        if (typeof window.sdk !== 'undefined' && window.sdk) {
-            console.log('✅ Farcaster SDK detected');
-            try {
-                const context = await window.sdk.context;
-                console.log('Farcaster context:', context);
+        if (window.privyClient) {
+            console.log('🔐 Using Privy for wallet connection');
+            
+            // Check if user is already authenticated
+            const isAuthenticated = window.privyClient.authenticated;
+            
+            if (!isAuthenticated) {
+                console.log('User not authenticated, logging in with Privy...');
+                btn.textContent = '🔐 Login with Wallet...';
                 
-                if (context?.user?.fid && context?.user?.username) {
-                    userInfo = {
-                        username: context.user.username,
-                        fid: context.user.fid
-                    };
-                    console.log('Farcaster user:', userInfo);
-
-                    try {
-                        rawProvider = await window.sdk.wallet.getEthereumProvider();
-                        console.log('Using Farcaster wallet (SDK provider)');
-                        try {
-                            const accounts = await rawProvider.request({ method: 'eth_requestAccounts' });
-                            walletAddress = accounts && accounts[0] ? accounts[0] : walletAddress;
-                        } catch {}
-                    } catch (e) {
-                        console.log('Farcaster SDK provider not available, checking window.ethereum');
-                        if (window.ethereum) {
-                            rawProvider = window.ethereum;
-                            console.log('Using window.ethereum');
-                        }
-                    }
-                } else {
-                    console.log('⚠️ Farcaster context incomplete');
-                }
-            } catch (sdkError) {
-                console.error('Farcaster SDK error:', sdkError);
-            }
-
-            // If no provider yet, attempt sign-in and retry provider
-            if (!rawProvider && window.sdk?.actions?.signin) {
                 try {
-                    console.log('Attempting Farcaster signin to enable wallet...');
-                    await window.sdk.actions.signin();
-                    rawProvider = await window.sdk.wallet.getEthereumProvider();
-                    console.log('Provider acquired after signin');
-                    try {
-                        const accounts = await rawProvider.request({ method: 'eth_requestAccounts' });
-                        walletAddress = accounts && accounts[0] ? accounts[0] : walletAddress;
-                    } catch {}
-                } catch (signErr) {
-                    console.log('Signin/provider retry failed');
+                    // Login with Privy (will show wallet selection modal)
+                    await window.privyClient.login();
+                    console.log('✅ Privy login successful');
+                } catch (loginError) {
+                    console.error('❌ Privy login failed:', loginError);
+                    throw new Error('Login cancelled or failed');
                 }
             }
-        }
-
-        // ============================================
-        // 2) METAMASK/WALLET FALLBACK - FIXED
-        // ============================================
-        if (!rawProvider && typeof window.ethereum !== 'undefined') {
+            
+            // Get the connected wallet
+            const wallets = await window.privyClient.getWallets();
+            if (!wallets || wallets.length === 0) {
+                throw new Error('No wallet connected');
+            }
+            
+            const wallet = wallets[0];
+            walletAddress = wallet.address;
+            console.log('Connected wallet address:', walletAddress);
+            
+            // Get Farcaster user info if available
+            const user = window.privyClient.user;
+            if (user?.farcaster) {
+                userInfo = {
+                    username: user.farcaster.username || '',
+                    fid: user.farcaster.fid || 0
+                };
+                console.log('Farcaster user info:', userInfo);
+            }
+            
+            // Switch to Base network
+            btn.textContent = '🔄 Switching to Base...';
+            try {
+                await wallet.switchChain(8453); // Base mainnet chain ID
+                console.log('✅ Switched to Base network');
+            } catch (switchError) {
+                console.error('Failed to switch network:', switchError);
+                // Continue anyway, user might already be on Base
+            }
+            
+            // Get ethers provider and signer
+            const provider = await wallet.getEthersProvider();
+            signer = provider.getSigner();
+            
+        } else if (typeof window.ethereum !== 'undefined') {
+            // ============================================
+            // 2) METAMASK/WALLET FALLBACK
+            // ============================================
             console.log('Using MetaMask/Browser wallet');
             
             // CRITICAL FIX: DO NOT modify window.ethereum!
@@ -1720,18 +1716,17 @@ async function saveScore() {
         // ============================================
         // 3) NO WALLET AVAILABLE
         // ============================================
-        if (!rawProvider) {
-            throw new Error('Bu özellik Farcaster mini app içinde çalışır veya MetaMask gerektirir!');
+        if (!walletAddress && !signer) {
+            throw new Error('No wallet connected. Please install MetaMask or use a Web3 wallet!');
         }
 
-        // ============================================
-        // 4) CHAIN CHECK - Base Mainnet
-        // ============================================
-        btn.textContent = '⏳ Checking network...';
-        const chainId = await rawProvider.request({ method: 'eth_chainId' });
-        console.log('Current chain:', chainId);
+        // For non-Privy wallets, check and switch to Base network
+        if (!window.privyClient && rawProvider) {
+            btn.textContent = '⏳ Checking network...';
+            const chainId = await rawProvider.request({ method: 'eth_chainId' });
+            console.log('Current chain:', chainId);
 
-        if (chainId !== '0x2105') {
+            if (chainId !== '0x2105') {
             try {
                 await rawProvider.request({
                     method: 'wallet_switchEthereumChain',
@@ -1753,12 +1748,13 @@ async function saveScore() {
                     throw switchError;
                 }
             }
+            }
         }
 
         // ============================================
         // 5) GET WALLET ADDRESS
         // ============================================
-        if (!walletAddress) {
+        if (!walletAddress && rawProvider) {
             const accounts = await rawProvider.request({ method: 'eth_accounts' });
             walletAddress = accounts[0];
         }
@@ -1965,7 +1961,14 @@ window.addEventListener('DOMContentLoaded', () => {
         const game = new FruitSliceGame();
         console.log('Game initialized successfully:', game);
         // Leaderboard event listeners
-        document.getElementById('save-leaderboard-button').addEventListener('click', saveScore);
+        document.getElementById('save-leaderboard-button').addEventListener('click', () => {
+            // Use Privy version if available, otherwise use legacy version
+            if (window.saveScoreWithPrivy) {
+                window.saveScoreWithPrivy();
+            } else {
+                saveScore();
+            }
+        });
         document.getElementById('view-leaderboard-button').addEventListener('click', viewLeaderboard);
         document.getElementById('close-leaderboard').addEventListener('click', closeLeaderboard);
         // Share button event listener
