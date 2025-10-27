@@ -1961,15 +1961,6 @@ window.addEventListener('DOMContentLoaded', () => {
         const game = new FruitSliceGame();
         console.log('Game initialized successfully:', game);
         // Leaderboard event listeners
-        document.getElementById('save-leaderboard-button').addEventListener('click', () => {
-            // Use Privy version if available, otherwise use legacy version
-            if (window.saveScoreWithPrivy) {
-                window.saveScoreWithPrivy();
-            } else {
-                saveScore();
-            }
-        });
-        document.getElementById('view-leaderboard-button').addEventListener('click', viewLeaderboard);
         document.getElementById('close-leaderboard').addEventListener('click', closeLeaderboard);
         // Share button event listener
         const shareButton = document.getElementById('share-score-button');
