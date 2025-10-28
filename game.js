@@ -1417,57 +1417,53 @@ class FruitSliceGame {
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
         
-        // Draw trail with 2 layers for blue glow effect
-        // Outer glow (cyan-ish)
-        ctx.strokeStyle = `rgba(80, 180, 255, ${0.3 * opacity})`;
-        ctx.lineWidth = 10;
-        ctx.shadowBlur = 15;
-        ctx.shadowColor = 'rgba(80, 180, 255, 0.5)';
-        this.drawSmoothPath(ctx, points);
+        // Draw trail segments with increasing thickness (thin to thick)
+        const step = this.state.isLowPerformance ? 2 : 1;
         
-        // Inner bright core (bright cyan/white)
-        ctx.strokeStyle = `rgba(150, 220, 255, ${0.9 * opacity})`;
-        ctx.lineWidth = 4;
-        ctx.shadowBlur = 8;
-        ctx.shadowColor = 'rgba(150, 220, 255, 0.7)';
-        this.drawSmoothPath(ctx, points);
+        for (let i = 0; i < points.length - 1; i += step) {
+            // Calculate progress: 0 at start (old trail), 1 at end (mouse/finger)
+            const progress = i / (points.length - 1);
+            
+            // Outer glow layer - grows from thin to thick
+            const outerWidth = 3 + (6 * progress); // 3px → 9px
+            ctx.strokeStyle = `rgba(80, 180, 255, ${0.3 * opacity})`;
+            ctx.lineWidth = outerWidth;
+            ctx.shadowBlur = 10 + (5 * progress);
+            ctx.shadowColor = `rgba(80, 180, 255, ${0.4 + 0.2 * progress})`;
+            
+            ctx.beginPath();
+            ctx.moveTo(points[i].x, points[i].y);
+            if (i < points.length - 2) {
+                const xc = (points[i].x + points[i + 1].x) / 2;
+                const yc = (points[i].y + points[i + 1].y) / 2;
+                ctx.quadraticCurveTo(points[i].x, points[i].y, xc, yc);
+            } else {
+                ctx.lineTo(points[i + 1].x, points[i + 1].y);
+            }
+            ctx.stroke();
+            
+            // Inner bright core - grows from thin to thick
+            const innerWidth = 1.5 + (2.5 * progress); // 1.5px → 4px
+            ctx.strokeStyle = `rgba(150, 220, 255, ${0.9 * opacity})`;
+            ctx.lineWidth = innerWidth;
+            ctx.shadowBlur = 5 + (3 * progress);
+            ctx.shadowColor = `rgba(150, 220, 255, ${0.6 + 0.3 * progress})`;
+            
+            ctx.beginPath();
+            ctx.moveTo(points[i].x, points[i].y);
+            if (i < points.length - 2) {
+                const xc = (points[i].x + points[i + 1].x) / 2;
+                const yc = (points[i].y + points[i + 1].y) / 2;
+                ctx.quadraticCurveTo(points[i].x, points[i].y, xc, yc);
+            } else {
+                ctx.lineTo(points[i + 1].x, points[i + 1].y);
+            }
+            ctx.stroke();
+        }
         
         // Reset shadow
         ctx.shadowBlur = 0;
         ctx.globalAlpha = 1;
-    }
-    
-    drawSmoothPath(ctx, points) {
-        if (points.length < 2) return;
-        
-        const step = this.state.isLowPerformance ? 2 : 1;
-        
-        ctx.beginPath();
-        ctx.moveTo(points[0].x, points[0].y);
-        
-        if (points.length === 2) {
-            ctx.lineTo(points[1].x, points[1].y);
-        } else {
-            // Use quadratic curves for smoother, continuous appearance
-            for (let i = 1; i < points.length - 1; i += step) {
-                const xc = (points[i].x + points[i + 1].x) / 2;
-                const yc = (points[i].y + points[i + 1].y) / 2;
-                ctx.quadraticCurveTo(points[i].x, points[i].y, xc, yc);
-            }
-            
-            // Connect to the last point
-            const lastIdx = points.length - 1;
-            if (lastIdx > 0) {
-                ctx.quadraticCurveTo(
-                    points[lastIdx - 1].x,
-                    points[lastIdx - 1].y,
-                    points[lastIdx].x,
-                    points[lastIdx].y
-                );
-            }
-        }
-        
-        ctx.stroke();
     }
     updateUI() {
         document.getElementById('score').textContent = this.state.score.toString();
