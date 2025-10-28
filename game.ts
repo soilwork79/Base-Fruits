@@ -1704,45 +1704,35 @@ class FruitSliceGame {
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
         
-        // Draw trail with gradient from thick to thin and blue-ish color
-        // Outer glow (wider, cyan-ish, more transparent)
-        ctx.strokeStyle = `rgba(100, 200, 255, ${0.2 * opacity})`; // Light blue
-        ctx.lineWidth = 18;
-        ctx.shadowBlur = 20;
-        ctx.shadowColor = 'rgba(100, 200, 255, 0.6)';
-        this.drawCurvedPath(ctx, points);
-        
-        // Middle glow (cyan)
-        ctx.strokeStyle = `rgba(80, 180, 255, ${0.5 * opacity})`;
-        ctx.lineWidth = 10;
-        ctx.shadowBlur = 12;
+        // Draw trail with gradient from thin to thick and blue-ish color (2 layers for performance)
+        // Outer glow (cyan-ish)
+        ctx.strokeStyle = `rgba(80, 180, 255, ${0.3 * opacity})`;
+        ctx.shadowBlur = 15;
         ctx.shadowColor = 'rgba(80, 180, 255, 0.5)';
-        this.drawCurvedPath(ctx, points);
+        this.drawCurvedPathWithGradient(ctx, points, 12); // Base width 12px
         
         // Inner bright core (bright cyan/white)
-        ctx.strokeStyle = `rgba(150, 220, 255, ${0.95 * opacity})`;
-        ctx.lineWidth = 4;
-        ctx.shadowBlur = 6;
-        ctx.shadowColor = 'rgba(150, 220, 255, 0.8)';
-        this.drawCurvedPath(ctx, points);
+        ctx.strokeStyle = `rgba(150, 220, 255, ${0.9 * opacity})`;
+        ctx.shadowBlur = 8;
+        ctx.shadowColor = 'rgba(150, 220, 255, 0.7)';
+        this.drawCurvedPathWithGradient(ctx, points, 5); // Base width 5px
         
         // Reset shadow
         ctx.shadowBlur = 0;
         ctx.globalAlpha = 1;
     }
     
-    // Helper function to draw smooth curved path with thickness gradient
-    drawCurvedPath(ctx: CanvasRenderingContext2D, points: Point[]): void {
+    // Helper function to draw smooth curved path with thickness gradient (thin to thick)
+    drawCurvedPathWithGradient(ctx: CanvasRenderingContext2D, points: Point[], baseLineWidth: number): void {
         if (points.length < 2) return;
         
         const step = this.state.isLowPerformance ? 2 : 1;
-        const baseLineWidth = ctx.lineWidth;
         
-        // Draw segments with decreasing width (thick to thin)
+        // Draw segments with increasing width (thin to thick)
         for (let i = 0; i < points.length - 1; i += step) {
-            // Calculate thickness: starts thick, gradually becomes thin
+            // Calculate thickness: starts thin, gradually becomes thick
             const progress = i / points.length;
-            const thickness = baseLineWidth * (1 - progress * 0.7); // Reduces to 30% at the end
+            const thickness = baseLineWidth * (0.3 + progress * 0.7); // Starts at 30%, grows to 100%
             
             ctx.lineWidth = thickness;
             ctx.beginPath();
@@ -1764,9 +1754,6 @@ class FruitSliceGame {
             
             ctx.stroke();
         }
-        
-        // Restore original line width
-        ctx.lineWidth = baseLineWidth;
     }
     
     updateUI(): void {
