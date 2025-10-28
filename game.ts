@@ -1704,24 +1704,26 @@ class FruitSliceGame {
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
         
-        // Draw multiple layers for glow effect (like shooting star trail)
-        // Outer glow (wider, more transparent)
-        ctx.strokeStyle = `rgba(255, 255, 255, ${0.15 * opacity})`;
-        ctx.lineWidth = 12;
-        ctx.shadowBlur = 15;
-        ctx.shadowColor = 'rgba(255, 255, 255, 0.5)';
+        // Draw trail with gradient from thick to thin and blue-ish color
+        // Outer glow (wider, cyan-ish, more transparent)
+        ctx.strokeStyle = `rgba(100, 200, 255, ${0.2 * opacity})`; // Light blue
+        ctx.lineWidth = 18;
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = 'rgba(100, 200, 255, 0.6)';
         this.drawCurvedPath(ctx, points);
         
-        // Middle glow
-        ctx.strokeStyle = `rgba(255, 255, 255, ${0.4 * opacity})`;
-        ctx.lineWidth = 6;
-        ctx.shadowBlur = 8;
+        // Middle glow (cyan)
+        ctx.strokeStyle = `rgba(80, 180, 255, ${0.5 * opacity})`;
+        ctx.lineWidth = 10;
+        ctx.shadowBlur = 12;
+        ctx.shadowColor = 'rgba(80, 180, 255, 0.5)';
         this.drawCurvedPath(ctx, points);
         
-        // Inner bright core
-        ctx.strokeStyle = `rgba(255, 255, 255, ${0.9 * opacity})`;
-        ctx.lineWidth = 2.5;
-        ctx.shadowBlur = 4;
+        // Inner bright core (bright cyan/white)
+        ctx.strokeStyle = `rgba(150, 220, 255, ${0.95 * opacity})`;
+        ctx.lineWidth = 4;
+        ctx.shadowBlur = 6;
+        ctx.shadowColor = 'rgba(150, 220, 255, 0.8)';
         this.drawCurvedPath(ctx, points);
         
         // Reset shadow
@@ -1729,35 +1731,42 @@ class FruitSliceGame {
         ctx.globalAlpha = 1;
     }
     
-    // Helper function to draw smooth curved path
+    // Helper function to draw smooth curved path with thickness gradient
     drawCurvedPath(ctx: CanvasRenderingContext2D, points: Point[]): void {
         if (points.length < 2) return;
         
-        ctx.beginPath();
-        ctx.moveTo(points[0].x, points[0].y);
-        
-        // Use quadratic curves for smoother appearance
         const step = this.state.isLowPerformance ? 2 : 1;
+        const baseLineWidth = ctx.lineWidth;
         
-        if (points.length === 2) {
-            ctx.lineTo(points[1].x, points[1].y);
-        } else {
-            for (let i = 1; i < points.length - 1; i += step) {
+        // Draw segments with decreasing width (thick to thin)
+        for (let i = 0; i < points.length - 1; i += step) {
+            // Calculate thickness: starts thick, gradually becomes thin
+            const progress = i / points.length;
+            const thickness = baseLineWidth * (1 - progress * 0.7); // Reduces to 30% at the end
+            
+            ctx.lineWidth = thickness;
+            ctx.beginPath();
+            
+            if (i === 0) {
+                ctx.moveTo(points[i].x, points[i].y);
+            }
+            
+            // Use quadratic curves for smoother appearance
+            if (i < points.length - 2) {
                 const xc = (points[i].x + points[i + 1].x) / 2;
                 const yc = (points[i].y + points[i + 1].y) / 2;
+                ctx.moveTo(points[i].x, points[i].y);
                 ctx.quadraticCurveTo(points[i].x, points[i].y, xc, yc);
+            } else {
+                ctx.moveTo(points[i].x, points[i].y);
+                ctx.lineTo(points[i + 1].x, points[i + 1].y);
             }
-            // Draw last segment
-            const lastIdx = points.length - 1;
-            ctx.quadraticCurveTo(
-                points[lastIdx - 1].x,
-                points[lastIdx - 1].y,
-                points[lastIdx].x,
-                points[lastIdx].y
-            );
+            
+            ctx.stroke();
         }
         
-        ctx.stroke();
+        // Restore original line width
+        ctx.lineWidth = baseLineWidth;
     }
     
     updateUI(): void {
