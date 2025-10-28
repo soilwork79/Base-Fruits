@@ -257,7 +257,7 @@ body {
 
 .milestone-content {
     text-align: center !important;
-    background: rgba(0, 0, 0, 0.7) !important;
+    background: rgba(0, 0, 0, 0.3) !important;
     padding: 2rem 3rem !important;
     border-radius: 15px !important;
     backdrop-filter: blur(5px) !important;
