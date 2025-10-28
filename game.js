@@ -42,6 +42,7 @@ class GameState {
         this.currentTrail = [];
         this.isDrawing = false;
         this.slicedThisSwipe = [];
+        this.lastSwooshTime = 0; // Track last swoosh sound play time
         // Combo system
         this.comboFruits = [];
         this.comboTimer = null;
@@ -559,9 +560,23 @@ class FruitSliceGame {
         const x = clientX - rect.left;
         const y = clientY - rect.top;
         const prevPoint = this.state.currentTrail[this.state.currentTrail.length - 1];
-        this.state.currentTrail.push({ x, y, timestamp: performance.now() });
-        // Remove old points from current trail (older than 150ms)
         const now = performance.now();
+        this.state.currentTrail.push({ x, y, timestamp: now });
+        // Calculate movement speed and play swoosh sound if moving fast enough
+        if (prevPoint && prevPoint.timestamp) {
+            const dx = x - prevPoint.x;
+            const dy = y - prevPoint.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            const timeDiff = now - prevPoint.timestamp;
+            const speed = timeDiff > 0 ? distance / timeDiff : 0;
+            // Play swoosh if moving fast and enough time passed since last swoosh (200ms cooldown)
+            const timeSinceLastSwoosh = now - this.state.lastSwooshTime;
+            if (speed > 1.5 && timeSinceLastSwoosh > 200 && this.state.currentTrail.length >= 3) {
+                this.playKnifeSwooshSound();
+                this.state.lastSwooshTime = now;
+            }
+        }
+        // Remove old points from current trail (older than 150ms)
         this.state.currentTrail = this.state.currentTrail.filter(p => !p.timestamp || (now - p.timestamp) < 150);
         // Check for slicing in real-time as we draw
         if (prevPoint) {
@@ -575,10 +590,6 @@ class FruitSliceGame {
         if (!this.state.isPlaying || !this.state.isDrawing)
             return;
         this.state.isDrawing = false;
-        // Play knife swoosh sound only if swipe was long enough (5+ points)
-        if (this.state.currentTrail.length >= 5) {
-            this.playKnifeSwooshSound();
-        }
         // Add trail to fading trails (limit for performance)
         if (this.state.currentTrail.length > 1) {
             // Remove oldest trail if we have too many
@@ -1402,45 +1413,61 @@ class FruitSliceGame {
         if (points.length < 2)
             return;
         const ctx = this.state.ctx;
+        ctx.globalAlpha = opacity;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
         
-        // Draw comet-like trail: THICK at mouse tip, thin at tail
-        const step = this.state.isLowPerformance ? 2 : 1;
+        // Draw trail with 2 layers for blue glow effect
+        // Outer glow (cyan-ish)
+        ctx.strokeStyle = `rgba(80, 180, 255, ${0.3 * opacity})`;
+        ctx.lineWidth = 10;
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = 'rgba(80, 180, 255, 0.5)';
+        this.drawSmoothPath(ctx, points);
         
-        for (let i = 0; i < points.length - step; i += step) {
-            // progress goes from 0 (start/tail) to 1 (end/mouse tip)
-            const progress = i / (points.length - 1);
-            
-            // Thickness: thin at tail (2px) to THICK at mouse (20px)
-            const minThickness = 2;
-            const maxThickness = 20;
-            const thickness = minThickness + (maxThickness - minThickness) * progress;
-            
-            // Color: bluish/cyan gradient with glow effect
-            // RGB values for cyan/blue: brighter at mouse tip
-            const r = Math.floor(100 + 50 * (1 - progress));
-            const g = Math.floor(200 + 55 * progress);
-            const b = 255;
-            const alpha = opacity * (0.7 + 0.3 * progress); // Brighter at mouse tip
-            
-            ctx.globalAlpha = alpha;
-            ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, 0.9)`;
-            ctx.lineWidth = thickness;
-            ctx.lineCap = 'round';
-            ctx.lineJoin = 'round';
-            
-            // Add glow effect (stronger at mouse tip)
-            ctx.shadowBlur = 5 + 10 * progress; // More glow at tip
-            ctx.shadowColor = `rgba(${r}, ${g}, ${b}, ${0.5 + 0.4 * progress})`;
-            
-            ctx.beginPath();
-            ctx.moveTo(points[i].x, points[i].y);
-            ctx.lineTo(points[i + step].x, points[i + step].y);
-            ctx.stroke();
-        }
+        // Inner bright core (bright cyan/white)
+        ctx.strokeStyle = `rgba(150, 220, 255, ${0.9 * opacity})`;
+        ctx.lineWidth = 4;
+        ctx.shadowBlur = 8;
+        ctx.shadowColor = 'rgba(150, 220, 255, 0.7)';
+        this.drawSmoothPath(ctx, points);
         
-        // Reset shadow and alpha
+        // Reset shadow
         ctx.shadowBlur = 0;
         ctx.globalAlpha = 1;
+    }
+    
+    drawSmoothPath(ctx, points) {
+        if (points.length < 2) return;
+        
+        const step = this.state.isLowPerformance ? 2 : 1;
+        
+        ctx.beginPath();
+        ctx.moveTo(points[0].x, points[0].y);
+        
+        if (points.length === 2) {
+            ctx.lineTo(points[1].x, points[1].y);
+        } else {
+            // Use quadratic curves for smoother, continuous appearance
+            for (let i = 1; i < points.length - 1; i += step) {
+                const xc = (points[i].x + points[i + 1].x) / 2;
+                const yc = (points[i].y + points[i + 1].y) / 2;
+                ctx.quadraticCurveTo(points[i].x, points[i].y, xc, yc);
+            }
+            
+            // Connect to the last point
+            const lastIdx = points.length - 1;
+            if (lastIdx > 0) {
+                ctx.quadraticCurveTo(
+                    points[lastIdx - 1].x,
+                    points[lastIdx - 1].y,
+                    points[lastIdx].x,
+                    points[lastIdx].y
+                );
+            }
+        }
+        
+        ctx.stroke();
     }
     updateUI() {
         document.getElementById('score').textContent = this.state.score.toString();
@@ -1840,87 +1867,64 @@ function closeLeaderboard() {
     document.getElementById('leaderboard-modal').classList.add('hidden');
 }
 // SHARE ON FARCASTER
-async function shareOnFarcaster() {
-    console.log('Share button clicked! Current score:', currentScore);
-    
+async function shareOnFarcaster() {    
     const message = `🍉 Base Fruits'ta ${currentScore} puan yaptım! 🥇\n\nBeni yenebilir misin? 🍓🍉`;
     const gameUrl = 'https://base-fruits-farcaster-miniapp.vercel.app/';    
-    
     // Create Farcaster cast URL with proper encoding
     const castText = encodeURIComponent(message);
     const embedUrl = encodeURIComponent(gameUrl);
-    const farcasterUrl = `https://warpcast.com/~/compose?text=${castText}&embeds[]=${embedUrl}`;
-    
-    console.log('Farcaster URL:', farcasterUrl);
-    
+    const farcasterUrl = `https://warpcast.com/~/compose?text=${castText}&embeds[]=${embedUrl}`;    
     // Check if we're in Farcaster mini app context
-    if (window.sdk && window.sdk.actions) {
-        console.log('Farcaster SDK detected, trying SDK methods...');
-        
+    if (window.sdk && window.sdk.actions) {        
         // Try openUrl method
         if (typeof window.sdk.actions.openUrl === 'function') {
             try {
-                console.log('Trying openUrl...');
                 await window.sdk.actions.openUrl(farcasterUrl);
-                console.log('openUrl successful!');
                 return;
             } catch (error) {
-                console.log('openUrl failed:', error);
+                // Silent fail, try next method
             }
         }
         
         // Try shareUrl method (some SDK versions use this)
         if (typeof window.sdk.actions.shareUrl === 'function') {
             try {
-                console.log('Trying shareUrl...');
                 await window.sdk.actions.shareUrl(farcasterUrl);
-                console.log('shareUrl successful!');
                 return;
             } catch (error) {
-                console.log('shareUrl failed:', error);
+                // Silent fail, try next method
             }
         }
         
         // Try casting directly if SDK supports it
         if (typeof window.sdk.actions.createCast === 'function') {
             try {
-                console.log('Trying createCast...');
                 await window.sdk.actions.createCast({
                     text: message,
                     embeds: [gameUrl]
                 });
-                console.log('createCast successful!');
                 return;
             } catch (error) {
-                console.log('createCast failed:', error);
+                // Silent fail, fall through to browser methods
             }
-        }
-    } else {
-        console.log('Farcaster SDK not detected, using browser fallback...');
-    }
+        }    } else {    }
     
     // Fallback to browser methods
     try {
-        console.log('Trying window.open...');
         const newWindow = window.open(farcasterUrl, '_blank', 'noopener,noreferrer');
         
         if (newWindow) {
-            console.log('New window opened successfully');
             newWindow.focus();
         } else {
-            console.log('Popup blocked, redirecting...');
-            alert('🚀 Warpcast\'e yönlendiriliyorsunuz...');
             window.location.href = farcasterUrl;
         }
     } catch (error) {
-        console.log('Window.open failed:', error);
         // Final fallback: Copy to clipboard
         try {
             const shareText = `${message}\n\n${gameUrl}`;
             await navigator.clipboard.writeText(shareText);
             alert('📋 Paylaşım linki kopyalandı!\n\nWarpcast\'e yapıştırabilirsiniz.');
         } catch (clipboardError) {
-            console.log('Clipboard failed:', clipboardError);
             // Last resort: Show the message
             const userMessage = `Lütfen manuel olarak paylaşın:\n\n${message}\n\n${gameUrl}`;
             alert(userMessage);

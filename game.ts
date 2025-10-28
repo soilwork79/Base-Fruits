@@ -121,6 +121,7 @@ class GameState {
     currentTrail: Point[] = [];
     isDrawing: boolean = false;
     slicedThisSwipe: Fruit[] = [];
+    lastSwooshTime: number = 0; // Track last swoosh sound play time
     
     // Combo system
     comboFruits: Fruit[] = [];
@@ -736,10 +737,26 @@ class FruitSliceGame {
         const y = clientY - rect.top;
         
         const prevPoint = this.state.currentTrail[this.state.currentTrail.length - 1];
-        this.state.currentTrail.push({ x, y, timestamp: performance.now() });
+        const now = performance.now();
+        this.state.currentTrail.push({ x, y, timestamp: now });
+        
+        // Calculate movement speed and play swoosh sound if moving fast enough
+        if (prevPoint && prevPoint.timestamp) {
+            const dx = x - prevPoint.x;
+            const dy = y - prevPoint.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            const timeDiff = now - prevPoint.timestamp;
+            const speed = timeDiff > 0 ? distance / timeDiff : 0;
+            
+            // Play swoosh if moving fast and enough time passed since last swoosh (200ms cooldown)
+            const timeSinceLastSwoosh = now - this.state.lastSwooshTime;
+            if (speed > 1.5 && timeSinceLastSwoosh > 200 && this.state.currentTrail.length >= 3) {
+                this.playKnifeSwooshSound();
+                this.state.lastSwooshTime = now;
+            }
+        }
         
         // Remove old points from current trail (older than 150ms)
-        const now = performance.now();
         this.state.currentTrail = this.state.currentTrail.filter(p => 
             !p.timestamp || (now - p.timestamp) < 150
         );
@@ -758,11 +775,6 @@ class FruitSliceGame {
         if (!this.state.isPlaying || !this.state.isDrawing) return;
         
         this.state.isDrawing = false;
-        
-        // Play knife swoosh sound only if swipe was long enough (5+ points)
-        if (this.state.currentTrail.length >= 5) {
-            this.playKnifeSwooshSound();
-        }
         
         // Add trail to fading trails (limit for performance)
         if (this.state.currentTrail.length > 1) {
@@ -1701,22 +1713,61 @@ class FruitSliceGame {
         
         const ctx = this.state.ctx;
         ctx.globalAlpha = opacity;
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
-        ctx.lineWidth = 3;
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
+        
+        // Draw trail with gradient from thin to thick and blue-ish color (2 layers for performance)
+        // Outer glow (cyan-ish)
+        ctx.strokeStyle = `rgba(80, 180, 255, ${0.3 * opacity})`;
+        ctx.lineWidth = 10;
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = 'rgba(80, 180, 255, 0.5)';
+        this.drawSmoothPath(ctx, points);
+        
+        // Inner bright core (bright cyan/white)
+        ctx.strokeStyle = `rgba(150, 220, 255, ${0.9 * opacity})`;
+        ctx.lineWidth = 4;
+        ctx.shadowBlur = 8;
+        ctx.shadowColor = 'rgba(150, 220, 255, 0.7)';
+        this.drawSmoothPath(ctx, points);
+        
+        // Reset shadow
+        ctx.shadowBlur = 0;
+        ctx.globalAlpha = 1;
+    }
+    
+    // Helper function to draw smooth continuous curved path
+    drawSmoothPath(ctx: CanvasRenderingContext2D, points: Point[]): void {
+        if (points.length < 2) return;
+        
+        const step = this.state.isLowPerformance ? 2 : 1;
         
         ctx.beginPath();
         ctx.moveTo(points[0].x, points[0].y);
         
-        // Draw every other point on low performance devices
-        const step = this.state.isLowPerformance ? 2 : 1;
-        for (let i = step; i < points.length; i += step) {
-            ctx.lineTo(points[i].x, points[i].y);
+        if (points.length === 2) {
+            ctx.lineTo(points[1].x, points[1].y);
+        } else {
+            // Use quadratic curves for smoother, continuous appearance
+            for (let i = 1; i < points.length - 1; i += step) {
+                const xc = (points[i].x + points[i + 1].x) / 2;
+                const yc = (points[i].y + points[i + 1].y) / 2;
+                ctx.quadraticCurveTo(points[i].x, points[i].y, xc, yc);
+            }
+            
+            // Connect to the last point
+            const lastIdx = points.length - 1;
+            if (lastIdx > 0) {
+                ctx.quadraticCurveTo(
+                    points[lastIdx - 1].x,
+                    points[lastIdx - 1].y,
+                    points[lastIdx].x,
+                    points[lastIdx].y
+                );
+            }
         }
         
         ctx.stroke();
-        ctx.globalAlpha = 1;
     }
     
     updateUI(): void {
@@ -2078,12 +2129,8 @@ function closeLeaderboard() {
 
 // SHARE ON FARCASTER
 function shareOnFarcaster() {
-    console.log('Share button clicked! Current score:', currentScore);
-    
     const message = `Scored ${currentScore} points in Base Fruits! 🥇 Can you beat me? 🍓🍉`;
     const gameUrl = 'https://base-fruits.vercel.app/';
-    
-    console.log('Share message:', message);
     
     // Create Farcaster cast URL with parameters (only text and link)
     const castText = encodeURIComponent(message);
@@ -2092,21 +2139,15 @@ function shareOnFarcaster() {
     // Farcaster cast URL format - link will automatically show preview image
     const farcasterUrl = `https://warpcast.com/~/compose?text=${castText}&embeds[]=${embedUrl}`;
     
-    console.log('Farcaster URL:', farcasterUrl);
-    
     // Try multiple methods to open the URL
     try {
         // Method 1: window.open
         const newWindow = window.open(farcasterUrl, '_blank');
         if (!newWindow) {
-            console.log('Popup blocked, trying alternative method...');
             // Method 2: Direct navigation
             window.location.href = farcasterUrl;
-        } else {
-            console.log('Successfully opened Farcaster compose window');
         }
     } catch (error) {
-        console.error('Error opening Farcaster URL:', error);
         // Method 3: Copy to clipboard as fallback
         navigator.clipboard.writeText(message + ' ' + gameUrl).then(() => {
             alert('Farcaster link could not be opened. Message copied to clipboard!');
@@ -2118,31 +2159,30 @@ function shareOnFarcaster() {
 
 // ===== INITIALIZE GAME =====
 window.addEventListener('DOMContentLoaded', () => {
-    console.log('DOM loaded, initializing game...');
     try {
         const game = new FruitSliceGame();
-        console.log('Game initialized successfully:', game);
         
-        // Leaderboard event listeners
-        document.getElementById('save-leaderboard-button')!.addEventListener('click', saveScore);
-        document.getElementById('view-leaderboard-button')!.addEventListener('click', viewLeaderboard);
-        document.getElementById('close-leaderboard')!.addEventListener('click', closeLeaderboard);
+        // Close leaderboard button
+        const closeLeaderboardBtn = document.getElementById('close-leaderboard');
+        if (closeLeaderboardBtn) {
+            closeLeaderboardBtn.addEventListener('click', closeLeaderboard);
+        }
         
         // Share button event listener
         const shareButton = document.getElementById('share-score-button');
         if (shareButton) {
-            console.log('Share button found, adding event listener');
             shareButton.addEventListener('click', shareOnFarcaster);
-        } else {
-            console.error('Share button not found!');
         }
         
         // Modal dışına tıklayınca kapat
-        document.getElementById('leaderboard-modal')!.addEventListener('click', (e) => {
-            if (e.target === document.getElementById('leaderboard-modal')) {
-                closeLeaderboard();
-            }
-        });
+        const leaderboardModal = document.getElementById('leaderboard-modal');
+        if (leaderboardModal) {
+            leaderboardModal.addEventListener('click', (e) => {
+                if (e.target === leaderboardModal) {
+                    closeLeaderboard();
+                }
+            });
+        }
         
     } catch (error) {
         console.error('Error initializing game:', error);
