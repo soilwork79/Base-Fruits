@@ -1840,64 +1840,87 @@ function closeLeaderboard() {
     document.getElementById('leaderboard-modal').classList.add('hidden');
 }
 // SHARE ON FARCASTER
-async function shareOnFarcaster() {    
+async function shareOnFarcaster() {
+    console.log('Share button clicked! Current score:', currentScore);
+    
     const message = `🍉 Base Fruits'ta ${currentScore} puan yaptım! 🥇\n\nBeni yenebilir misin? 🍓🍉`;
     const gameUrl = 'https://base-fruits-farcaster-miniapp.vercel.app/';    
+    
     // Create Farcaster cast URL with proper encoding
     const castText = encodeURIComponent(message);
     const embedUrl = encodeURIComponent(gameUrl);
-    const farcasterUrl = `https://warpcast.com/~/compose?text=${castText}&embeds[]=${embedUrl}`;    
+    const farcasterUrl = `https://warpcast.com/~/compose?text=${castText}&embeds[]=${embedUrl}`;
+    
+    console.log('Farcaster URL:', farcasterUrl);
+    
     // Check if we're in Farcaster mini app context
-    if (window.sdk && window.sdk.actions) {        
+    if (window.sdk && window.sdk.actions) {
+        console.log('Farcaster SDK detected, trying SDK methods...');
+        
         // Try openUrl method
         if (typeof window.sdk.actions.openUrl === 'function') {
             try {
+                console.log('Trying openUrl...');
                 await window.sdk.actions.openUrl(farcasterUrl);
+                console.log('openUrl successful!');
                 return;
             } catch (error) {
-                // Silent fail, try next method
+                console.log('openUrl failed:', error);
             }
         }
         
         // Try shareUrl method (some SDK versions use this)
         if (typeof window.sdk.actions.shareUrl === 'function') {
             try {
+                console.log('Trying shareUrl...');
                 await window.sdk.actions.shareUrl(farcasterUrl);
+                console.log('shareUrl successful!');
                 return;
             } catch (error) {
-                // Silent fail, try next method
+                console.log('shareUrl failed:', error);
             }
         }
         
         // Try casting directly if SDK supports it
         if (typeof window.sdk.actions.createCast === 'function') {
             try {
+                console.log('Trying createCast...');
                 await window.sdk.actions.createCast({
                     text: message,
                     embeds: [gameUrl]
                 });
+                console.log('createCast successful!');
                 return;
             } catch (error) {
-                // Silent fail, fall through to browser methods
+                console.log('createCast failed:', error);
             }
-        }    } else {    }
+        }
+    } else {
+        console.log('Farcaster SDK not detected, using browser fallback...');
+    }
     
     // Fallback to browser methods
     try {
+        console.log('Trying window.open...');
         const newWindow = window.open(farcasterUrl, '_blank', 'noopener,noreferrer');
         
         if (newWindow) {
+            console.log('New window opened successfully');
             newWindow.focus();
         } else {
+            console.log('Popup blocked, redirecting...');
+            alert('🚀 Warpcast\'e yönlendiriliyorsunuz...');
             window.location.href = farcasterUrl;
         }
     } catch (error) {
+        console.log('Window.open failed:', error);
         // Final fallback: Copy to clipboard
         try {
             const shareText = `${message}\n\n${gameUrl}`;
             await navigator.clipboard.writeText(shareText);
             alert('📋 Paylaşım linki kopyalandı!\n\nWarpcast\'e yapıştırabilirsiniz.');
         } catch (clipboardError) {
+            console.log('Clipboard failed:', clipboardError);
             // Last resort: Show the message
             const userMessage = `Lütfen manuel olarak paylaşın:\n\n${message}\n\n${gameUrl}`;
             alert(userMessage);
