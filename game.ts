@@ -1701,22 +1701,63 @@ class FruitSliceGame {
         
         const ctx = this.state.ctx;
         ctx.globalAlpha = opacity;
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
-        ctx.lineWidth = 3;
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
+        
+        // Draw multiple layers for glow effect (like shooting star trail)
+        // Outer glow (wider, more transparent)
+        ctx.strokeStyle = `rgba(255, 255, 255, ${0.15 * opacity})`;
+        ctx.lineWidth = 12;
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = 'rgba(255, 255, 255, 0.5)';
+        this.drawCurvedPath(ctx, points);
+        
+        // Middle glow
+        ctx.strokeStyle = `rgba(255, 255, 255, ${0.4 * opacity})`;
+        ctx.lineWidth = 6;
+        ctx.shadowBlur = 8;
+        this.drawCurvedPath(ctx, points);
+        
+        // Inner bright core
+        ctx.strokeStyle = `rgba(255, 255, 255, ${0.9 * opacity})`;
+        ctx.lineWidth = 2.5;
+        ctx.shadowBlur = 4;
+        this.drawCurvedPath(ctx, points);
+        
+        // Reset shadow
+        ctx.shadowBlur = 0;
+        ctx.globalAlpha = 1;
+    }
+    
+    // Helper function to draw smooth curved path
+    drawCurvedPath(ctx: CanvasRenderingContext2D, points: Point[]): void {
+        if (points.length < 2) return;
         
         ctx.beginPath();
         ctx.moveTo(points[0].x, points[0].y);
         
-        // Draw every other point on low performance devices
+        // Use quadratic curves for smoother appearance
         const step = this.state.isLowPerformance ? 2 : 1;
-        for (let i = step; i < points.length; i += step) {
-            ctx.lineTo(points[i].x, points[i].y);
+        
+        if (points.length === 2) {
+            ctx.lineTo(points[1].x, points[1].y);
+        } else {
+            for (let i = 1; i < points.length - 1; i += step) {
+                const xc = (points[i].x + points[i + 1].x) / 2;
+                const yc = (points[i].y + points[i + 1].y) / 2;
+                ctx.quadraticCurveTo(points[i].x, points[i].y, xc, yc);
+            }
+            // Draw last segment
+            const lastIdx = points.length - 1;
+            ctx.quadraticCurveTo(
+                points[lastIdx - 1].x,
+                points[lastIdx - 1].y,
+                points[lastIdx].x,
+                points[lastIdx].y
+            );
         }
         
         ctx.stroke();
-        ctx.globalAlpha = 1;
     }
     
     updateUI(): void {
@@ -2078,12 +2119,8 @@ function closeLeaderboard() {
 
 // SHARE ON FARCASTER
 function shareOnFarcaster() {
-    console.log('Share button clicked! Current score:', currentScore);
-    
     const message = `Scored ${currentScore} points in Base Fruits! 🥇 Can you beat me? 🍓🍉`;
     const gameUrl = 'https://base-fruits.vercel.app/';
-    
-    console.log('Share message:', message);
     
     // Create Farcaster cast URL with parameters (only text and link)
     const castText = encodeURIComponent(message);
@@ -2092,21 +2129,15 @@ function shareOnFarcaster() {
     // Farcaster cast URL format - link will automatically show preview image
     const farcasterUrl = `https://warpcast.com/~/compose?text=${castText}&embeds[]=${embedUrl}`;
     
-    console.log('Farcaster URL:', farcasterUrl);
-    
     // Try multiple methods to open the URL
     try {
         // Method 1: window.open
         const newWindow = window.open(farcasterUrl, '_blank');
         if (!newWindow) {
-            console.log('Popup blocked, trying alternative method...');
             // Method 2: Direct navigation
             window.location.href = farcasterUrl;
-        } else {
-            console.log('Successfully opened Farcaster compose window');
         }
     } catch (error) {
-        console.error('Error opening Farcaster URL:', error);
         // Method 3: Copy to clipboard as fallback
         navigator.clipboard.writeText(message + ' ' + gameUrl).then(() => {
             alert('Farcaster link could not be opened. Message copied to clipboard!');
@@ -2118,10 +2149,8 @@ function shareOnFarcaster() {
 
 // ===== INITIALIZE GAME =====
 window.addEventListener('DOMContentLoaded', () => {
-    console.log('DOM loaded, initializing game...');
     try {
         const game = new FruitSliceGame();
-        console.log('Game initialized successfully:', game);
         
         // Close leaderboard button
         const closeLeaderboardBtn = document.getElementById('close-leaderboard');
@@ -2131,18 +2160,8 @@ window.addEventListener('DOMContentLoaded', () => {
         
         // Share button event listener
         const shareButton = document.getElementById('share-score-button');
-        console.log('Looking for share button...');
-        console.log('Share button element:', shareButton);
-        
         if (shareButton) {
-            console.log('Share button found! Adding event listener...');
-            shareButton.addEventListener('click', () => {
-                console.log('SHARE BUTTON CLICKED!!!');
-                shareOnFarcaster();
-            });
-            console.log('Event listener added successfully');
-        } else {
-            console.error('❌ Share button NOT found in DOM!');
+            shareButton.addEventListener('click', shareOnFarcaster);
         }
         
         // Modal dışına tıklayınca kapat
