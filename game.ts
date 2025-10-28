@@ -2123,26 +2123,37 @@ window.addEventListener('DOMContentLoaded', () => {
         const game = new FruitSliceGame();
         console.log('Game initialized successfully:', game);
         
-        // Leaderboard event listeners
-        document.getElementById('save-leaderboard-button')!.addEventListener('click', saveScore);
-        document.getElementById('view-leaderboard-button')!.addEventListener('click', viewLeaderboard);
-        document.getElementById('close-leaderboard')!.addEventListener('click', closeLeaderboard);
+        // Close leaderboard button
+        const closeLeaderboardBtn = document.getElementById('close-leaderboard');
+        if (closeLeaderboardBtn) {
+            closeLeaderboardBtn.addEventListener('click', closeLeaderboard);
+        }
         
         // Share button event listener
         const shareButton = document.getElementById('share-score-button');
+        console.log('Looking for share button...');
+        console.log('Share button element:', shareButton);
+        
         if (shareButton) {
-            console.log('Share button found, adding event listener');
-            shareButton.addEventListener('click', shareOnFarcaster);
+            console.log('Share button found! Adding event listener...');
+            shareButton.addEventListener('click', () => {
+                console.log('SHARE BUTTON CLICKED!!!');
+                shareOnFarcaster();
+            });
+            console.log('Event listener added successfully');
         } else {
-            console.error('Share button not found!');
+            console.error('❌ Share button NOT found in DOM!');
         }
         
         // Modal dışına tıklayınca kapat
-        document.getElementById('leaderboard-modal')!.addEventListener('click', (e) => {
-            if (e.target === document.getElementById('leaderboard-modal')) {
-                closeLeaderboard();
-            }
-        });
+        const leaderboardModal = document.getElementById('leaderboard-modal');
+        if (leaderboardModal) {
+            leaderboardModal.addEventListener('click', (e) => {
+                if (e.target === leaderboardModal) {
+                    closeLeaderboard();
+                }
+            });
+        }
         
     } catch (error) {
         console.error('Error initializing game:', error);
