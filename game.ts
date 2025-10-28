@@ -1701,59 +1701,22 @@ class FruitSliceGame {
         
         const ctx = this.state.ctx;
         ctx.globalAlpha = opacity;
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+        ctx.lineWidth = 3;
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
         
-        // Draw trail with gradient from thin to thick and blue-ish color (2 layers for performance)
-        // Outer glow (cyan-ish)
-        ctx.strokeStyle = `rgba(80, 180, 255, ${0.3 * opacity})`;
-        ctx.shadowBlur = 15;
-        ctx.shadowColor = 'rgba(80, 180, 255, 0.5)';
-        this.drawCurvedPathWithGradient(ctx, points, 12); // Base width 12px
+        ctx.beginPath();
+        ctx.moveTo(points[0].x, points[0].y);
         
-        // Inner bright core (bright cyan/white)
-        ctx.strokeStyle = `rgba(150, 220, 255, ${0.9 * opacity})`;
-        ctx.shadowBlur = 8;
-        ctx.shadowColor = 'rgba(150, 220, 255, 0.7)';
-        this.drawCurvedPathWithGradient(ctx, points, 5); // Base width 5px
-        
-        // Reset shadow
-        ctx.shadowBlur = 0;
-        ctx.globalAlpha = 1;
-    }
-    
-    // Helper function to draw smooth curved path with thickness gradient (thin to thick)
-    drawCurvedPathWithGradient(ctx: CanvasRenderingContext2D, points: Point[], baseLineWidth: number): void {
-        if (points.length < 2) return;
-        
+        // Draw every other point on low performance devices
         const step = this.state.isLowPerformance ? 2 : 1;
-        
-        // Draw segments with increasing width (thin to thick)
-        for (let i = 0; i < points.length - 1; i += step) {
-            // Calculate thickness: starts thin, gradually becomes thick
-            const progress = i / points.length;
-            const thickness = baseLineWidth * (0.3 + progress * 0.7); // Starts at 30%, grows to 100%
-            
-            ctx.lineWidth = thickness;
-            ctx.beginPath();
-            
-            if (i === 0) {
-                ctx.moveTo(points[i].x, points[i].y);
-            }
-            
-            // Use quadratic curves for smoother appearance
-            if (i < points.length - 2) {
-                const xc = (points[i].x + points[i + 1].x) / 2;
-                const yc = (points[i].y + points[i + 1].y) / 2;
-                ctx.moveTo(points[i].x, points[i].y);
-                ctx.quadraticCurveTo(points[i].x, points[i].y, xc, yc);
-            } else {
-                ctx.moveTo(points[i].x, points[i].y);
-                ctx.lineTo(points[i + 1].x, points[i + 1].y);
-            }
-            
-            ctx.stroke();
+        for (let i = step; i < points.length; i += step) {
+            ctx.lineTo(points[i].x, points[i].y);
         }
+        
+        ctx.stroke();
+        ctx.globalAlpha = 1;
     }
     
     updateUI(): void {
@@ -2115,8 +2078,12 @@ function closeLeaderboard() {
 
 // SHARE ON FARCASTER
 function shareOnFarcaster() {
+    console.log('Share button clicked! Current score:', currentScore);
+    
     const message = `Scored ${currentScore} points in Base Fruits! 🥇 Can you beat me? 🍓🍉`;
     const gameUrl = 'https://base-fruits.vercel.app/';
+    
+    console.log('Share message:', message);
     
     // Create Farcaster cast URL with parameters (only text and link)
     const castText = encodeURIComponent(message);
@@ -2125,15 +2092,21 @@ function shareOnFarcaster() {
     // Farcaster cast URL format - link will automatically show preview image
     const farcasterUrl = `https://warpcast.com/~/compose?text=${castText}&embeds[]=${embedUrl}`;
     
+    console.log('Farcaster URL:', farcasterUrl);
+    
     // Try multiple methods to open the URL
     try {
         // Method 1: window.open
         const newWindow = window.open(farcasterUrl, '_blank');
         if (!newWindow) {
+            console.log('Popup blocked, trying alternative method...');
             // Method 2: Direct navigation
             window.location.href = farcasterUrl;
+        } else {
+            console.log('Successfully opened Farcaster compose window');
         }
     } catch (error) {
+        console.error('Error opening Farcaster URL:', error);
         // Method 3: Copy to clipboard as fallback
         navigator.clipboard.writeText(message + ' ' + gameUrl).then(() => {
             alert('Farcaster link could not be opened. Message copied to clipboard!');
@@ -2145,30 +2118,31 @@ function shareOnFarcaster() {
 
 // ===== INITIALIZE GAME =====
 window.addEventListener('DOMContentLoaded', () => {
+    console.log('DOM loaded, initializing game...');
     try {
         const game = new FruitSliceGame();
+        console.log('Game initialized successfully:', game);
         
-        // Close leaderboard button
-        const closeLeaderboardBtn = document.getElementById('close-leaderboard');
-        if (closeLeaderboardBtn) {
-            closeLeaderboardBtn.addEventListener('click', closeLeaderboard);
-        }
+        // Leaderboard event listeners
+        document.getElementById('save-leaderboard-button')!.addEventListener('click', saveScore);
+        document.getElementById('view-leaderboard-button')!.addEventListener('click', viewLeaderboard);
+        document.getElementById('close-leaderboard')!.addEventListener('click', closeLeaderboard);
         
         // Share button event listener
         const shareButton = document.getElementById('share-score-button');
         if (shareButton) {
+            console.log('Share button found, adding event listener');
             shareButton.addEventListener('click', shareOnFarcaster);
+        } else {
+            console.error('Share button not found!');
         }
         
         // Modal dışına tıklayınca kapat
-        const leaderboardModal = document.getElementById('leaderboard-modal');
-        if (leaderboardModal) {
-            leaderboardModal.addEventListener('click', (e) => {
-                if (e.target === leaderboardModal) {
-                    closeLeaderboard();
-                }
-            });
-        }
+        document.getElementById('leaderboard-modal')!.addEventListener('click', (e) => {
+            if (e.target === document.getElementById('leaderboard-modal')) {
+                closeLeaderboard();
+            }
+        });
         
     } catch (error) {
         console.error('Error initializing game:', error);
