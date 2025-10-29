@@ -8,18 +8,15 @@
     <meta name="description" content="Farcaster Fruit Slice - Web3 Mini Game">
     <title>Base Fruits 🍉</title>
     
-   <!-- Farcaster Frame Metadata - CRITICAL FOR VALIDATIONN-->
    <meta name="fc:miniapp" content='{"version":"1","imageUrl":"https://base-fruits-farcaster-miniapp.vercel.app/images/splash.png","button":{"title":"🎮 Play Game","action":{"type":"launch_miniapp","name":"Base Fruits","url":"https://base-fruits-farcaster-miniapp.vercel.app/","splashImageUrl":"https://base-fruits-farcaster-miniapp.vercel.app/images/splash.png","splashBackgroundColor":"#0a0a15"}}}' />
    <meta name="fc:frame" content='{"version":"1","imageUrl":"https://base-fruits-farcaster-miniapp.vercel.app/images/splash.png","button":{"title":"🎮 Play Game","action":{"type":"launch_frame","name":"Base Fruits","url":"https://base-fruits-farcaster-miniapp.vercel.app/","splashImageUrl":"https://base-fruits-farcaster-miniapp.vercel.app/images/splash.png","splashBackgroundColor":"#0a0a15"}}}' />
   
-   <!-- Open Graph for Social Sharing -->
    <meta property="og:title" content="Base Fruits 🍉 - Farcaster Mini Game" />
    <meta property="og:description" content="Slice fruits, avoid bombs, and compete on the blockchain leaderboard! 🍓🍉🍊" />
    <meta property="og:image" content="https://base-fruits-farcaster-miniapp.vercel.app/images/splash.png" />
    <meta property="og:url" content="https://base-fruits-farcaster-miniapp.vercel.app/" />
    <meta property="og:type" content="website" />
   
-   <!-- Twitter Card -->
    <meta name="twitter:card" content="summary_large_image" />
    <meta name="twitter:title" content="Base Fruits 🍉" />
    <meta name="twitter:description" content="Slice fruits, avoid bombs! Web3 gaming on Base." />
@@ -28,9 +25,6 @@
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="styles.css?v=8">
     
-    <!-- ⚠️ CRITICAL: Load scripts in correct order -->
-    
-    <!-- 1. Ethers.js FIRST (v5.7.2) -->
     <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
     <script>
         // Verify ethers loaded
@@ -42,13 +36,10 @@
         }
     </script>
     
-    <!-- 2. Farcaster SDK SECOND (UMD) -->
     <script src="https://cdn.jsdelivr.net/npm/@farcaster/frame-sdk/dist/index.min.js"></script>
     
-    <!-- 3. Privy SDK for wallet connection -->
     <script src="https://unpkg.com/@privy-io/js-sdk-core@0.26.0/dist/index.global.js"></script>
     
-    <!-- 4. Initialize Privy SDK -->
     <script>
         // Initialize Privy
         let privyClient = null;
@@ -95,7 +86,6 @@
         })();
     </script>
     
-    <!-- 5. Initialize SDK BEFORE game.js -->
     <script>
         // Initialize Farcaster SDK globally as window.sdk (for game.js compatibility)
         (async function() {
@@ -139,12 +129,10 @@
     <div id="game-container">
         <canvas id="game-canvas"></canvas>
         
-        <!-- Chapter Name Display -->
         <div id="chapter-name" class="chapter-name hidden">
             <h1 id="chapter-text">Tropical Island</h1>
         </div>
         
-        <!-- Start Screen -->
         <div id="start-screen" class="screen">
             <h1>🍉 Base Fruits</h1>
             <p class="subtitle">Slice the fruits, avoid the bombs!</p>
@@ -156,27 +144,28 @@
                 <p>🎮 <strong>50 challenging waves</strong></p>
             </div>
             <button id="start-button" class="game-button">Start Game</button>
+            
+            <div class="leaderboard-section mt-4">
+                <button id="leaderboard-button" class="game-button secondary-btn">🏆 View Leaderboard</button>
+            </div>
         </div>
         
-        <!-- Game HUD -->
         <div id="game-hud" class="hidden">
             <div class="hud-top">
                 <div class="score-display">
                     <span class="label">Score</span>
-                    <span id="score">0</span>
+                    <span id="score-value">0</span> 
                 </div>
                 <div class="level-display">
                     <span class="label">Wave</span>
-                    <span id="level">1</span>
+                    <span id="wave-value">1</span>
                 </div>
             </div>
-            <div class="lives-display">
+            <div id="lives-container" class="lives-display">
                 <span class="label">Lives:</span>
-                <span id="lives">❤️❤️❤️❤️</span>
             </div>
         </div>
         
-        <!-- Milestone Message -->
         <div id="milestone-message" class="milestone-screen hidden">
             <div class="milestone-content">
                 <h2 id="milestone-text">Congratulations!</h2>
@@ -184,7 +173,6 @@
             </div>
         </div>
         
-        <!-- Game Over Screen -->
         <div id="game-over-screen" class="screen hidden">
             <h1>Game Over</h1>
             <div class="final-score">
@@ -195,16 +183,19 @@
                 <p>Wave Reached: <span id="final-level">1</span></p>
             </div>
             
-            <!-- Leaderboard Section -->
             <div class="leaderboard-section">
+                <input type="text" id="username-input" placeholder="Your Name (3-15 chars)" maxlength="15" class="username-input mb-4">
+                
                 <div class="button-group-vertical">
+                    <button id="save-leaderboard-button" class="game-button save-btn">💾 Save Leaderboard</button>
+                    <button id="final-leaderboard-button" class="game-button secondary-btn">🏆 View Leaderboard</button>
+                    
                     <button id="share-score-button" class="game-button share-btn">🚀 Share on Farcaster</button>
                     <button id="restart-button" class="game-button restart-btn">🔄 Play Again</button>
                 </div>
             </div>
         </div>
         
-        <!-- Leaderboard Modal -->
         <div id="leaderboard-modal" class="modal hidden">
             <div class="modal-content">
                 <div class="modal-header">
@@ -212,13 +203,24 @@
                     <button id="close-leaderboard" class="close-btn">&times;</button>
                 </div>
                 <div id="leaderboard-content" class="leaderboard-list">
-                    <p>Loading...</p>
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rank</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Username</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Score</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Wave</th>
+                            </tr>
+                        </thead>
+                        <tbody id="leaderboard-body" class="bg-white divide-y divide-gray-200">
+                            <tr><td colspan="4" class="text-center py-4 text-gray-400">Loading Leaderboard...</td></tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
     </div>
     
-    <!-- 4. Game script LAST -->
     <script src="game.js?v=10"></script>
     <script src="game-privy.js?v=2"></script>
 </body>
