@@ -117,20 +117,34 @@ class FruitSliceGame {
         this.showStartScreen();
     }
     setupEventListeners() {
+        console.log('Setting up event listeners...');
+        
         // Start button
-        const startButton = document.getElementById('start-button');        if (startButton) {
-            startButton.addEventListener('click', () => {                this.startGame();
+        const startButton = document.getElementById('start-button');
+        console.log('Start button:', startButton);
+        if (startButton) {
+            startButton.addEventListener('click', () => {
+                console.log('Start button clicked!');
+                this.startGame();
             });
         }
+        
         // Restart button
-        document.getElementById('restart-button').addEventListener('click', () => {
-            this.startGame();
-        });
+        const restartButton = document.getElementById('restart-button');
+        console.log('Restart button:', restartButton);
+        if (restartButton) {
+            restartButton.addEventListener('click', () => {
+                console.log('Restart button clicked!');
+                this.startGame();
+            });
+        }
+        
         // Mouse events
         this.state.canvas.addEventListener('mousedown', (e) => this.handleInputStart(e.clientX, e.clientY));
         this.state.canvas.addEventListener('mousemove', (e) => this.handleInputMove(e.clientX, e.clientY));
         this.state.canvas.addEventListener('mouseup', () => this.handleInputEnd());
         this.state.canvas.addEventListener('mouseleave', () => this.handleInputEnd());
+        
         // Touch events
         this.state.canvas.addEventListener('touchstart', (e) => {
             e.preventDefault();
@@ -148,41 +162,57 @@ class FruitSliceGame {
         }, { passive: false });
         
         // Keyboard events for desktop
+        console.log('Setting up keyboard listeners...');
         document.addEventListener('keydown', (e) => {
+            console.log('Key pressed:', e.key, e.code, 'isPlaying:', this.state.isPlaying);
+            
             // Space bar to start/restart game
             if (e.code === 'Space' || e.key === ' ') {
                 e.preventDefault();
+                console.log('Space key detected!');
+                
                 if (!this.state.isPlaying) {
                     const startScreen = document.getElementById('start-screen');
                     const gameOverScreen = document.getElementById('game-over-screen');
                     
+                    console.log('Start screen hidden:', startScreen?.classList.contains('hidden'));
+                    console.log('Game over screen hidden:', gameOverScreen?.classList.contains('hidden'));
+                    
                     if (startScreen && !startScreen.classList.contains('hidden')) {
-                        console.log('Space pressed - Starting game');
+                        console.log('Starting game from start screen...');
                         this.startGame();
                     } else if (gameOverScreen && !gameOverScreen.classList.contains('hidden')) {
-                        console.log('Space pressed - Restarting game');
+                        console.log('Restarting game from game over screen...');
                         this.startGame();
                     }
+                } else {
+                    console.log('Game is already playing, ignoring space key');
                 }
             }
             
             // Enter key as alternative
             if (e.code === 'Enter' || e.key === 'Enter') {
                 e.preventDefault();
+                console.log('Enter key detected!');
+                
                 if (!this.state.isPlaying) {
                     const startScreen = document.getElementById('start-screen');
                     const gameOverScreen = document.getElementById('game-over-screen');
                     
                     if (startScreen && !startScreen.classList.contains('hidden')) {
-                        console.log('Enter pressed - Starting game');
+                        console.log('Starting game from start screen...');
                         this.startGame();
                     } else if (gameOverScreen && !gameOverScreen.classList.contains('hidden')) {
-                        console.log('Enter pressed - Restarting game');
+                        console.log('Restarting game from game over screen...');
                         this.startGame();
                     }
+                } else {
+                    console.log('Game is already playing, ignoring enter key');
                 }
             }
         });
+        
+        console.log('All event listeners set up!');
     }
     showStartScreen() {
         document.getElementById('start-screen').classList.remove('hidden');
