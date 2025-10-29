@@ -2189,24 +2189,57 @@ function shareOnFarcaster() {
     const castText = encodeURIComponent(message);
     const embedUrl = encodeURIComponent(gameUrl);
     
-    // Farcaster cast URL format - link will automatically show preview image
-    const farcasterUrl = `https://warpcast.com/~/compose?text=${castText}&embeds[]=${embedUrl}`;
+    // Detect if we're on mobile
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     
-    // Try multiple methods to open the URL
-    try {
-        // Method 1: window.open
-        const newWindow = window.open(farcasterUrl, '_blank');
-        if (!newWindow) {
-            // Method 2: Direct navigation
-            window.location.href = farcasterUrl;
+    if (isMobile) {
+        // Mobile: Try Warpcast app deep link first
+        const warpcastDeepLink = `warpcast://compose?text=${castText}&embeds[]=${embedUrl}`;
+        const webFallback = `https://warpcast.com/~/compose?text=${castText}&embeds[]=${embedUrl}`;
+        
+        // Create a hidden iframe to trigger the app
+        const iframe = document.createElement('iframe');
+        iframe.style.display = 'none';
+        iframe.src = warpcastDeepLink;
+        document.body.appendChild(iframe);
+        
+        // Wait a moment to see if app opens
+        setTimeout(() => {
+            document.body.removeChild(iframe);
+        }, 500);
+        
+        // Set a timeout to open web version if app doesn't open
+        const timeout = setTimeout(() => {
+            window.location.href = webFallback;
+        }, 1000);
+        
+        // Listen for visibility change (app opened successfully)
+        const visibilityHandler = () => {
+            clearTimeout(timeout);
+            document.removeEventListener('visibilitychange', visibilityHandler);
+        };
+        document.addEventListener('visibilitychange', visibilityHandler);
+        
+    } else {
+        // Desktop: Open in new tab
+        const farcasterUrl = `https://warpcast.com/~/compose?text=${castText}&embeds[]=${embedUrl}`;
+        
+        // Try multiple methods to open the URL
+        try {
+            // Method 1: window.open
+            const newWindow = window.open(farcasterUrl, '_blank');
+            if (!newWindow) {
+                // Method 2: Direct navigation
+                window.location.href = farcasterUrl;
+            }
+        } catch (error) {
+            // Method 3: Copy to clipboard as fallback
+            navigator.clipboard.writeText(message + ' ' + gameUrl).then(() => {
+                alert('Farcaster link could not be opened. Message copied to clipboard!');
+            }).catch(() => {
+                alert('Unable to open Farcaster. Please manually share: ' + message + ' ' + gameUrl);
+            });
         }
-    } catch (error) {
-        // Method 3: Copy to clipboard as fallback
-        navigator.clipboard.writeText(message + ' ' + gameUrl).then(() => {
-            alert('Farcaster link could not be opened. Message copied to clipboard!');
-        }).catch(() => {
-            alert('Unable to open Farcaster. Please manually share: ' + message + ' ' + gameUrl);
-        });
     }
 }
 

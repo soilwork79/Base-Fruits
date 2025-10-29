@@ -1926,15 +1926,17 @@ function closeLeaderboard() {
 async function shareOnFarcaster() {    
     const message = `🍉 Base Fruits'ta ${currentScore} puan yaptım! 🥇\n\nBeni yenebilir misin? 🍓🍉`;
     const gameUrl = 'https://base-fruits-farcaster-miniapp.vercel.app/';    
+    
     // Create Farcaster cast URL with proper encoding
     const castText = encodeURIComponent(message);
     const embedUrl = encodeURIComponent(gameUrl);
-    const farcasterUrl = `https://warpcast.com/~/compose?text=${castText}&embeds[]=${embedUrl}`;    
+    
     // Check if we're in Farcaster mini app context
     if (window.sdk && window.sdk.actions) {        
         // Try openUrl method
         if (typeof window.sdk.actions.openUrl === 'function') {
             try {
+                const farcasterUrl = `https://warpcast.com/~/compose?text=${castText}&embeds[]=${embedUrl}`;
                 await window.sdk.actions.openUrl(farcasterUrl);
                 return;
             } catch (error) {
@@ -1945,6 +1947,7 @@ async function shareOnFarcaster() {
         // Try shareUrl method (some SDK versions use this)
         if (typeof window.sdk.actions.shareUrl === 'function') {
             try {
+                const farcasterUrl = `https://warpcast.com/~/compose?text=${castText}&embeds[]=${embedUrl}`;
                 await window.sdk.actions.shareUrl(farcasterUrl);
                 return;
             } catch (error) {
@@ -1965,25 +1968,60 @@ async function shareOnFarcaster() {
             }
         }    } else {    }
     
-    // Fallback to browser methods
-    try {
-        const newWindow = window.open(farcasterUrl, '_blank', 'noopener,noreferrer');
+    // Detect if we're on mobile
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    
+    if (isMobile) {
+        // Mobile: Try Warpcast app deep link first
+        const warpcastDeepLink = `warpcast://compose?text=${castText}&embeds[]=${embedUrl}`;
+        const webFallback = `https://warpcast.com/~/compose?text=${castText}&embeds[]=${embedUrl}`;
         
-        if (newWindow) {
-            newWindow.focus();
-        } else {
-            window.location.href = farcasterUrl;
-        }
-    } catch (error) {
-        // Final fallback: Copy to clipboard
+        // Create a hidden iframe to trigger the app
+        const iframe = document.createElement('iframe');
+        iframe.style.display = 'none';
+        iframe.src = warpcastDeepLink;
+        document.body.appendChild(iframe);
+        
+        // Wait a moment to see if app opens
+        setTimeout(() => {
+            document.body.removeChild(iframe);
+        }, 500);
+        
+        // Set a timeout to open web version if app doesn't open
+        const timeout = setTimeout(() => {
+            window.location.href = webFallback;
+        }, 1000);
+        
+        // Listen for visibility change (app opened successfully)
+        const visibilityHandler = () => {
+            clearTimeout(timeout);
+            document.removeEventListener('visibilitychange', visibilityHandler);
+        };
+        document.addEventListener('visibilitychange', visibilityHandler);
+        
+    } else {
+        // Desktop: Open in new tab
+        const farcasterUrl = `https://warpcast.com/~/compose?text=${castText}&embeds[]=${embedUrl}`;
+        
         try {
-            const shareText = `${message}\n\n${gameUrl}`;
-            await navigator.clipboard.writeText(shareText);
-            alert('📋 Paylaşım linki kopyalandı!\n\nWarpcast\'e yapıştırabilirsiniz.');
-        } catch (clipboardError) {
-            // Last resort: Show the message
-            const userMessage = `Lütfen manuel olarak paylaşın:\n\n${message}\n\n${gameUrl}`;
-            alert(userMessage);
+            const newWindow = window.open(farcasterUrl, '_blank', 'noopener,noreferrer');
+            
+            if (newWindow) {
+                newWindow.focus();
+            } else {
+                window.location.href = farcasterUrl;
+            }
+        } catch (error) {
+            // Final fallback: Copy to clipboard
+            try {
+                const shareText = `${message}\n\n${gameUrl}`;
+                await navigator.clipboard.writeText(shareText);
+                alert('📋 Paylaşım linki kopyalandı!\n\nWarpcast\'e yapıştırabilirsiniz.');
+            } catch (clipboardError) {
+                // Last resort: Show the message
+                const userMessage = `Lütfen manuel olarak paylaşın:\n\n${message}\n\n${gameUrl}`;
+                alert(userMessage);
+            }
         }
     }
 }
