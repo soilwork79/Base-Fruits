@@ -213,29 +213,29 @@ class GameState {
         this.resize();
         
         // Object pools oluştur
-        this.particlePool = new ObjectPool(
-            () => ({ x: 0, y: 0, vx: 0, vy: 0, size: 0, color: '', life: 0, active: false }),
+        this.particlePool = new ObjectPool<Particle>(
+            () => ({ x: 0, y: 0, vx: 0, vy: 0, size: 0, color: '', life: 0, active: false as boolean }),
             (p) => { p.active = false; p.life = 1; },
             50
         );
         
-        this.trailPool = new ObjectPool(
-            () => ({ points: [], opacity: 1, active: false }),
+        this.trailPool = new ObjectPool<Trail>(
+            () => ({ points: [] as Point[], opacity: 1, active: false as boolean }),
             (t) => { t.points = []; t.opacity = 1; t.active = false; },
             5
         );
         
-        this.scorePopupPool = new ObjectPool(
-            () => ({ x: 0, y: 0, score: 0, opacity: 1, scale: 1, active: false }),
+        this.scorePopupPool = new ObjectPool<ScorePopup>(
+            () => ({ x: 0, y: 0, score: 0, opacity: 1, scale: 1, active: false as boolean }),
             (s) => { s.opacity = 1; s.scale = 1; s.active = false; },
             10
         );
         
-        this.fruitHalfPool = new ObjectPool(
+        this.fruitHalfPool = new ObjectPool<FruitHalf>(
             () => ({
                 x: 0, y: 0, vx: 0, vy: 0, radius: 0, color: '', 
                 fruitType: '', rotation: 0, rotationSpeed: 0, 
-                isLeft: false, opacity: 1, active: false
+                isLeft: false as boolean, opacity: 1, active: false as boolean
             }),
             (h) => { h.opacity = 1; h.active = false; },
             30
