@@ -811,35 +811,85 @@ class FruitSliceGame {
         // Generate combo text based on fruit count
         const count = this.state.comboFruits.length;
         let comboText = '';
-        if (count === 3) comboText = '3 Fruits - Good';
-        else if (count === 4) comboText = '4 Fruits - Great';
-        else if (count === 5) {
-            comboText = '5 Fruits - Excellent';
-            this.playComboSound('excellent');
-        }
-        else if (count === 6) {
-            comboText = '6 Fruits - Amazing';
-            this.playComboSound('amazing');
-        }
-        else if (count >= 7) {
-            comboText = '7+ Fruits - Legendary';
-            this.playComboSound('legendary');
+        
+        // Limit score popups for performance
+        if (this.state.scorePopups.length >= MAX_SCORE_POPUPS) {
+            this.state.scorePopups.shift();
         }
         
-        // For combos (3+), show text in center of screen
-        if (count >= 3) {
-            // Limit score popups for performance
-            if (this.state.scorePopups.length >= MAX_SCORE_POPUPS) {
-                this.state.scorePopups.shift();
-            }
+        if (count === 1 || count === 2) {
+            // Single or double fruit - show simple green score at fruit position
+            this.state.scorePopups.push({
+                x: avgX,
+                y: avgY,
+                score: comboScore,
+                opacity: 1,
+                scale: 1,
+                comboText: '', // No text, just score
+                isSimple: true // Flag for simple green style
+            });
+        } else if (count === 3) {
+            comboText = '3 Fruit Combo';
             this.state.scorePopups.push({
                 x: this.state.width / 2,
                 y: this.state.height / 2,
                 score: comboScore,
                 opacity: 1,
                 scale: 1,
-                comboText: comboText
+                comboText: comboText,
+                isSimple: false
             });
+        } else if (count === 4) {
+            comboText = '4 Fruit Combo';
+            this.state.scorePopups.push({
+                x: this.state.width / 2,
+                y: this.state.height / 2,
+                score: comboScore,
+                opacity: 1,
+                scale: 1,
+                comboText: comboText,
+                isSimple: false
+            });
+        } else if (count === 5) {
+            comboText = '5 Fruit Combo';
+            this.playComboSound('excellent');
+            this.state.scorePopups.push({
+                x: this.state.width / 2,
+                y: this.state.height / 2,
+                score: comboScore,
+                opacity: 1,
+                scale: 1,
+                comboText: comboText,
+                isSimple: false
+            });
+        } else if (count === 6) {
+            comboText = '6 Fruit Combo';
+            this.playComboSound('amazing');
+            this.state.scorePopups.push({
+                x: this.state.width / 2,
+                y: this.state.height / 2,
+                score: comboScore,
+                opacity: 1,
+                scale: 1,
+                comboText: comboText,
+                isSimple: false
+            });
+        } else if (count >= 7) {
+            comboText = '7+ Fruit Combo';
+            this.playComboSound('legendary');
+            this.state.scorePopups.push({
+                x: this.state.width / 2,
+                y: this.state.height / 2,
+                score: comboScore,
+                opacity: 1,
+                scale: 1,
+                comboText: comboText,
+                isSimple: false
+            });
+        }
+        
+        // Create fireworks for 3+ combos
+        if (count >= 3) {
             this.createFireworks(avgX, avgY);
         }
         
@@ -1571,13 +1621,19 @@ class FruitSliceGame {
         // Draw score popups
         for (const popup of this.state.scorePopups) {
             ctx.globalAlpha = popup.opacity;
-            ctx.fillStyle = '#f5576c';
             ctx.textAlign = 'center';
-            ctx.shadowBlur = 15;
-            ctx.shadowColor = '#f5576c';
             
-            // Draw combo text if available (3+ fruits)
-            if (popup.comboText) {
+            // Simple green popup for 1-2 fruits
+            if (popup.isSimple) {
+                ctx.fillStyle = '#4ade80'; // Green color
+                ctx.font = `bold ${28}px Arial`;
+                ctx.textBaseline = 'middle';
+                ctx.shadowBlur = 12;
+                ctx.shadowColor = '#4ade80';
+                ctx.fillText(`+${popup.score}`, popup.x, popup.y);
+            }
+            // Combo popup for 3+ fruits
+            else if (popup.comboText) {
                 // Draw combo text in yellow
                 ctx.fillStyle = '#FFD700';
                 ctx.font = `bold ${32}px Arial`;
@@ -1585,23 +1641,13 @@ class FruitSliceGame {
                 ctx.shadowBlur = 20;
                 ctx.shadowColor = '#FFD700';
                 ctx.fillText(popup.comboText, popup.x, popup.y - 10);
-                
-                // Draw score below in white
+                // Draw score below combo text in white
                 ctx.fillStyle = '#FFFFFF';
-                ctx.font = `bold ${24}px Arial`;
+                ctx.font = `bold ${28}px Arial`;
                 ctx.textBaseline = 'top';
                 ctx.shadowBlur = 15;
                 ctx.shadowColor = '#FFFFFF';
                 ctx.fillText(`+${popup.score}`, popup.x, popup.y + 10);
-            } else {
-                // Draw only score for single/double fruits (smaller)
-                const popupColor = popup.color || '#f5576c'; // Use popup color or default red
-                ctx.fillStyle = popupColor;
-                ctx.font = `bold ${20}px Arial`;
-                ctx.textBaseline = 'middle';
-                ctx.shadowBlur = 10;
-                ctx.shadowColor = popupColor;
-                ctx.fillText(`+${popup.score}`, popup.x, popup.y);
             }
         }
         
@@ -1716,48 +1762,39 @@ class FruitSliceGame {
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
         
-        // Draw trail segments with increasing thickness (thin to thick)
         const step = this.state.isLowPerformance ? 2 : 1;
         
-        for (let i = 0; i < points.length - 1; i += step) {
-            // Calculate progress: 0 at start (old trail), 1 at end (mouse/finger)
-            const progress = i / (points.length - 1);
-            
-            // Outer glow layer - grows from thin to thick
-            const outerWidth = 3 + (6 * progress); // 3px → 9px
-            ctx.strokeStyle = `rgba(80, 180, 255, ${0.3 * opacity})`;
-            ctx.lineWidth = outerWidth;
-            ctx.shadowBlur = 10 + (5 * progress);
-            ctx.shadowColor = `rgba(80, 180, 255, ${0.4 + 0.2 * progress})`;
-            
-            ctx.beginPath();
-            ctx.moveTo(points[i].x, points[i].y);
-            if (i < points.length - 2) {
-                const xc = (points[i].x + points[i + 1].x) / 2;
-                const yc = (points[i].y + points[i + 1].y) / 2;
-                ctx.quadraticCurveTo(points[i].x, points[i].y, xc, yc);
-            } else {
-                ctx.lineTo(points[i + 1].x, points[i + 1].y);
+        // Draw multiple passes with increasing thickness for gradient effect
+        const layers = [
+            { widthStart: 3, widthEnd: 9, color: 'rgba(80, 180, 255, 0.3)', blur: 12 },
+            { widthStart: 1.5, widthEnd: 4, color: 'rgba(150, 220, 255, 0.9)', blur: 6 }
+        ];
+        
+        for (const layer of layers) {
+            // Draw the path in small segments with varying width
+            for (let i = 0; i < points.length - 1; i += step) {
+                const progress = i / (points.length - 1);
+                const width = layer.widthStart + (layer.widthEnd - layer.widthStart) * progress;
+                
+                ctx.strokeStyle = layer.color;
+                ctx.lineWidth = width;
+                ctx.shadowBlur = layer.blur;
+                ctx.shadowColor = layer.color;
+                
+                ctx.beginPath();
+                ctx.moveTo(points[i].x, points[i].y);
+                
+                // Use quadratic curve for smooth connection
+                if (i < points.length - 2) {
+                    const xc = (points[i + 1].x + points[Math.min(i + 2, points.length - 1)].x) / 2;
+                    const yc = (points[i + 1].y + points[Math.min(i + 2, points.length - 1)].y) / 2;
+                    ctx.quadraticCurveTo(points[i + 1].x, points[i + 1].y, xc, yc);
+                } else {
+                    ctx.lineTo(points[i + 1].x, points[i + 1].y);
+                }
+                
+                ctx.stroke();
             }
-            ctx.stroke();
-            
-            // Inner bright core - grows from thin to thick
-            const innerWidth = 1.5 + (2.5 * progress); // 1.5px → 4px
-            ctx.strokeStyle = `rgba(150, 220, 255, ${0.9 * opacity})`;
-            ctx.lineWidth = innerWidth;
-            ctx.shadowBlur = 5 + (3 * progress);
-            ctx.shadowColor = `rgba(150, 220, 255, ${0.6 + 0.3 * progress})`;
-            
-            ctx.beginPath();
-            ctx.moveTo(points[i].x, points[i].y);
-            if (i < points.length - 2) {
-                const xc = (points[i].x + points[i + 1].x) / 2;
-                const yc = (points[i].y + points[i + 1].y) / 2;
-                ctx.quadraticCurveTo(points[i].x, points[i].y, xc, yc);
-            } else {
-                ctx.lineTo(points[i + 1].x, points[i + 1].y);
-            }
-            ctx.stroke();
         }
         
         // Reset shadow
