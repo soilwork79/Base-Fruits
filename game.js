@@ -6,14 +6,14 @@ const INITIAL_LIVES = 4;
 const MAX_LEVEL = 50;
 const FRUIT_RADIUS = 26.46;
 const TRAIL_FADE_SPEED = 0.35;
-const MAX_TRAIL_POINTS = 8; // GÜNCELLEME: 15 -> 8
+const MAX_TRAIL_POINTS = 8; 
 const WALL_BOUNCE_DAMPING = 0.7;
 const MAX_FRUITS = 7;
-const MAX_PARTICLES = 30; // GÜNCELLEME: 50 -> 30
-const MAX_TRAILS = 2; // GÜNCELLEME: 3 -> 2
-const MAX_SCORE_POPUPS = 3; // GÜNCELLEME: 5 -> 3
-const PARTICLE_PER_SLICE = 8; // GÜNCELLEME: Yeni sabit
-const BOMB_EXPLOSION_PARTICLES = 20; // GÜNCELLEME: Yeni sabit
+const MAX_PARTICLES = 30; 
+const MAX_TRAILS = 2; 
+const MAX_SCORE_POPUPS = 3; 
+const PARTICLE_PER_SLICE = 8; 
+const BOMB_EXPLOSION_PARTICLES = 20; 
 
 const FRUIT_TYPES = [
     { name: 'apple', emoji: '🍎', color: '#ff6b6b', imagePath: 'images/apple.png', halfImagePath: 'images/half_apple.png' },
@@ -50,12 +50,12 @@ class GameState {
         this.lives = INITIAL_LIVES;
         
         // Game objects (Artık object pool olarak kullanılacaklar)
-        this.fruits = []; // Meyveler dinamik kalacak (sayısı az)
-        this.fruitHalves = []; // GÜNCELLEME: Havuz
-        this.trails = []; // Trail sayısı çok az (MAX_TRAILS=2), havuzlamaya gerek yok
-        this.particles = []; // GÜNCELLEME: Havuz
-        this.scorePopups = []; // GÜNCELLEME: Havuz
-        this.fireworks = []; // Havai fişekler nadir, havuzlamaya gerek yok
+        this.fruits = []; 
+        this.fruitHalves = []; 
+        this.trails = []; 
+        this.particles = []; 
+        this.scorePopups = []; 
+        this.fireworks = []; 
         
         // Input
         this.currentTrail = [];
@@ -417,7 +417,7 @@ class FruitSliceGame {
         this.state.score = 0;
         this.state.level = 1;
         this.state.lives = INITIAL_LIVES;
-        this.state.fruits = []; // Meyveler dinamik olarak eklenecek
+        this.state.fruits = []; 
         this.state.trails = [];
         this.state.fireworks = [];
         this.state.isPlaying = true;
@@ -495,7 +495,7 @@ class FruitSliceGame {
         }
         
         
-        this.state.fruits = []; // Meyveleri temizle (bunlar pool'da değil)
+        this.state.fruits = []; 
         this.state.allFruitsLaunched = false;
         
         // Base delay to coordinate bombs relative to fruits (for waves 41-50)
@@ -1466,13 +1466,13 @@ class FruitSliceGame {
         }
         
         // GÜNCELLEME: Sadece aktif skor popuplarını çiz
+        const useShadows = !this.state.isLowPerformance;
         for (const popup of this.state.scorePopups) {
             if (!popup.active) continue;
 
             ctx.globalAlpha = popup.opacity;
             ctx.textAlign = 'center';
             
-            const useShadows = !this.state.isLowPerformance;
 
             // Simple green popup for 1-2 fruits
             if (popup.isSimple) {
@@ -1550,7 +1550,7 @@ class FruitSliceGame {
         // ... (Detay çizimlerinde değişiklik yok)
     }
 
-    // GÜNCELLEME: Trail çizim fonksiyonu (Performans ve görsellik için güncellendi)
+    // GÜNCELLEME: Trail çizim fonksiyonu (Performans için agresif güncellendi)
     drawTrail(points, opacity) {
         if (points.length < 2) return;
         
@@ -1559,13 +1559,17 @@ class FruitSliceGame {
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
         
-        const step = this.state.isLowPerformance ? 2 : 1;
-        const useShadows = !this.state.isLowPerformance;
-        
-        const layers = [
-            { widthStart: 3, widthEnd: 9, color: 'rgba(80, 180, 255, 0.3)', blur: 12 },
-            { widthStart: 1.5, widthEnd: 4, color: 'rgba(150, 220, 255, 0.9)', blur: 6 }
-        ];
+        const isLowPerf = this.state.isLowPerformance;
+        const step = isLowPerf ? 2 : 1;
+        const useShadows = !isLowPerf;
+
+        // PERFORMANS GÜNCELLEMESİ: Düşük performansta sadece tek, basit katman çiz
+        const layers = isLowPerf ?
+            [ { widthStart: 2, widthEnd: 5, color: 'rgba(150, 220, 255, 0.9)', blur: 0 } ] :
+            [ 
+                { widthStart: 3, widthEnd: 9, color: 'rgba(80, 180, 255, 0.3)', blur: 12 },
+                { widthStart: 1.5, widthEnd: 4, color: 'rgba(150, 220, 255, 0.9)', blur: 6 }
+            ];
         
         for (const layer of layers) {
             for (let i = 0; i < points.length - 1; i += step) {
@@ -1578,19 +1582,23 @@ class FruitSliceGame {
                 ctx.strokeStyle = layer.color;
                 ctx.lineWidth = width;
                 
-                if (useShadows) {
+                if (useShadows && layer.blur > 0) {
                     ctx.shadowBlur = layer.blur;
                     ctx.shadowColor = layer.color;
+                } else {
+                    ctx.shadowBlur = 0; // Explicitly disable shadow
                 }
                 
                 ctx.beginPath();
                 ctx.moveTo(p1.x, p1.y);
                 
-                if (i < points.length - 2) {
+                if (i < points.length - 2 && !isLowPerf) {
+                    // Yüksek performansta yumuşak eğriler kullan
                     const p3 = points[Math.min(i + 2, points.length - 1)];
                     const mid_p2_p3 = { x: (p2.x + p3.x) / 2, y: (p2.y + p3.y) / 2 };
                     ctx.quadraticCurveTo(p2.x, p2.y, mid_p2_p3.x, mid_p2_p3.y);
                 } else {
+                    // Düşük performansta düz çizgiler kullan
                     ctx.lineTo(p2.x, p2.y);
                 }
                 
