@@ -1,20 +1,16 @@
 "use strict";
-
-// ===== GAME CONSTANTS (PERFORMANS İÇİN GÜNCELLENDİ) =====
-const GRAVITY = 0.17;
+// ===== GAME CONSTANTS =====
+const GRAVITY = 0.17; // Adjusted gravity for optimal fruit trajectories
 const INITIAL_LIVES = 4;
 const MAX_LEVEL = 50;
-const FRUIT_RADIUS = 26.46;
+const FRUIT_RADIUS = 26.46; // 40% smaller than original 44.1
 const TRAIL_FADE_SPEED = 0.35;
-const MAX_TRAIL_POINTS = 8; 
+const MAX_TRAIL_POINTS = 15; // Reduced for mobile performance
 const WALL_BOUNCE_DAMPING = 0.7;
 const MAX_FRUITS = 7;
-const MAX_PARTICLES = 30; 
-const MAX_TRAILS = 2; 
-const MAX_SCORE_POPUPS = 3; 
-const PARTICLE_PER_SLICE = 8; 
-const BOMB_EXPLOSION_PARTICLES = 20; 
-
+const MAX_PARTICLES = 100; // Limit particles for performance
+const MAX_TRAILS = 3; // Limit simultaneous trails
+const MAX_SCORE_POPUPS = 5; // Limit score popups
 const FRUIT_TYPES = [
     { name: 'apple', emoji: '🍎', color: '#ff6b6b', imagePath: 'images/apple.png', halfImagePath: 'images/half_apple.png' },
     { name: 'orange', emoji: '🍊', color: '#ffa500', imagePath: 'images/orange.png', halfImagePath: 'images/half_orange.png' },
@@ -24,65 +20,54 @@ const FRUIT_TYPES = [
     { name: 'kiwi', emoji: '🥝', color: '#6bcf7f', imagePath: 'images/kiwi.png', halfImagePath: 'images/half_kiwi.png' },
     { name: 'pineapple', emoji: '🍍', color: '#ffe66d', imagePath: 'images/pineapple.png', halfImagePath: 'images/half_pineapple.png' }
 ];
-
 const SCORE_TABLE = [0, 10, 30, 135, 200, 375, 675, 1200];
-
+// Global variable to store current score for sharing
+let currentScore = 0;
 // ===== GAME STATE =====
 class GameState {
     constructor() {
-        this.canvas = document.getElementById('game-canvas');
-        
-        // GÜNCELLEME: Canvas context performans ayarları
-        this.ctx = this.canvas.getContext('2d', { 
-            alpha: false, // Arka plan şeffaf değil, performans artar
-            desynchronized: true // Gecikmeyi azaltır
-        });
-        
-        this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        this.width = 0;
-        this.height = 0;
-        this.resize();
-        
         // Game state
         this.isPlaying = false;
         this.score = 0;
         this.level = 1;
         this.lives = INITIAL_LIVES;
-        
-        // Game objects (Artık object pool olarak kullanılacaklar)
-        this.fruits = []; 
-        this.fruitHalves = []; 
-        this.trails = []; 
-        this.particles = []; 
-        this.scorePopups = []; 
-        this.fireworks = []; 
-        
+        // Game objects
+        this.fruits = [];
+        this.fruitHalves = [];
+        this.trails = [];
+        this.particles = [];
+        this.scorePopups = [];
+        this.fireworks = [];
         // Input
         this.currentTrail = [];
         this.isDrawing = false;
         this.slicedThisSwipe = [];
-        this.lastSwooshTime = 0;
-        
+        this.lastSwooshTime = 0; // Track last swoosh sound play time
         // Combo system
         this.comboFruits = [];
         this.comboTimer = null;
-        this.comboTimeoutDuration = 250;
-        
+        this.comboTimeoutDuration = 250; // 0.25 seconds in milliseconds
         // Bomb explosion effects
         this.screenShake = 0;
         this.redFlash = 0;
         this.isPaused = false;
-        
         // Level management
         this.allFruitsLaunched = false;
         this.showingMilestone = false;
-        
         // Animation
         this.lastFrameTime = 0;
         this.frameSkipCounter = 0;
         this.isLowPerformance = false;
-        
-        // Audio files
+        // Fruit images
+        this.fruitImages = new Map();
+        this.halfFruitImages = new Map();
+        this.canvas = document.getElementById('game-canvas');
+        this.ctx = this.canvas.getContext('2d');
+        this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        this.width = 0;
+        this.height = 0;
+        this.resize();
+        // Load audio files
         this.swooshSound = new Audio('sounds/swoosh.mp3');
         this.sliceSound = new Audio('sounds/slice.mp3');
         this.explosionSound = new Audio('sounds/explosion.mp3');
@@ -92,7 +77,6 @@ class GameState {
         this.amazingSound = new Audio('sounds/amazing.mp3');
         this.legendarySound = new Audio('sounds/legendary.mp3');
         this.failSound = new Audio('sounds/fail.mp3');
-        
         // Set volume levels
         this.swooshSound.volume = 0.3;
         this.sliceSound.volume = 0.4;
@@ -104,39 +88,17 @@ class GameState {
         this.amazingSound.volume = 0.6;
         this.legendarySound.volume = 0.6;
         this.failSound.volume = 0.7;
-        
-        // Fruit images
-        this.fruitImages = new Map();
-        this.halfFruitImages = new Map();
-        
         // Load fruit images
         FRUIT_TYPES.forEach(fruitType => {
             const img = new Image();
             img.src = fruitType.imagePath;
             this.fruitImages.set(fruitType.name, img);
-            
             const halfImg = new Image();
             halfImg.src = fruitType.halfImagePath;
             this.halfFruitImages.set(fruitType.name, halfImg);
         });
-        
         window.addEventListener('resize', () => this.resize());
-
-        // GÜNCELLEME: Object Pool'ları önceden doldur (Pre-populate)
-        // Parçacık havuzu
-        for (let i = 0; i < MAX_PARTICLES; i++) {
-            this.particles.push({ x: 0, y: 0, vx: 0, vy: 0, size: 0, color: '', life: 0, active: false });
-        }
-        // Meyve yarısı havuzu (En fazla 7 meyve * 2 yarı = 14)
-        for (let i = 0; i < (MAX_FRUITS * 2) + 2; i++) { // +2 buffer
-            this.fruitHalves.push({ x: 0, y: 0, vx: 0, vy: 0, radius: 0, color: '', fruitType: '', rotation: 0, rotationSpeed: 0, isLeft: false, opacity: 0, active: false });
-        }
-        // Skor popup havuzu
-        for (let i = 0; i < MAX_SCORE_POPUPS; i++) {
-            this.scorePopups.push({ x: 0, y: 0, score: 0, opacity: 0, scale: 0, active: false });
-        }
     }
-    
     resize() {
         const container = this.canvas.parentElement;
         this.width = container.clientWidth;
@@ -145,7 +107,6 @@ class GameState {
         this.canvas.height = this.height;
     }
 }
-
 // ===== GAME LOGIC =====
 class FruitSliceGame {
     constructor() {
@@ -153,57 +114,44 @@ class FruitSliceGame {
         this.setupEventListeners();
         this.showStartScreen();
     }
-    
     setupEventListeners() {
         // Start button
-        const startButton = document.getElementById('start-button');
-        console.log('Start button found:', startButton);
-        if (startButton) {
-            startButton.addEventListener('click', () => {
-                console.log('Start button clicked!');
-                this.startGame();
+        const startButton = document.getElementById('start-button');        if (startButton) {
+            startButton.addEventListener('click', () => {                this.startGame();
             });
         }
-        
         // Restart button
         document.getElementById('restart-button').addEventListener('click', () => {
             this.startGame();
         });
-        
         // Mouse events
         this.state.canvas.addEventListener('mousedown', (e) => this.handleInputStart(e.clientX, e.clientY));
         this.state.canvas.addEventListener('mousemove', (e) => this.handleInputMove(e.clientX, e.clientY));
         this.state.canvas.addEventListener('mouseup', () => this.handleInputEnd());
         this.state.canvas.addEventListener('mouseleave', () => this.handleInputEnd());
-        
         // Touch events
         this.state.canvas.addEventListener('touchstart', (e) => {
             e.preventDefault();
             const touch = e.touches[0];
             this.handleInputStart(touch.clientX, touch.clientY);
         }, { passive: false });
-        
         this.state.canvas.addEventListener('touchmove', (e) => {
             e.preventDefault();
             const touch = e.touches[0];
             this.handleInputMove(touch.clientX, touch.clientY);
         }, { passive: false });
-        
         this.state.canvas.addEventListener('touchend', (e) => {
             e.preventDefault();
             this.handleInputEnd();
         }, { passive: false });
     }
-    
     showStartScreen() {
         document.getElementById('start-screen').classList.remove('hidden');
         document.getElementById('game-hud').classList.add('hidden');
         document.getElementById('game-over-screen').classList.add('hidden');
     }
-    
     showGameOver(playFailSound = true) {
         this.state.isPlaying = false;
-        
         // Stop all fuse sounds
         for (const fruit of this.state.fruits) {
             if (fruit.isBomb && fruit.fuseSound) {
@@ -212,64 +160,53 @@ class FruitSliceGame {
                 fruit.fuseSound = undefined; // Clear reference
             }
         }
-        
         // Play fail sound when game is over
         if (playFailSound) {
             this.playFailSound();
         }
-        
         // Update global score for leaderboard
         currentScore = this.state.score;
-        
         document.getElementById('final-score').textContent = this.state.score.toString();
         document.getElementById('final-level').textContent = this.state.level.toString();
         document.getElementById('game-over-screen').classList.remove('hidden');
         document.getElementById('game-hud').classList.add('hidden');
     }
-    
     getBackgroundForWave(wave) {
         // Determine which background to use based on wave ranges
-        if (wave >= 1 && wave <= 10) return "island_background.png";
-        if (wave >= 11 && wave <= 20) return "purple_background.png";
-        if (wave >= 21 && wave <= 30) return "dojo_background.png";
-        if (wave >= 31 && wave <= 40) return "forest_background.png";
-        if (wave >= 41 && wave <= 50) return "desert_background.png";
+        if (wave >= 1 && wave <= 10)
+            return "island_background.png";
+        if (wave >= 11 && wave <= 20)
+            return "purple_background.png";
+        if (wave >= 21 && wave <= 30)
+            return "dojo_background.png";
+        if (wave >= 31 && wave <= 40)
+            return "forest_background.png";
+        if (wave >= 41 && wave <= 50)
+            return "desert_background.png";
         return "island_background.png"; // Default fallback
     }
-
     changeBackground(wave) {
-        const backgroundImage = this.getBackgroundForWave(wave);
-        
-        console.log(`Changing background to: ${backgroundImage} for wave ${wave}`);
-        
-        const gameContainer = document.getElementById('game-container');
+        const backgroundImage = this.getBackgroundForWave(wave);        const gameContainer = document.getElementById('game-container');
         gameContainer.style.backgroundImage = `url('images/${backgroundImage}')`;
     }
-
     showChapterName(wave, onComplete) {
         const chapterNames = {
             1: "Tropical Island",
-            11: "Valley of\nPurple Rocks", 
+            11: "Valley of\nPurple Rocks",
             21: "Silent Sword Dojo",
             31: "Wild Forest",
             41: "Desert Night"
         };
-        
         const chapterName = chapterNames[wave];
         if (!chapterName) {
-            if (onComplete) onComplete();
+            if (onComplete)
+                onComplete();
             return;
-        }
-        
-        console.log(`Showing chapter: ${chapterName} for wave ${wave}`);
-        
-        // Change background first
+        }        // Change background first
         this.changeBackground(wave);
-        
         // Update chapter text
         const chapterTextElement = document.getElementById('chapter-text');
         chapterTextElement.textContent = chapterName;
-        
         // Force h1 styles
         chapterTextElement.style.cssText = `
             font-size: 2rem !important;
@@ -288,13 +225,10 @@ class FruitSliceGame {
             white-space: pre-line !important;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
         `;
-        
         const chapterElement = document.getElementById('chapter-name');
-        
         // Reset any previous state
         chapterElement.classList.remove('show');
         chapterElement.classList.remove('hidden');
-        
         // Show chapter name (fade in over 1s)
         // Force inline styles to override any conflicts
         chapterElement.style.cssText = `
@@ -312,14 +246,12 @@ class FruitSliceGame {
             opacity: 0 !important;
             transition: opacity 1s ease-in-out !important;
         `;
-        
         // Force reflow to ensure initial state
         chapterElement.offsetHeight;
         setTimeout(() => {
             chapterElement.style.opacity = '1';
             chapterElement.classList.add('show');
         }, 100);
-        
         // Hide chapter name after 3 seconds (fade out over 1s)
         setTimeout(() => {
             chapterElement.style.opacity = '0';
@@ -327,7 +259,6 @@ class FruitSliceGame {
             setTimeout(() => {
                 chapterElement.classList.add('hidden');
                 chapterElement.style.display = 'none';
-                
                 // Wait 2 seconds after chapter disappears, then call callback
                 if (onComplete) {
                     setTimeout(() => {
@@ -337,73 +268,66 @@ class FruitSliceGame {
             }, 1000);
         }, 3000);
     }
-
     showMilestoneMessage(wave) {
         this.state.showingMilestone = true;
-        
         // Determine message based on wave
         let mainText = '';
         let subText = '';
-        
         if (wave === 10) {
             mainText = 'Congratulations!';
             subText = 'You passed the Tropical Island level and gained 1 life ❤️';
-        } else if (wave === 20) {
+        }
+        else if (wave === 20) {
             mainText = 'Congratulations!';
             subText = 'You passed the Valley of Purple Rocks level and gained 1 life ❤️';
-        } else if (wave === 30) {
+        }
+        else if (wave === 30) {
             mainText = 'Congratulations!';
             subText = 'You passed the Silent Sword Dojo level and gained 1 life ❤️';
-        } else if (wave === 40) {
+        }
+        else if (wave === 40) {
             mainText = 'Congratulations!';
             subText = 'You passed the Wild Forest level and gained 1 life ❤️';
-        } else if (wave === 50) {
+        }
+        else if (wave === 50) {
             mainText = 'Congratulations, you have completed the game by passing 50 waves.';
             subText = '';
         }
-        
         // Update milestone message elements
         document.getElementById('milestone-text').textContent = mainText;
         document.getElementById('milestone-subtext').textContent = subText;
         document.getElementById('milestone-message').classList.remove('hidden');
-        
         // Fireworks on final completion
         if (wave === 50) {
             this.createFireworks(this.state.width / 2, this.state.height / 2);
         }
-        
         // Hide milestone message after 3 seconds
         setTimeout(() => {
             document.getElementById('milestone-message').classList.add('hidden');
             this.state.showingMilestone = false;
-            
             if (wave === 50) {
                 // Final screen without fail sound
                 this.showGameOver(false);
-            } else {
+            }
+            else {
                 // Advance to next wave
                 this.state.level++;
                 this.updateUI();
-                
                 // Check if this is a chapter start wave
                 const nextWave = this.state.level;
                 if (nextWave === 11 || nextWave === 21 || nextWave === 31 || nextWave === 41) {
                     // Show chapter name and launch fruits 3 seconds after it disappears
-                    this.showChapterName(nextWave, () => {
-                        console.log(`Chapter ${nextWave}: Launching fruits after chapter title`);
-                        this.launchFruits();
+                    this.showChapterName(nextWave, () => {                        this.launchFruits();
                     });
-                } else {
+                }
+                else {
                     // Launch fruits immediately for non-chapter waves
                     this.launchFruits();
                 }
             }
         }, 3000);
     }
-    
-    startGame() {
-        console.log('startGame() called');
-        
+    startGame() { called');
         // Stop all fuse sounds from previous game
         for (const fruit of this.state.fruits) {
             if (fruit.isBomb && fruit.fuseSound) {
@@ -412,117 +336,97 @@ class FruitSliceGame {
                 fruit.fuseSound = undefined; // Clear reference
             }
         }
-        
         // Reset state
         this.state.score = 0;
         this.state.level = 1;
         this.state.lives = INITIAL_LIVES;
-        this.state.fruits = []; 
+        this.state.fruits = [];
+        this.state.fruitHalves = [];
         this.state.trails = [];
+        this.state.particles = [];
+        this.state.scorePopups = [];
         this.state.fireworks = [];
         this.state.isPlaying = true;
-
-        // GÜNCELLEME: Object Pool'ları temizle (objeleri silme, 'active' flag'ini kapat)
-        this.state.particles.forEach(p => p.active = false);
-        this.state.fruitHalves.forEach(h => h.active = false);
-        this.state.scorePopups.forEach(s => s.active = false);
-        
         // Clear combo state
         if (this.state.comboTimer !== null) {
             clearTimeout(this.state.comboTimer);
         }
         this.state.comboFruits = [];
         this.state.comboTimer = null;
-        
         // Clear input/drawing state
         this.state.isDrawing = false;
         this.state.currentTrail = [];
         this.state.slicedThisSwipe = [];
-        
         // Clear explosion effects
         this.state.screenShake = 0;
         this.state.redFlash = 0;
-        
         // Clear game state flags
         this.state.isPaused = false;
         this.state.showingMilestone = false;
         this.state.allFruitsLaunched = false;
-        
         // Reset save leaderboard button
         const saveBtn = document.getElementById('save-leaderboard-button');
         if (saveBtn) {
             saveBtn.disabled = false;
             saveBtn.textContent = '💾 Save Leaderboard';
         }
-        
         // Update UI
         this.updateUI();
         document.getElementById('start-screen').classList.add('hidden');
         document.getElementById('game-over-screen').classList.add('hidden');
         document.getElementById('game-hud').classList.remove('hidden');
-        
         // Change background and show chapter name for wave 1
         this.changeBackground(1);
         this.showChapterName(1, () => {
             // Launch fruits 3 seconds after chapter disappears
             this.launchFruits();
         }); // Wait for chapter name to finish (4s total)
-        
         // Start game loop
         this.gameLoop(performance.now());
     }
-    
     launchFruits() {
-        const wave = this.state.level;
-        console.log(`launchFruits called for wave ${wave}`);
-        let fruitCount = 7; // Default to 7 fruits
-        
+        const wave = this.state.level;        let fruitCount = 7; // Default to 7 fruits
         // Determine fruit count based on wave (updated rules)
         if (wave <= 2) {
             fruitCount = 1;
-        } else if (wave <= 5) {
+        }
+        else if (wave <= 5) {
             fruitCount = 2;
-        } else if (wave <= 8) {
+        }
+        else if (wave <= 8) {
             fruitCount = 3;
-        } else if (wave <= 10) {
+        }
+        else if (wave <= 10) {
             fruitCount = 4;
-        } else if (wave <= 20) {
+        }
+        else if (wave <= 20) {
             fruitCount = 5;
-        } else if (wave <= 30) {
+        }
+        else if (wave <= 30) {
             fruitCount = 6;
-        } else {
+        }
+        else {
             fruitCount = 7; // Waves 31+
         }
-        
-        
-        this.state.fruits = []; 
+        this.state.fruits = [];
         this.state.allFruitsLaunched = false;
-        
         // Base delay to coordinate bombs relative to fruits (for waves 41-50)
         const fruitBaseDelay = (wave >= 41 && wave <= 50) ? 1000 : 0;
-        
         const launchFruitsNow = () => {
             // Launch fruits with staggered timing (0-500ms spread)
             let launchedCount = 0;
             for (let i = 0; i < fruitCount; i++) {
                 // Random delay between 0 and 500ms
                 const launchDelay = Math.random() * 500;
-                
                 setTimeout(() => {
-                    if (!this.state.isPlaying) {
-                        console.log(`Fruit launch cancelled: isPlaying = false at wave ${wave}`);
-                        return;
+                    if (!this.state.isPlaying) {                        return;
                     }
-                    
                     const fruitType = FRUIT_TYPES[Math.floor(Math.random() * FRUIT_TYPES.length)];
-                    
                     // Random launch position along bottom (more centered)
                     const x = this.state.width * (0.3 + Math.random() * 0.4);
-                    
                     // Random angle (75-105 degrees) - more vertical, less horizontal spread
                     const angle = (75 + Math.random() * 30) * Math.PI / 180;
                     const speed = 12 + Math.random() * 2.4; // Reduced by 20% to match gravity
-                    
                     this.state.fruits.push({
                         x: x,
                         y: this.state.height,
@@ -539,51 +443,38 @@ class FruitSliceGame {
                         rotation: Math.random() * Math.PI * 2,
                         rotationSpeed: (Math.random() - 0.5) * 0.1
                     });
-                    
                     launchedCount++;
                     if (launchedCount === fruitCount) {
                         // All fruits have been launched, wait for bombs to spawn too
                         // Bombs can spawn up to 350ms after fruits (or 1000ms in waves 41-50)
                         const bombDelay = (wave >= 41 && wave <= 50) ? 1500 : 600;
                         setTimeout(() => {
-                            this.state.allFruitsLaunched = true;
-                            console.log(`Wave ${wave}: All fruits and bombs launched`);
-                        }, bombDelay);
+                            this.state.allFruitsLaunched = true;                        }, bombDelay);
                     }
                 }, fruitBaseDelay + launchDelay);
             }
         };
-        
         const launchBomb = (beforeFruit) => {
             // beforeFruit: true = bomb launches before fruits (350ms earlier), false = after fruits (350ms later)
             const delay = beforeFruit ? 0 : 350;
             launchBombAt(delay);
         };
-
         const launchBombAt = (delayMs) => {
             const delay = Math.max(0, delayMs);
             setTimeout(() => {
-                if (!this.state.isPlaying) {
-                    console.log(`Bomb launch cancelled: isPlaying = false at wave ${wave}`);
-                    return;
+                if (!this.state.isPlaying) {                    return;
                 }
-                
                 // Random launch position
                 const x = this.state.width * (0.3 + Math.random() * 0.4);
                 const angle = (75 + Math.random() * 30) * Math.PI / 180;
                 const speed = 12 + Math.random() * 2.4; // Reduced by 20% to match gravity
-                
                 // Create a new fuse sound instance for this bomb
                 const bombFuseSound = this.state.fuseSound.cloneNode();
                 bombFuseSound.volume = this.state.fuseSound.volume;
                 bombFuseSound.loop = true;
-                console.log('Playing fuse sound for bomb');
-                bombFuseSound.play().then(() => {
-                    console.log('Fuse sound started successfully');
-                }).catch((e) => {
-                    console.error('Fuse sound play failed:', e);
+                bombFuseSound.play().catch(() => {
+                    // Silently ignore autoplay restrictions
                 });
-                
                 this.state.fruits.push({
                     x: x,
                     y: this.state.height,
@@ -601,11 +492,8 @@ class FruitSliceGame {
                 });
             }, delay);
         };
-        
         // Launch fruits first
         launchFruitsNow();
-        
-        
         // Determine bomb spawning based on wave (updated rules)
         if (wave >= 11 && wave <= 20) {
             // 50% chance of 1 bomb
@@ -613,57 +501,67 @@ class FruitSliceGame {
             if (bombChance < 0.5) {
                 const bombEarly = Math.random() < 0.5;
                 launchBombAt(fruitBaseDelay + (bombEarly ? 0 : 350));
-            } else {
             }
-        } else if (wave >= 21 && wave <= 30) {
+            else {
+            }
+        }
+        else if (wave >= 21 && wave <= 30) {
             // 50% chance of 1 bomb
             if (Math.random() < 0.5) {
                 const bombEarly = Math.random() < 0.5;
                 launchBombAt(fruitBaseDelay + (bombEarly ? 0 : 350));
             }
-        } else if (wave >= 31 && wave <= 40) {
+        }
+        else if (wave >= 31 && wave <= 40) {
             // Always 1 bomb
             const bombEarly = Math.random() < 0.5;
             launchBombAt(fruitBaseDelay + (bombEarly ? 0 : 350));
-        } else if (wave >= 41 && wave <= 50) {
+        }
+        else if (wave >= 41 && wave <= 50) {
             // Always 1 bomb, 50% chance of a second bomb
             const hasSecond = Math.random() < 0.5;
-            
             // One bomb 1s before fruits
             launchBombAt(fruitBaseDelay - 1000);
-            
             if (hasSecond) {
                 // Second bomb 1s after fruits
                 launchBombAt(fruitBaseDelay + 1000);
-            } else {
-                // (Orijinal kodla aynı mantık)
+            }
+            else {
+                // If only one bomb, randomly choose before or after
+                if (Math.random() < 0.5) {
+                    // already scheduled before-fruit bomb (keep it)
+                }
+                else {
+                    // replace timing to after-fruit bomb instead
+                    // Note: To keep simple, also schedule an after-fruit bomb and rely on gameplay to handle
+                    // a single bomb feel by keeping spawn count small (two bombs visually okay if happens)
+                    // Better approach: randomly schedule only after-fruit
+                    // Schedule after-fruit and cancel pre-fruit by not scheduling extra (pre-fruit already scheduled)
+                    // To strictly have only one bomb, prefer after-fruit by adding it and removing the pre-fruit spawn cannot be done here.
+                    // Therefore, do nothing; keep the before-fruit as the single bomb.
+                }
             }
         }
     }
-    
     handleInputStart(clientX, clientY) {
-        if (!this.state.isPlaying) return;
-        
+        if (!this.state.isPlaying)
+            return;
         const rect = this.state.canvas.getBoundingClientRect();
         const x = clientX - rect.left;
         const y = clientY - rect.top;
-        
         this.state.isDrawing = true;
         this.state.currentTrail = [{ x, y, timestamp: performance.now() }];
         this.state.slicedThisSwipe = [];
     }
-    
     handleInputMove(clientX, clientY) {
-        if (!this.state.isPlaying || !this.state.isDrawing) return;
-        
+        if (!this.state.isPlaying || !this.state.isDrawing)
+            return;
         const rect = this.state.canvas.getBoundingClientRect();
         const x = clientX - rect.left;
         const y = clientY - rect.top;
-        
         const prevPoint = this.state.currentTrail[this.state.currentTrail.length - 1];
         const now = performance.now();
         this.state.currentTrail.push({ x, y, timestamp: now });
-        
         // Calculate movement speed and play swoosh sound if moving fast enough
         if (prevPoint && prevPoint.timestamp) {
             const dx = x - prevPoint.x;
@@ -671,7 +569,6 @@ class FruitSliceGame {
             const distance = Math.sqrt(dx * dx + dy * dy);
             const timeDiff = now - prevPoint.timestamp;
             const speed = timeDiff > 0 ? distance / timeDiff : 0;
-            
             // Play swoosh if moving fast and enough time passed since last swoosh (200ms cooldown)
             const timeSinceLastSwoosh = now - this.state.lastSwooshTime;
             if (speed > 1.5 && timeSinceLastSwoosh > 200 && this.state.currentTrail.length >= 3) {
@@ -679,27 +576,20 @@ class FruitSliceGame {
                 this.state.lastSwooshTime = now;
             }
         }
-        
         // Remove old points from current trail (older than 150ms)
-        this.state.currentTrail = this.state.currentTrail.filter(p => 
-            !p.timestamp || (now - p.timestamp) < 150
-        );
-        
+        this.state.currentTrail = this.state.currentTrail.filter(p => !p.timestamp || (now - p.timestamp) < 150);
         // Check for slicing in real-time as we draw
         if (prevPoint) {
             this.checkSlicingSegment(prevPoint, { x, y });
         }
-        
         if (this.state.currentTrail.length > MAX_TRAIL_POINTS) {
             this.state.currentTrail.shift();
         }
     }
-    
     handleInputEnd() {
-        if (!this.state.isPlaying || !this.state.isDrawing) return;
-        
+        if (!this.state.isPlaying || !this.state.isDrawing)
+            return;
         this.state.isDrawing = false;
-        
         // Add trail to fading trails (limit for performance)
         if (this.state.currentTrail.length > 1) {
             // Remove oldest trail if we have too many
@@ -711,17 +601,14 @@ class FruitSliceGame {
                 opacity: 1
             });
         }
-        
         this.state.currentTrail = [];
         this.state.slicedThisSwipe = [];
     }
-    
     scoreCombo() {
-        if (this.state.comboFruits.length === 0) return;
-        
+        if (this.state.comboFruits.length === 0)
+            return;
         const comboScore = SCORE_TABLE[Math.min(this.state.comboFruits.length, 7)];
         this.state.score += comboScore;
-        
         // Calculate average position of all fruits in combo for popup
         let avgX = 0;
         let avgY = 0;
@@ -731,48 +618,84 @@ class FruitSliceGame {
         }
         avgX /= this.state.comboFruits.length;
         avgY /= this.state.comboFruits.length;
-        
         // Generate combo text based on fruit count
         const count = this.state.comboFruits.length;
         let comboText = '';
         
-        // GÜNCELLEME: Object pool'dan popup al
-        const popup = this.state.scorePopups.find(p => !p.active);
+        // Limit score popups for performance
+        if (this.state.scorePopups.length >= MAX_SCORE_POPUPS) {
+            this.state.scorePopups.shift();
+        }
         
-        if (popup) {
-            popup.active = true;
-            popup.score = comboScore;
-            popup.opacity = 1;
-            popup.scale = 1;
-
-            if (count === 1 || count === 2) {
-                // Single or double fruit
-                popup.x = avgX;
-                popup.y = avgY;
-                popup.comboText = '';
-                popup.isSimple = true;
-            } else {
-                // 3+ Combo
-                popup.x = this.state.width / 2;
-                popup.y = this.state.height / 2;
-                popup.isSimple = false;
-
-                if (count === 3) {
-                    comboText = '3 Fruit Combo';
-                } else if (count === 4) {
-                    comboText = '4 Fruit Combo';
-                } else if (count === 5) {
-                    comboText = '5 Fruit Combo';
-                    this.playComboSound('excellent');
-                } else if (count === 6) {
-                    comboText = '6 Fruit Combo';
-                    this.playComboSound('amazing');
-                } else if (count >= 7) {
-                    comboText = '7+ Fruit Combo';
-                    this.playComboSound('legendary');
-                }
-                popup.comboText = comboText;
-            }
+        if (count === 1 || count === 2) {
+            // Single or double fruit - show simple green score at fruit position
+            this.state.scorePopups.push({
+                x: avgX,
+                y: avgY,
+                score: comboScore,
+                opacity: 1,
+                scale: 1,
+                comboText: '', // No text, just score
+                isSimple: true // Flag for simple green style
+            });
+        } else if (count === 3) {
+            comboText = '3 Fruit Combo';
+            this.state.scorePopups.push({
+                x: this.state.width / 2,
+                y: this.state.height / 2,
+                score: comboScore,
+                opacity: 1,
+                scale: 1,
+                comboText: comboText,
+                isSimple: false
+            });
+        } else if (count === 4) {
+            comboText = '4 Fruit Combo';
+            this.state.scorePopups.push({
+                x: this.state.width / 2,
+                y: this.state.height / 2,
+                score: comboScore,
+                opacity: 1,
+                scale: 1,
+                comboText: comboText,
+                isSimple: false
+            });
+        } else if (count === 5) {
+            comboText = '5 Fruit Combo';
+            this.playComboSound('excellent');
+            this.state.scorePopups.push({
+                x: this.state.width / 2,
+                y: this.state.height / 2,
+                score: comboScore,
+                opacity: 1,
+                scale: 1,
+                comboText: comboText,
+                isSimple: false
+            });
+        } else if (count === 6) {
+            comboText = '6 Fruit Combo';
+            this.playComboSound('amazing');
+            this.state.scorePopups.push({
+                x: this.state.width / 2,
+                y: this.state.height / 2,
+                score: comboScore,
+                opacity: 1,
+                scale: 1,
+                comboText: comboText,
+                isSimple: false
+            });
+        } else if (count >= 7) {
+            comboText = '7+ Fruit Combo';
+            this.playComboSound('legendary');
+            this.state.scorePopups.push({
+                x: this.state.width / 2,
+                y: this.state.height / 2,
+                score: comboScore,
+                opacity: 1,
+                scale: 1,
+                comboText: comboText,
+                isSimple: false
+            });
         }
         
         // Create fireworks for 3+ combos
@@ -781,16 +704,13 @@ class FruitSliceGame {
         }
         
         this.updateUI();
-        
         // Reset combo state
         this.state.comboFruits = [];
         this.state.comboTimer = null;
     }
-    
     handleBombCut() {
         // Find the bomb that was cut
         const bomb = this.state.fruits.find(f => f.isBomb && f.sliced);
-        
         // Stop ALL fuse sounds when any bomb explodes
         for (const fruit of this.state.fruits) {
             if (fruit.isBomb && fruit.fuseSound) {
@@ -799,107 +719,85 @@ class FruitSliceGame {
                 fruit.fuseSound = undefined; // Clear reference
             }
         }
-        
         // Count uncut fruits
         const uncutFruits = this.state.fruits.filter(f => f.active && !f.sliced && !f.isBomb);
         const livesLost = uncutFruits.length;
-        
-        // GÜNCELLEME: Bomba patlama parçacıkları (Pool'dan)
-        if (bomb) {
-            let activatedCount = 0;
-            for (const p of this.state.particles) {
-                if (activatedCount >= BOMB_EXPLOSION_PARTICLES) break;
-                if (!p.active) {
-                    p.x = bomb.x;
-                    p.y = bomb.y;
-                    const angle = Math.random() * Math.PI * 2;
-                    const speed = 5 + Math.random() * 10;
-                    p.vx = Math.cos(angle) * speed;
-                    p.vy = Math.sin(angle) * speed;
-                    p.size = 5 + Math.random() * 8;
-                    p.color = ['#ff4444', '#ff8800', '#ffaa00', '#ff0000'][Math.floor(Math.random() * 4)];
-                    p.life = 1;
-                    p.active = true;
-                    activatedCount++;
-                }
+        // Create massive explosion particles from bomb center (reduced for mobile)
+        if (bomb && this.state.particles.length < MAX_PARTICLES) {
+            const particleCount = Math.min(25, MAX_PARTICLES - this.state.particles.length);
+            for (let i = 0; i < particleCount; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = 5 + Math.random() * 10;
+                this.state.particles.push({
+                    x: bomb.x,
+                    y: bomb.y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    size: 5 + Math.random() * 8,
+                    color: ['#ff4444', '#ff8800', '#ffaa00', '#ff0000'][Math.floor(Math.random() * 4)],
+                    life: 1
+                });
             }
         }
-        
         // Destroy all uncut fruits
         for (const fruit of uncutFruits) {
             fruit.active = false;
             fruit.sliced = true;
-            
-            // GÜNCELLEME: Yok edilen meyve parçacıkları (Pool'dan)
-            let fruitParticleCount = 0;
-            for (const p of this.state.particles) {
-                if (fruitParticleCount >= PARTICLE_PER_SLICE) break;
-                if (!p.active) {
-                    p.x = fruit.x;
-                    p.y = fruit.y;
+            // Create explosion particles for each destroyed fruit (reduced for mobile)
+            if (this.state.particles.length < MAX_PARTICLES) {
+                const particleCount = Math.min(8, MAX_PARTICLES - this.state.particles.length);
+                for (let i = 0; i < particleCount; i++) {
                     const angle = Math.random() * Math.PI * 2;
                     const speed = 3 + Math.random() * 5;
-                    p.vx = Math.cos(angle) * speed;
-                    p.vy = Math.sin(angle) * speed - 2;
-                    p.size = 4 + Math.random() * 4;
-                    p.color = '#ff4444';
-                    p.life = 1;
-                    p.active = true;
-                    fruitParticleCount++;
+                    this.state.particles.push({
+                        x: fruit.x,
+                        y: fruit.y,
+                        vx: Math.cos(angle) * speed,
+                        vy: Math.sin(angle) * speed - 2,
+                        size: 4 + Math.random() * 4,
+                        color: '#ff4444',
+                        life: 1
+                    });
                 }
             }
         }
-        
         // Trigger screen shake and red flash
         this.state.screenShake = 20;
         this.state.redFlash = 1;
-        
-        // Show BOMB text (Pool'dan)
+        // Show BOMB text
         if (bomb) {
-            const popup = this.state.scorePopups.find(p => !p.active);
-            if (popup) {
-                popup.x = bomb.x;
-                popup.y = bomb.y;
-                popup.score = 0;
-                popup.opacity = 1;
-                popup.scale = 1;
-                popup.comboText = '💣 BOMB!';
-                popup.isSimple = false; // Combo stili kullan
-                popup.active = true;
-            }
+            this.state.scorePopups.push({
+                x: bomb.x,
+                y: bomb.y,
+                score: 0,
+                opacity: 1,
+                scale: 1,
+                comboText: '💣 BOMB!'
+            });
         }
-        
         // Pause the game for dramatic effect
         this.state.isPaused = true;
-        
         // Lose lives (ensure it doesn't go below 0)
         this.state.lives = Math.max(0, this.state.lives - livesLost);
         this.playBurningSound();
-        
         // Clear combo state
         this.state.comboFruits = [];
         if (this.state.comboTimer !== null) {
             clearTimeout(this.state.comboTimer);
             this.state.comboTimer = null;
         }
-        
         this.updateUI();
-        
-        // Show "Game continues in..." message if lives remain (Pool'dan)
+        // Show "Game continues in..." message if lives remain
         if (this.state.lives > 0) {
-            const popup = this.state.scorePopups.find(p => !p.active);
-            if (popup) {
-                popup.x = this.state.width / 2;
-                popup.y = this.state.height / 2 + 50;
-                popup.score = 0;
-                popup.opacity = 1;
-                popup.scale = 0.8;
-                popup.comboText = 'Game continues in 2 seconds...';
-                popup.isSimple = false; // Combo stili kullan
-                popup.active = true;
-            }
+            this.state.scorePopups.push({
+                x: this.state.width / 2,
+                y: this.state.height / 2 + 50,
+                score: 0,
+                opacity: 1,
+                scale: 0.8,
+                comboText: 'Game continues in 2 seconds...'
+            });
         }
-        
         // Check game over AFTER updating UI
         if (this.state.lives <= 0) {
             setTimeout(() => {
@@ -908,15 +806,12 @@ class FruitSliceGame {
             }, 2000);
             return;
         }
-        
         // Resume game after 2 seconds and check if wave should advance
         setTimeout(() => {
             this.state.isPaused = false;
-            
             // Check if all fruits are gone and advance wave if needed
             if (this.state.allFruitsLaunched && this.state.fruits.every(f => !f.active) && !this.state.showingMilestone) {
                 const currentWave = this.state.level;
-                
                 // Check if this is a milestone wave (10, 20, 30, 40, 50)
                 if (currentWave === 10 || currentWave === 20 || currentWave === 30 || currentWave === 40 || currentWave === 50) {
                     // Add life bonus (except for final wave 50)
@@ -924,14 +819,13 @@ class FruitSliceGame {
                         this.state.lives++;
                         this.updateUI();
                     }
-                    
                     // Show milestone message
                     this.showMilestoneMessage(currentWave);
-                } else if (currentWave < MAX_LEVEL) {
+                }
+                else if (currentWave < MAX_LEVEL) {
                     // Regular wave advancement
                     this.state.level++;
                     this.updateUI();
-                    
                     // Check if this is a chapter start wave
                     const nextWave = this.state.level;
                     if (nextWave === 11 || nextWave === 21 || nextWave === 31 || nextWave === 41) {
@@ -939,417 +833,379 @@ class FruitSliceGame {
                         this.showChapterName(nextWave, () => {
                             this.launchFruits();
                         });
-                    } else {
+                    }
+                    else {
                         this.launchFruits();
                     }
-                } else {
+                }
+                else {
                     // Game won at wave 50 (suppress fail sound)
                     this.showGameOver(false);
                 }
             }
         }, 2000);
     }
-    
     checkSlicingSegment(p1, p2) {
         // Check if this line segment intersects any fruit
         for (const fruit of this.state.fruits) {
-            if (fruit.sliced || !fruit.active) continue;
-            
+            if (fruit.sliced || !fruit.active)
+                continue;
             if (this.lineCircleIntersect(p1, p2, fruit)) {
                 fruit.sliced = true;
-                
                 // Calculate slice angle from the swipe direction
                 const rawAngle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
-                
                 // Simplify to vertical or horizontal cuts
+                // If angle is closer to vertical (up/down), make it vertical
+                // If angle is closer to horizontal (left/right), make it horizontal
                 const absAngle = Math.abs(rawAngle);
                 let sliceAngle;
-                
                 if (absAngle < Math.PI / 4 || absAngle > 3 * Math.PI / 4) {
                     // Horizontal cut (left-right)
                     sliceAngle = 0;
-                } else {
+                }
+                else {
                     // Vertical cut (up-down)
                     sliceAngle = Math.PI / 2;
                 }
-                
                 fruit.sliceAngle = sliceAngle;
-                
                 // Add to sliced fruits for combo calculation
                 this.state.slicedThisSwipe.push(fruit);
-                
                 // Check if bomb was cut
                 if (fruit.isBomb) {
                     this.handleBombCut();
                     return;
                 }
-                
                 // Add to combo and manage timer
                 this.state.comboFruits.push(fruit);
-                
                 // Clear existing timer if any
                 if (this.state.comboTimer !== null) {
                     clearTimeout(this.state.comboTimer);
                 }
-                
                 // Start new timer for 0.25 seconds
                 this.state.comboTimer = window.setTimeout(() => {
                     this.scoreCombo();
                 }, this.state.comboTimeoutDuration);
-                
                 // Play sound immediately based on current combo count
                 this.playSliceSound(this.state.comboFruits.length);
-                
                 // Create fruit halves and particles
                 this.createFruitHalves(fruit, sliceAngle);
                 this.createSliceParticles(fruit);
             }
         }
     }
-    
     lineCircleIntersect(p1, p2, fruit) {
         // Vector from p1 to p2
         const dx = p2.x - p1.x;
         const dy = p2.y - p1.y;
-        
         // Vector from p1 to circle center
         const fx = fruit.x - p1.x;
         const fy = fruit.y - p1.y;
-        
         const a = dx * dx + dy * dy;
         const b = 2 * (fx * dx + fy * dy);
         const c = (fx * fx + fy * fy) - fruit.radius * fruit.radius;
-        
         const discriminant = b * b - 4 * a * c;
-        
-        if (discriminant < 0) return false;
-        
+        if (discriminant < 0)
+            return false;
         const t1 = (-b - Math.sqrt(discriminant)) / (2 * a);
         const t2 = (-b + Math.sqrt(discriminant)) / (2 * a);
-        
         return (t1 >= 0 && t1 <= 1) || (t2 >= 0 && t2 <= 1);
     }
-    
     createFruitHalves(fruit, sliceAngle) {
         // Calculate perpendicular offset for the two halves
         const offsetDist = fruit.radius * 0.3;
         const perpAngle = sliceAngle + Math.PI / 2;
-        
-        // GÜNCELLEME: Object pool'dan yarı al (Sol)
-        const half1 = this.state.fruitHalves.find(h => !h.active);
-        if (half1) {
-            half1.x = fruit.x + Math.cos(perpAngle) * offsetDist;
-            half1.y = fruit.y + Math.sin(perpAngle) * offsetDist;
-            half1.vx = fruit.vx + Math.cos(perpAngle) * 2;
-            half1.vy = fruit.vy + Math.sin(perpAngle) * 2;
-            half1.radius = fruit.radius;
-            half1.color = fruit.color;
-            half1.fruitType = fruit.fruitType;
-            half1.halfImagePath = fruit.halfImagePath;
-            half1.rotation = 0;
-            half1.rotationSpeed = -0.1 - Math.random() * 0.1;
-            half1.isLeft = true;
-            half1.opacity = 1;
-            half1.active = true;
-        }
-        
-        // GÜNCELLEME: Object pool'dan yarı al (Sağ)
-        const half2 = this.state.fruitHalves.find(h => !h.active);
-        if (half2) {
-            half2.x = fruit.x - Math.cos(perpAngle) * offsetDist;
-            half2.y = fruit.y - Math.sin(perpAngle) * offsetDist;
-            half2.vx = fruit.vx - Math.cos(perpAngle) * 2;
-            half2.vy = fruit.vy - Math.sin(perpAngle) * 2;
-            half2.radius = fruit.radius;
-            half2.color = fruit.color;
-            half2.fruitType = fruit.fruitType;
-            half2.halfImagePath = fruit.halfImagePath;
-            half2.rotation = 0;
-            half2.rotationSpeed = 0.1 + Math.random() * 0.1;
-            half2.isLeft = false;
-            half2.opacity = 1;
-            half2.active = true;
-        }
+        // Left half
+        this.state.fruitHalves.push({
+            x: fruit.x + Math.cos(perpAngle) * offsetDist,
+            y: fruit.y + Math.sin(perpAngle) * offsetDist,
+            vx: fruit.vx + Math.cos(perpAngle) * 2,
+            vy: fruit.vy + Math.sin(perpAngle) * 2,
+            radius: fruit.radius,
+            color: fruit.color,
+            fruitType: fruit.fruitType,
+            halfImagePath: fruit.halfImagePath,
+            rotation: 0,
+            rotationSpeed: -0.1 - Math.random() * 0.1,
+            isLeft: true,
+            opacity: 1
+        });
+        // Right half
+        this.state.fruitHalves.push({
+            x: fruit.x - Math.cos(perpAngle) * offsetDist,
+            y: fruit.y - Math.sin(perpAngle) * offsetDist,
+            vx: fruit.vx - Math.cos(perpAngle) * 2,
+            vy: fruit.vy - Math.sin(perpAngle) * 2,
+            radius: fruit.radius,
+            color: fruit.color,
+            fruitType: fruit.fruitType,
+            halfImagePath: fruit.halfImagePath,
+            rotation: 0,
+            rotationSpeed: 0.1 + Math.random() * 0.1,
+            isLeft: false,
+            opacity: 1
+        });
     }
-    
     createSliceParticles(fruit) {
-        // GÜNCELLEME: Object pool'dan parçacık al (Dilimleme)
-        let activatedCount = 0;
-        for (const p of this.state.particles) {
-            if (activatedCount >= PARTICLE_PER_SLICE) break;
-            if (!p.active) {
-                p.x = fruit.x;
-                p.y = fruit.y;
+        // Create juice particles (reduced for mobile)
+        if (this.state.particles.length < MAX_PARTICLES) {
+            const particleCount = Math.min(10, MAX_PARTICLES - this.state.particles.length);
+            for (let i = 0; i < particleCount; i++) {
                 const angle = Math.random() * Math.PI * 2;
                 const speed = 2 + Math.random() * 3;
-                p.vx = Math.cos(angle) * speed;
-                p.vy = Math.sin(angle) * speed - 2;
-                p.size = 3 + Math.random() * 3;
-                p.color = fruit.color;
-                p.life = 1;
-                p.active = true;
-                activatedCount++;
+                this.state.particles.push({
+                    x: fruit.x,
+                    y: fruit.y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed - 2,
+                    size: 3 + Math.random() * 3,
+                    color: fruit.color,
+                    life: 1
+                });
             }
         }
     }
-    
     playKnifeSwooshSound() {
         const sound = this.state.swooshSound.cloneNode();
         sound.volume = this.state.swooshSound.volume;
-        sound.play().catch((e) => console.log('Audio play failed:', e));
+        sound.play().catch((e) =>);
     }
-    
     playBurningSound() {
         const sound = this.state.explosionSound.cloneNode();
         sound.volume = this.state.explosionSound.volume;
-        sound.play().catch((e) => console.log('Audio play failed:', e));
+        sound.play().catch((e) =>);
     }
-    
     playFallSound() {
         const sound = this.state.fallSound.cloneNode();
         sound.volume = this.state.fallSound.volume;
-        sound.play().catch((e) => console.log('Audio play failed:', e));
+        sound.play().catch((e) =>);
     }
-    
     playComboSound(type) {
         let sourceSound;
         if (type === 'excellent') {
             sourceSound = this.state.excellentSound;
-        } else if (type === 'amazing') {
+        }
+        else if (type === 'amazing') {
             sourceSound = this.state.amazingSound;
-        } else {
+        }
+        else {
             sourceSound = this.state.legendarySound;
         }
-        
         const sound = sourceSound.cloneNode();
         sound.volume = sourceSound.volume;
-        sound.play().catch((e) => console.log('Audio play failed:', e));
+        sound.play().catch((e) =>);
     }
-    
     playSliceSound(comboCount) {
         const sound = this.state.sliceSound.cloneNode();
         sound.volume = Math.min(1.0, this.state.sliceSound.volume * (1 + comboCount * 0.1));
-        sound.play().catch((e) => console.log('Audio play failed:', e));
+        sound.play().catch((e) =>);
     }
-    
     playFailSound() {
         const sound = this.state.failSound.cloneNode();
         sound.volume = this.state.failSound.volume;
-        sound.play().catch((e) => console.log('Fail audio play failed:', e));
+        sound.play().catch((e) =>);
     }
-    
     createFireworks(x, y) {
         const colors = ['#ff6b6b', '#ffa500', '#ffd93d', '#6bcf7f', '#c471f5', '#ff4757'];
-        
-        // GÜNCELLEME: Havai fişek parçacıklarını da pool'dan al
-        const particleCount = 30; // (Bu, bomba patlamasından ayrı, 30'da kalabilir)
-        let activatedCount = 0;
-        
-        for (const p of this.state.particles) {
-            if (activatedCount >= particleCount) break;
-            if (!p.active) {
-                const angle = (Math.PI * 2 * activatedCount) / particleCount;
-                const speed = 3 + Math.random() * 5;
-
-                p.x = x;
-                p.y = y;
-                p.vx = Math.cos(angle) * speed;
-                p.vy = Math.sin(angle) * speed;
-                p.size = 3 + Math.random() * 4;
-                p.color = colors[Math.floor(Math.random() * colors.length)];
-                p.life = 1;
-                p.active = true;
-                activatedCount++;
-            }
+        const particles = [];
+        for (let i = 0; i < 50; i++) {
+            const angle = (Math.PI * 2 * i) / 50;
+            const speed = 3 + Math.random() * 5;
+            particles.push({
+                x: x,
+                y: y,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
+                size: 3 + Math.random() * 4,
+                color: colors[Math.floor(Math.random() * colors.length)],
+                life: 1
+            });
         }
+        this.state.fireworks.push({ x, y, particles });
     }
-    
     updatePhysics(dt) {
         // Don't update physics if paused
         if (this.state.isPaused) {
             // Still update visual effects
             if (this.state.screenShake > 0) {
                 this.state.screenShake -= 1 * dt;
-                if (this.state.screenShake < 0) this.state.screenShake = 0;
+                if (this.state.screenShake < 0)
+                    this.state.screenShake = 0;
             }
             if (this.state.redFlash > 0) {
                 this.state.redFlash -= 0.05 * dt;
-                if (this.state.redFlash < 0) this.state.redFlash = 0;
+                if (this.state.redFlash < 0)
+                    this.state.redFlash = 0;
             }
             return;
         }
-        
         const normalizedDt = Math.min(dt, 20) / 16.67; // Normalize to 60fps
         dt = normalizedDt;
-        
-        // Update fruits (Bunlar pool'da değil, normal döngü)
-        for (let i = this.state.fruits.length - 1; i >= 0; i--) {
-            const fruit = this.state.fruits[i];
-            if (!fruit.active) {
-                // Sliced meyveleri ve bombayı listeden çıkar
-                if (fruit.sliced) {
-                    this.state.fruits.splice(i, 1);
-                }
+        // Update fruits
+        for (const fruit of this.state.fruits) {
+            if (!fruit.active)
                 continue;
-            }
-            
             fruit.x += fruit.vx * dt;
             fruit.y += fruit.vy * dt;
             fruit.vy += GRAVITY * dt;
             fruit.rotation += fruit.rotationSpeed * dt;
-            
-            // Wall bouncing
+            // Wall bouncing - left wall
             if (fruit.x - fruit.radius < 0) {
                 fruit.x = fruit.radius;
                 fruit.vx = Math.abs(fruit.vx) * WALL_BOUNCE_DAMPING;
             }
+            // Wall bouncing - right wall
             if (fruit.x + fruit.radius > this.state.width) {
                 fruit.x = this.state.width - fruit.radius;
                 fruit.vx = -Math.abs(fruit.vx) * WALL_BOUNCE_DAMPING;
             }
-            
             // Check if fruit fell off screen
             if (fruit.y > this.state.height + fruit.radius) {
                 fruit.active = false;
-                
+                // Stop fuse sound if it's a bomb
                 if (fruit.isBomb && fruit.fuseSound) {
                     fruit.fuseSound.pause();
                     fruit.fuseSound.currentTime = 0;
-                    fruit.fuseSound = undefined;
+                    fruit.fuseSound = undefined; // Clear reference
                 }
-                
+                // Lose life if not sliced AND not a bomb
                 if (!fruit.sliced && !fruit.isBomb) {
                     this.state.lives--;
-                    this.playFallSound();
+                    this.playFallSound(); // Play fall sound when fruit is missed
                     this.updateUI();
-                    
                     if (this.state.lives <= 0) {
                         this.showGameOver();
-                        return; // Fonksiyondan hemen çık
+                        return;
                     }
                 }
-                
-                // Aktif olmayan meyveyi listeden sil
-                this.state.fruits.splice(i, 1);
             }
         }
-        
         // Check if all fruits are gone (advance level)
-        if (this.state.allFruitsLaunched && this.state.fruits.length === 0 && !this.state.showingMilestone && this.state.isPlaying) {
+        if (this.state.allFruitsLaunched && this.state.fruits.every(f => !f.active) && !this.state.showingMilestone && this.state.isPlaying) {
             const currentWave = this.state.level;
-            
+            // Reset flag to prevent multiple wave advancements (but keep game running)
             this.state.allFruitsLaunched = false;
-            
+            // Check if this is a milestone wave (10, 20, 30, 40, 50)
             if (currentWave === 10 || currentWave === 20 || currentWave === 30 || currentWave === 40 || currentWave === 50) {
+                // Add life bonus (except for final wave 50)
                 if (currentWave !== 50) {
                     this.state.lives++;
                     this.updateUI();
                 }
+                // Show milestone message
                 this.showMilestoneMessage(currentWave);
-            } else if (currentWave < MAX_LEVEL) {
+                // Note: isPlaying will be set to true when milestone ends and next wave starts
+            }
+            else if (currentWave < MAX_LEVEL) {
+                // Regular wave advancement
                 this.state.level++;
                 this.updateUI();
+                // Check if this is a chapter start wave
                 const nextWave = this.state.level;
                 if (nextWave === 11 || nextWave === 21 || nextWave === 31 || nextWave === 41) {
+                    // Show chapter name and launch fruits after it disappears
                     this.showChapterName(nextWave, () => {
                         this.launchFruits();
                     });
-                } else {
+                }
+                else {
                     this.launchFruits();
                 }
-            } else {
+            }
+            else {
+                // Game won at wave 50 (suppress fail sound)
                 this.showGameOver(false);
             }
         }
-        
-        // GÜNCELLEME: fruitHalves pool'unu güncelle (splice yok)
-        for (const half of this.state.fruitHalves) {
-            if (!half.active) continue;
-            
+        // Update fruit halves
+        for (let i = this.state.fruitHalves.length - 1; i >= 0; i--) {
+            const half = this.state.fruitHalves[i];
             half.x += half.vx * dt;
             half.y += half.vy * dt;
             half.vy += GRAVITY * dt;
             half.rotation += half.rotationSpeed * dt;
-            
+            // Fade out as they fall
             if (half.y > this.state.height * 0.5) {
-                half.opacity -= 0.03 * dt;
+                half.opacity -= 0.015 * dt;
             }
-            
+            // Remove when off screen or fully faded
             if (half.y > this.state.height + half.radius || half.opacity <= 0) {
-                half.active = false; // Havuza geri döndür
+                this.state.fruitHalves.splice(i, 1);
             }
         }
-        
-        // GÜNCELLEME: particles pool'unu güncelle (splice yok)
-        for (const p of this.state.particles) {
-            if (!p.active) continue;
-
+        // Update particles (more aggressive cleanup for performance)
+        for (let i = this.state.particles.length - 1; i >= 0; i--) {
+            const p = this.state.particles[i];
             p.x += p.vx * dt;
             p.y += p.vy * dt;
             p.vy += GRAVITY * 0.3 * dt;
-            p.life -= 0.04 * dt;
-            
+            p.life -= 0.02 * dt;
+            // Remove particles that are off-screen or dead
             if (p.life <= 0 || p.y > this.state.height || p.x < 0 || p.x > this.state.width) {
-                p.active = false; // Havuza geri döndür
+                this.state.particles.splice(i, 1);
             }
         }
-        
-        // Update fireworks (Bunlar pool'da değil, splice kullanılıyor, sayısı çok az)
+        // Update fireworks
         for (let i = this.state.fireworks.length - 1; i >= 0; i--) {
-            //... (Bu düşük frekanslı, optimizasyona gerek yok)
+            const fw = this.state.fireworks[i];
+            let allDead = true;
+            for (const p of fw.particles) {
+                p.x += p.vx * dt;
+                p.y += p.vy * dt;
+                p.vy += GRAVITY * 0.2 * dt;
+                p.life -= 0.015 * dt;
+                if (p.life > 0)
+                    allDead = false;
+            }
+            if (allDead) {
+                this.state.fireworks.splice(i, 1);
+            }
         }
-        
-        // GÜNCELLEME: scorePopups pool'unu güncelle (splice yok)
-        for (const popup of this.state.scorePopups) {
-            if (!popup.active) continue;
-
+        // Update score popups
+        for (let i = this.state.scorePopups.length - 1; i >= 0; i--) {
+            const popup = this.state.scorePopups[i];
             popup.y -= 1 * dt;
             popup.opacity -= 0.02 * dt;
             popup.scale += 0.01 * dt;
-            
             if (popup.opacity <= 0) {
-                popup.active = false; // Havuza geri döndür
+                this.state.scorePopups.splice(i, 1);
             }
         }
-        
-        // Update current trail
+        // Update current trail (remove old points even when mouse is stationary)
         if (this.state.isDrawing && this.state.currentTrail.length > 0) {
             const now = performance.now();
-            this.state.currentTrail = this.state.currentTrail.filter(p => 
-                !p.timestamp || (now - p.timestamp) < 150
-            );
+            this.state.currentTrail = this.state.currentTrail.filter(p => !p.timestamp || (now - p.timestamp) < 150);
         }
-        
-        // Update trails (splice kullanıyor, sayısı çok az MAX_TRAILS=2)
+        // Update trails (fade out and cleanup)
         for (let i = this.state.trails.length - 1; i >= 0; i--) {
             const trail = this.state.trails[i];
             trail.opacity -= TRAIL_FADE_SPEED * dt;
-            
+            // Remove old points from trail for performance
             if (trail.points.length > MAX_TRAIL_POINTS) {
                 trail.points = trail.points.slice(-MAX_TRAIL_POINTS);
             }
-            
             if (trail.opacity <= 0) {
                 this.state.trails.splice(i, 1);
             }
         }
-        
+        // Limit score popups to prevent memory leaks
+        if (this.state.scorePopups.length > MAX_SCORE_POPUPS) {
+            this.state.scorePopups = this.state.scorePopups.slice(-MAX_SCORE_POPUPS);
+        }
         // Update screen shake
         if (this.state.screenShake > 0) {
             this.state.screenShake -= 1 * dt;
-            if (this.state.screenShake < 0) this.state.screenShake = 0;
+            if (this.state.screenShake < 0)
+                this.state.screenShake = 0;
         }
-        
         // Update red flash
         if (this.state.redFlash > 0) {
             this.state.redFlash -= 0.05 * dt;
-            if (this.state.redFlash < 0) this.state.redFlash = 0;
+            if (this.state.redFlash < 0)
+                this.state.redFlash = 0;
         }
     }
-    
     render() {
         const ctx = this.state.ctx;
-        
         // Apply screen shake
         ctx.save();
         if (this.state.screenShake > 0) {
@@ -1357,132 +1213,137 @@ class FruitSliceGame {
             const shakeY = (Math.random() - 0.5) * this.state.screenShake;
             ctx.translate(shakeX, shakeY);
         }
-        
+        // Clear canvas with transparency to show background image
         ctx.clearRect(0, 0, this.state.width, this.state.height);
-        
         // Draw red flash overlay
         if (this.state.redFlash > 0) {
             ctx.fillStyle = `rgba(255, 0, 0, ${this.state.redFlash * 0.5})`;
             ctx.fillRect(0, 0, this.state.width, this.state.height);
         }
-        
-        // GÜNCELLEME: Sadece aktif parçacıkları çiz
+        // Draw particles
         for (const p of this.state.particles) {
-            if (!p.active) continue;
             ctx.globalAlpha = p.life;
             ctx.fillStyle = p.color;
             ctx.beginPath();
             ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
             ctx.fill();
         }
-        
+        // Draw fireworks (skip shadows on mobile for performance)
+        for (const fw of this.state.fireworks) {
+            for (const p of fw.particles) {
+                ctx.globalAlpha = p.life;
+                ctx.fillStyle = p.color;
+                // Skip shadows for better mobile performance
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
         ctx.globalAlpha = 1;
-        
         // Draw fruits (only unsliced ones)
         for (const fruit of this.state.fruits) {
-            if (!fruit.active || fruit.sliced) continue;
-            
+            if (!fruit.active || fruit.sliced)
+                continue;
             ctx.globalAlpha = 1;
-            
             ctx.save();
             ctx.translate(fruit.x, fruit.y);
             ctx.rotate(fruit.rotation);
-            
             if (fruit.isBomb) {
                 // Draw bomb emoji
                 ctx.font = `${fruit.radius * 2}px Arial`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 ctx.fillText('💣', 0, 0);
-            } else {
+            }
+            else {
                 // Use fruit image with custom sizes
                 const img = this.state.fruitImages.get(fruit.fruitType);
                 if (img && img.complete) {
                     let sizeMultiplier = 2.5; // default size
-                    
                     // Custom sizes for different fruits
                     switch (fruit.fruitType) {
                         case 'pineapple':
-                            sizeMultiplier = 3.2;
+                            sizeMultiplier = 3.2; // büyüt
                             break;
                         case 'lemon':
-                            sizeMultiplier = 1.8;
+                            sizeMultiplier = 1.8; // daha da küçült
                             break;
+                        case 'apple':
+                        case 'orange':
+                        case 'kiwi':
+                        case 'watermelon':
+                        case 'strawberry':
                         default:
-                            sizeMultiplier = 2.5;
+                            sizeMultiplier = 2.5; // normal size
                             break;
                     }
-                    
                     const imgSize = fruit.radius * sizeMultiplier;
                     ctx.drawImage(img, -imgSize / 2, -imgSize / 2, imgSize, imgSize);
                 }
             }
-            
             ctx.restore();
         }
-        
-        // GÜNCELLEME: Sadece aktif meyve yarılarını çiz
+        // Draw fruit halves
         for (const half of this.state.fruitHalves) {
-            if (!half.active) continue;
-
             ctx.save();
             ctx.globalAlpha = half.opacity;
             ctx.translate(half.x, half.y);
             ctx.rotate(half.rotation);
-            
             // Use half fruit image with custom sizes
             const halfImg = this.state.halfFruitImages.get(half.fruitType);
             if (halfImg && halfImg.complete) {
                 let sizeMultiplier = 2.8; // default size
-                
                 // Custom sizes for different fruit halves
                 switch (half.fruitType) {
-                    case 'apple': sizeMultiplier = 1.8; break;
-                    case 'pineapple': sizeMultiplier = 3.5; break;
-                    case 'orange': case 'lemon': sizeMultiplier = 1.9; break;
-                    case 'kiwi': sizeMultiplier = 2; break;
-                    case 'strawberry': sizeMultiplier = 1.9; break;
-                    case 'watermelon': sizeMultiplier = 3.0; break;
-                    default: sizeMultiplier = 2.2; break;
+                    case 'apple':
+                        sizeMultiplier = 1.8; // daha da küçült
+                        break;
+                    case 'pineapple':
+                        sizeMultiplier = 3.5; // büyüt
+                        break;
+                    case 'orange':
+                    case 'lemon':
+                        sizeMultiplier = 1.9; // daha da küçült
+                        break;
+                    case 'kiwi':
+                        sizeMultiplier = 2; // küçült
+                        break;
+                    case 'strawberry':
+                        sizeMultiplier = 1.9; // küçült
+                        break;
+                    case 'watermelon':
+                        sizeMultiplier = 3.0; // büyüt
+                        break;
+                    default:
+                        sizeMultiplier = 2.2; // normal size
+                        break;
                 }
-                
                 const imgSize = half.radius * sizeMultiplier;
                 ctx.drawImage(halfImg, -imgSize / 2, -imgSize / 2, imgSize, imgSize);
             }
-            
             ctx.restore();
         }
-        
         ctx.globalAlpha = 1;
-        
-        // Draw old trails (Bunlar pool'da değil, sayısı az)
+        // Draw old trails
         for (const trail of this.state.trails) {
             this.drawTrail(trail.points, trail.opacity);
         }
-        
         // Draw current trail
         if (this.state.currentTrail.length > 1) {
             this.drawTrail(this.state.currentTrail, 1);
         }
-        
-        // GÜNCELLEME: Sadece aktif skor popuplarını çiz
-        const useShadows = !this.state.isLowPerformance;
+        // Draw score popups
         for (const popup of this.state.scorePopups) {
-            if (!popup.active) continue;
-
             ctx.globalAlpha = popup.opacity;
             ctx.textAlign = 'center';
             
-
             // Simple green popup for 1-2 fruits
             if (popup.isSimple) {
                 ctx.fillStyle = '#4ade80'; // Green color
                 ctx.font = `bold ${28}px Arial`;
                 ctx.textBaseline = 'middle';
-                if (useShadows) {
-                    ctx.shadowBlur = 12;
-                    ctx.shadowColor = '#4ade80';
-                }
+                ctx.shadowBlur = 12;
+                ctx.shadowColor = '#4ade80';
                 ctx.fillText(`+${popup.score}`, popup.x, popup.y);
             }
             // Combo popup for 3+ fruits
@@ -1491,334 +1352,444 @@ class FruitSliceGame {
                 ctx.fillStyle = '#FFD700';
                 ctx.font = `bold ${32}px Arial`;
                 ctx.textBaseline = 'bottom';
-                if (useShadows) {
-                    ctx.shadowBlur = 20;
-                    ctx.shadowColor = '#FFD700';
-                }
+                ctx.shadowBlur = 20;
+                ctx.shadowColor = '#FFD700';
                 ctx.fillText(popup.comboText, popup.x, popup.y - 10);
-                
                 // Draw score below combo text in white
                 ctx.fillStyle = '#FFFFFF';
                 ctx.font = `bold ${28}px Arial`;
                 ctx.textBaseline = 'top';
-                if (useShadows) {
-                    ctx.shadowBlur = 15;
-                    ctx.shadowColor = '#FFFFFF';
-                }
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = '#FFFFFF';
                 ctx.fillText(`+${popup.score}`, popup.x, popup.y + 10);
             }
         }
-        
         ctx.shadowBlur = 0;
         ctx.globalAlpha = 1;
-        
         // Restore canvas (remove screen shake)
         ctx.restore();
     }
-    
-    // ... (getFleshColor, getLighterColor, getDarkerColor, drawFruitDetails - Değişiklik yok)
     getFleshColor(emoji) {
+        // Return realistic flesh colors for different fruits
         switch (emoji) {
-            case '🍎': return '#f5f5dc';
-            case '🍊': return '#ffd699';
-            case '🍋': return '#fffacd';
-            case '🍌': return '#fff8dc';
-            case '🍉': return '#ffb3ba';
-            case '🍇': return '#dda0dd';
-            case '🍓': return '#ffcccb';
-            case '🥝': return '#d4f1d4';
-            default: return '#ffffff';
+            case '🍎': return '#f5f5dc'; // Apple - pale cream/white
+            case '🍊': return '#ffd699'; // Orange - light orange
+            case '🍋': return '#fffacd'; // Lemon - pale yellow
+            case '🍌': return '#fff8dc'; // Banana - cream
+            case '🍉': return '#ffb3ba'; // Watermelon - light pink/red
+            case '🍇': return '#dda0dd'; // Grapes - light purple
+            case '🍓': return '#ffcccb'; // Strawberry - light pink
+            case '🥝': return '#d4f1d4'; // Kiwi - pale green
+            default: return '#ffffff'; // Default white
         }
     }
     getLighterColor(color) {
+        // Convert hex color to lighter shade for fruit flesh
         const hex = color.replace('#', '');
         const r = parseInt(hex.substring(0, 2), 16);
         const g = parseInt(hex.substring(2, 4), 16);
         const b = parseInt(hex.substring(4, 6), 16);
+        // Make it lighter by adding to RGB values
         const lighter = (val) => Math.min(255, val + 80);
         return `rgb(${lighter(r)}, ${lighter(g)}, ${lighter(b)})`;
     }
     getDarkerColor(color) {
+        // Convert hex color to darker shade for borders
         const hex = color.replace('#', '');
         const r = parseInt(hex.substring(0, 2), 16);
         const g = parseInt(hex.substring(2, 4), 16);
         const b = parseInt(hex.substring(4, 6), 16);
+        // Make it darker by reducing RGB values
         const darker = (val) => Math.max(0, val - 60);
         return `rgb(${darker(r)}, ${darker(g)}, ${darker(b)})`;
     }
     drawFruitDetails(ctx, half) {
-        // ... (Detay çizimlerinde değişiklik yok)
+        // Add seeds or details based on fruit type
+        const fruitType = half.fruitType;
+        // Watermelon - add black seeds
+        if (fruitType === 'watermelon') {
+            ctx.fillStyle = '#2c2c2c';
+            for (let i = 0; i < 3; i++) {
+                const angle = (Math.PI * 2 * i) / 3;
+                const x = Math.cos(angle) * half.radius * 0.3;
+                const y = Math.sin(angle) * half.radius * 0.3;
+                ctx.beginPath();
+                ctx.ellipse(x, y, 2, 3, angle, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+        // Kiwi - add small seeds pattern
+        else if (fruitType === 'kiwi') {
+            ctx.fillStyle = '#2c2c2c';
+            for (let i = 0; i < 8; i++) {
+                const angle = (Math.PI * 2 * i) / 8;
+                const x = Math.cos(angle) * half.radius * 0.25;
+                const y = Math.sin(angle) * half.radius * 0.25;
+                ctx.beginPath();
+                ctx.arc(x, y, 1, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+        // Orange/Lemon - add segment lines
+        else if (fruitType === 'orange' || fruitType === 'lemon') {
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+            ctx.lineWidth = 1;
+            for (let i = 0; i < 6; i++) {
+                const angle = (Math.PI * 2 * i) / 6;
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.lineTo(Math.cos(angle) * half.radius * 0.5, Math.sin(angle) * half.radius * 0.5);
+                ctx.stroke();
+            }
+        }
+        // Strawberry - add small seeds
+        else if (fruitType === 'strawberry') {
+            ctx.fillStyle = '#ffe66d';
+            for (let i = 0; i < 6; i++) {
+                const angle = (Math.PI * 2 * i) / 6 + Math.random() * 0.3;
+                const dist = half.radius * (0.2 + Math.random() * 0.2);
+                const x = Math.cos(angle) * dist;
+                const y = Math.sin(angle) * dist;
+                ctx.beginPath();
+                ctx.arc(x, y, 1.5, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
     }
-
-    // GÜNCELLEME: Trail çizim fonksiyonu (Performans için agresif güncellendi)
     drawTrail(points, opacity) {
-        if (points.length < 2) return;
-        
+        if (points.length < 2)
+            return;
         const ctx = this.state.ctx;
         ctx.globalAlpha = opacity;
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
         
-        const isLowPerf = this.state.isLowPerformance;
-        const step = isLowPerf ? 2 : 1;
-        const useShadows = !isLowPerf;
-
-        // PERFORMANS GÜNCELLEMESİ: Düşük performansta sadece tek, basit katman çiz
-        const layers = isLowPerf ?
-            [ { widthStart: 2, widthEnd: 5, color: 'rgba(150, 220, 255, 0.9)', blur: 0 } ] :
-            [ 
-                { widthStart: 3, widthEnd: 9, color: 'rgba(80, 180, 255, 0.3)', blur: 12 },
-                { widthStart: 1.5, widthEnd: 4, color: 'rgba(150, 220, 255, 0.9)', blur: 6 }
-            ];
+        const step = this.state.isLowPerformance ? 2 : 1;
+        
+        // Draw multiple passes with increasing thickness for gradient effect
+        const layers = [
+            { widthStart: 3, widthEnd: 9, color: 'rgba(80, 180, 255, 0.3)', blur: 12 },
+            { widthStart: 1.5, widthEnd: 4, color: 'rgba(150, 220, 255, 0.9)', blur: 6 }
+        ];
         
         for (const layer of layers) {
+            // Draw the path in small segments with varying width
             for (let i = 0; i < points.length - 1; i += step) {
-                const p1 = points[i];
-                const p2 = points[Math.min(i + 1, points.length - 1)];
-                
                 const progress = i / (points.length - 1);
                 const width = layer.widthStart + (layer.widthEnd - layer.widthStart) * progress;
                 
                 ctx.strokeStyle = layer.color;
                 ctx.lineWidth = width;
-                
-                if (useShadows && layer.blur > 0) {
-                    ctx.shadowBlur = layer.blur;
-                    ctx.shadowColor = layer.color;
-                } else {
-                    ctx.shadowBlur = 0; // Explicitly disable shadow
-                }
+                ctx.shadowBlur = layer.blur;
+                ctx.shadowColor = layer.color;
                 
                 ctx.beginPath();
-                ctx.moveTo(p1.x, p1.y);
+                ctx.moveTo(points[i].x, points[i].y);
                 
-                if (i < points.length - 2 && !isLowPerf) {
-                    // Yüksek performansta yumuşak eğriler kullan
-                    const p3 = points[Math.min(i + 2, points.length - 1)];
-                    const mid_p2_p3 = { x: (p2.x + p3.x) / 2, y: (p2.y + p3.y) / 2 };
-                    ctx.quadraticCurveTo(p2.x, p2.y, mid_p2_p3.x, mid_p2_p3.y);
+                // Use quadratic curve for smooth connection
+                if (i < points.length - 2) {
+                    const xc = (points[i + 1].x + points[Math.min(i + 2, points.length - 1)].x) / 2;
+                    const yc = (points[i + 1].y + points[Math.min(i + 2, points.length - 1)].y) / 2;
+                    ctx.quadraticCurveTo(points[i + 1].x, points[i + 1].y, xc, yc);
                 } else {
-                    // Düşük performansta düz çizgiler kullan
-                    ctx.lineTo(p2.x, p2.y);
+                    ctx.lineTo(points[i + 1].x, points[i + 1].y);
                 }
                 
                 ctx.stroke();
             }
         }
         
+        // Reset shadow
         ctx.shadowBlur = 0;
         ctx.globalAlpha = 1;
     }
-    
     updateUI() {
         document.getElementById('score').textContent = this.state.score.toString();
         document.getElementById('level').textContent = this.state.level.toString();
-        
         // Ensure lives is at least 0 before displaying
         const livesCount = Math.max(0, this.state.lives);
         const hearts = '❤️'.repeat(livesCount);
         document.getElementById('lives').textContent = hearts;
     }
-    
     gameLoop(currentTime) {
-        if (!this.state.isPlaying) return;
-        
+        if (!this.state.isPlaying)
+            return;
         const deltaTime = currentTime - this.state.lastFrameTime;
-        
         // Detect low performance (FPS < 30)
         if (deltaTime > 33 && !this.state.isLowPerformance) {
             this.state.frameSkipCounter++;
-            if (this.state.frameSkipCounter > 10) {
-                console.log('Low performance detected, enabling optimizations');
-                this.state.isLowPerformance = true;
+            if (this.state.frameSkipCounter > 10) {                this.state.isLowPerformance = true;
             }
-        } else if (deltaTime < 20 && this.state.isLowPerformance) {
+        }
+        else if (deltaTime < 20 && this.state.isLowPerformance) {
             this.state.frameSkipCounter = 0;
         }
-        
         this.state.lastFrameTime = currentTime;
-        
         // Always update physics
         this.updatePhysics(deltaTime);
-        
         // Skip rendering every other frame on low performance devices
         if (!this.state.isLowPerformance || this.state.frameSkipCounter % 2 === 0) {
             this.render();
         }
-        
         requestAnimationFrame((time) => { this.gameLoop(time); });
     }
 }
-
 // ===== LEADERBOARD FUNCTIONALITY =====
-// (Değişiklik yok)
-const CONTRACT_ADDRESS = '0xa4f109Eb679970C0b30C21812C99318837A81c73';
-const API_URL = '';
-let currentScore = 0;
-
-async function saveScore() {
-    console.log('=== SAVE SCORE STARTED ===');
-    console.log('Current score:', currentScore);
-    console.log('Window parent:', window.parent);
-    console.log('SDK present:', !!window.sdk);
-    
+const CONTRACT_ADDRESS_LEGACY = '0xa4f109Eb679970C0b30C21812C99318837A81c73';
+const API_URL_LEGACY = 'https://base-fruits-game.vercel.app';
+let currentScoreLegacyInit = 0;
+// SAVE LEADERBOARD - Farcaster SDK veya MetaMask
+async function saveScoreLegacy() {    // Farcaster kullanıcı adını çek veya test için rastgele oluştur
     let username = '';
     let fid = 0;
-    
+    // Farcaster bağlantısını kontrol et
     try {
-        if (window.sdk) {
-            const context = await window.sdk.context;
-            if (context?.user?.fid && context?.user?.username) {
-                username = context.user.username;
-                fid = context.user.fid;
-                console.log('Farcaster user:', { username, fid });
-            }
-        }
-    } catch (error) {
-        console.log('Farcaster SDK context error:', error?.message || error);
+        if (window.parent && window.parent !== window) {            const farcasterUser = await window.parent.farcaster.getUser();
+            username = farcasterUser.username;
+            fid = farcasterUser.fid;        }
+        else {        }
     }
-    
+    catch (error) {:', error.message);
+        // Cross-origin hatası beklenen bir durum
+    }
+    // Test ortamı için rastgele kullanıcı adı
     if (!username) {
         const testUsernames = ['Player1', 'FruitNinja', 'SliceKing', 'BombAvoider', 'ComboMaster', 'FruitHero'];
         username = testUsernames[Math.floor(Math.random() * testUsernames.length)] + Math.floor(Math.random() * 1000);
         fid = Math.floor(Math.random() * 100000); // Test FID
     }
-
     const btn = document.getElementById('save-leaderboard-button');
     btn.disabled = true;
     btn.textContent = '⏳ Processing...';
-
     try {
         let provider;
         let signer;
         let walletAddress;
-        let rawProvider; 
-
+        let rawProvider; // Store the raw EIP-1193 provider
+        // First check if we're in Farcaster Mini App
         let inFarcasterFrame = false;
         let farcasterWalletAvailable = false;
-        
+        // Check if we're in an iframe and potentially in Farcaster
         try {
-            if (window.sdk?.wallet?.getEthereumProvider) {
-                rawProvider = await window.sdk.wallet.getEthereumProvider();
-                if (!rawProvider && window.sdk?.actions?.signin) {
-                    console.log('Attempting Farcaster signin to enable wallet...');
-                    await window.sdk.actions.signin();
-                    rawProvider = await window.sdk.wallet.getEthereumProvider();
-                }
-                if (rawProvider) {
-                    farcasterWalletAvailable = true;
-                    try {
-                        const accounts = await rawProvider.request({ method: 'eth_requestAccounts' });
-                        walletAddress = accounts?.[0];
-                    } catch {}
-                    if (window.ethers?.providers) {
-                        const ethers = window.ethers;
-                        provider = new ethers.providers.Web3Provider(rawProvider);
-                        signer = provider.getSigner();
+            inFarcasterFrame = window.parent !== window;            if (inFarcasterFrame) {
+                // Try to access Farcaster SDK
+                const hasFarcasterSDK = !!window.parent?.farcaster;                if (hasFarcasterSDK) {
+                    try {                        rawProvider = await window.parent.farcaster.wallet.getEthereumProvider();                        if (rawProvider) {
+                            farcasterWalletAvailable = true;
+                            // Wait for ethers.js if needed
+                            if (!window.ethers) {                                let attempts = 0;
+                                while (!window.ethers && attempts < 30) {
+                                    await new Promise(resolve => setTimeout(resolve, 100));
+                                    attempts++;
+                                }
+                            }
+                            // Use ethers if available, otherwise use raw provider
+                            if (window.ethers && window.ethers.providers) {
+                                const ethers = window.ethers;
+                                provider = new ethers.providers.Web3Provider(rawProvider);
+                                await provider.send("eth_requestAccounts", []);
+                                signer = provider.getSigner();
+                                walletAddress = await signer.getAddress();
+                            }
+                            else {
+                                // Fallback: use raw provider directly                                const accounts = await rawProvider.request({ method: 'eth_requestAccounts' });
+                                walletAddress = accounts[0];
+                                // We'll handle contract interaction differently below
+                            }                        }
                     }
-                    console.log('Farcaster wallet connected:', walletAddress);
+                    catch (e) {
+                        farcasterWalletAvailable = false;
+                    }
                 }
-            }
-        } catch (sdkProvErr) {
-            console.log('SDK provider error:', sdkProvErr?.message || sdkProvErr);
-        }
-        
-        if (!farcasterWalletAvailable) {
-            console.log('Trying MetaMask/browser wallet...');
-            
-            if (!window.ethereum) {
-                console.error('No wallet provider available');
-                if (inFarcasterFrame) {
-                    alert('Wallet connection failed in Farcaster. Please try refreshing the app.');
-                } else {
-                    alert('Please install MetaMask or use this app in Farcaster!');
-                }
-                return;
-            }
-            
-            rawProvider = window.ethereum;
-            
-            if (!window.ethers) {
-                console.log('Waiting for ethers.js...');
-                let attempts = 0;
-                while (!window.ethers && attempts < 30) {
-                    await new Promise(resolve => setTimeout(resolve, 100));
-                    attempts++;
-                }
-            }
-            
-            if (window.ethers && window.ethers.providers) {
-                const ethers = window.ethers;
-                provider = new ethers.providers.Web3Provider(rawProvider);
-                await provider.send("eth_requestAccounts", []);
-                signer = provider.getSigner();
-                walletAddress = await signer.getAddress();
-                console.log('MetaMask wallet connected:', walletAddress);
-            } else {
-                console.log('Using raw provider without ethers.js');
-                const accounts = await rawProvider.request({ method: 'eth_requestAccounts' });
-                walletAddress = accounts[0];
             }
         }
+        catch (frameError) {        }
+    } catch (error) {
+        const btn = document.getElementById('save-leaderboard-button');
+        if (btn) { btn.disabled = false; btn.textContent = '💾 Save Leaderboard'; }
+    }
+}
+// ===== LEADERBOARD INTEGRATION WITH BLOCKCHAIN =====
+const API_URL = ''; // Use same-origin backend to avoid CORS
+const CONTRACT_ADDRESS = '0xa4f109Eb679970C0b30C21812C99318837A81c73'; // BURAYA CONTRACT ADRESİNİZİ YAZIN!
+let currentScore = 0;
 
-        try {
-            const chainIdHex = await rawProvider.request({ method: 'eth_chainId' });
-            const currentChain = typeof chainIdHex === 'string' ? chainIdHex : '0x0';
-            if (currentChain !== '0x2105') {
+// SAVE SCORE TO BLOCKCHAIN WITH PRIVY
+async function saveScore() {
+    const btn = document.getElementById('save-leaderboard-button');
+    btn.disabled = true;
+    btn.textContent = '⏳ Connecting...';
+
+    try {
+        let walletAddress = null;
+        let signer = null;
+        let userInfo = { username: '', fid: 0 };
+
+        // ============================================
+        // 1) PRIVY WALLET CONNECTION
+        // ============================================
+        if (window.privyClient) {            
+            // Check if user is already authenticated
+            const isAuthenticated = window.privyClient.authenticated;
+            
+            if (!isAuthenticated) {                btn.textContent = '🔐 Login with Wallet...';
+                
                 try {
-                    await rawProvider.request({
-                        method: 'wallet_switchEthereumChain',
-                        params: [{ chainId: '0x2105' }]
-                    });
-                } catch (switchError) {
-                    if (switchError.code === 4902) {
-                        await rawProvider.request({
-                            method: 'wallet_addEthereumChain',
-                            params: [{
-                                chainId: '0x2105',
-                                chainName: 'Base Mainnet',
-                                nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
-                                rpcUrls: ['https://mainnet.base.org'],
-                                blockExplorerUrls: ['https://basescan.org']
-                            }]
-                        });
-                    } else {
-                        throw switchError;
-                    }
+                    // Login with Privy (will show wallet selection modal)
+                    await window.privyClient.login();
+                } catch (loginError) {
+                    throw new Error('Login cancelled or failed');
                 }
             }
-        } catch (netErr) {
-            console.log('Network check failed:', netErr?.message || netErr);
+            
+            // Get the connected wallet
+            const wallets = await window.privyClient.getWallets();
+            if (!wallets || wallets.length === 0) {
+                throw new Error('No wallet connected');
+            }
+            
+            const wallet = wallets[0];
+            walletAddress = wallet.address;            
+            // Get Farcaster user info if available
+            const user = window.privyClient.user;
+            if (user?.farcaster) {
+                userInfo = {
+                    username: user.farcaster.username || '',
+                    fid: user.farcaster.fid || 0
+                };            }
+            
+            // Switch to Base network
+            btn.textContent = '🔄 Switching to Base...';
+            try {
+                await wallet.switchChain(8453); // Base mainnet chain ID
+            } catch (switchError) {
+                // Continue anyway, user might already be on Base
+            }
+            
+            // Get ethers provider and signer
+            const provider = await wallet.getEthersProvider();
+            signer = provider.getSigner();
+            
+        } else if (typeof window.ethereum !== 'undefined') {
+            // ============================================
+            // 2) METAMASK/WALLET FALLBACK
+            // ============================================            
+            // CRITICAL FIX: DO NOT modify window.ethereum!
+            let provider = window.ethereum;
+            
+            if (window.ethereum.providers?.length > 0) {                const metamaskProvider = window.ethereum.providers.find(
+                    (p) => p.isMetaMask
+                );
+                if (metamaskProvider) {
+                    provider = metamaskProvider;                }
+            }
+            
+            rawProvider = provider;
+
+            const accounts = await rawProvider.request({
+                method: 'eth_requestAccounts'
+            });
+            walletAddress = accounts[0];
+            try {
+                const fidResponse = await fetch(`${API_URL}/api/get-fid?address=${walletAddress}`);
+                const fidData = await fidResponse.json();
+                if (fidData.success && fidData.fid) {
+                    userInfo.fid = fidData.fid;
+                    userInfo.username = fidData.username || `User${walletAddress.slice(2, 8)}`;
+                }
+            } catch (e) {                userInfo.username = `User${walletAddress.slice(2, 8)}`;
+                userInfo.fid = 0;
+            }
         }
 
+        // ============================================
+        // 3) NO WALLET AVAILABLE
+        // ============================================
+        if (!walletAddress && !signer) {
+            throw new Error('No wallet connected. Please install MetaMask or use a Web3 wallet!');
+        }
+
+        // For non-Privy wallets, check and switch to Base network
+        if (!window.privyClient && rawProvider) {
+            btn.textContent = '⏳ Checking network...';
+            const chainId = await rawProvider.request({ method: 'eth_chainId' });
+            if (chainId !== '0x2105') {
+            try {
+                await rawProvider.request({
+                    method: 'wallet_switchEthereumChain',
+                    params: [{ chainId: '0x2105' }]
+                });
+            } catch (switchError) {
+                if (switchError.code === 4902) {
+                    await rawProvider.request({
+                        method: 'wallet_addEthereumChain',
+                        params: [{
+                            chainId: '0x2105',
+                            chainName: 'Base Mainnet',
+                            nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+                            rpcUrls: ['https://mainnet.base.org'],
+                            blockExplorerUrls: ['https://basescan.org']
+                        }]
+                    });
+                } else {
+                    throw switchError;
+                }
+            }
+            }
+        }
+
+        // ============================================
+        // 5) GET WALLET ADDRESS
+        // ============================================
+        if (!walletAddress && rawProvider) {
+            const accounts = await rawProvider.request({ method: 'eth_accounts' });
+            walletAddress = accounts[0];
+        }
+
+        // ============================================
+        // 6) CREATE SIGNER
+        // ============================================
+        if (window.ethers && rawProvider) {
+            try {
+                const ethers = window.ethers;
+                const provider = new ethers.providers.Web3Provider(rawProvider);
+                signer = provider.getSigner();            } catch (e) {            }
+        }
+
+        // ============================================
+        // 7) GET BACKEND SIGNATURE
+        // ============================================
+        btn.textContent = '⏳ Getting signature...';
         const signResponse = await fetch(`${API_URL}/api/sign-score`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                playerAddress: walletAddress,
-                farcasterUsername: username,
-                fid: fid,
-                score: currentScore
+                farcasterUsername: userInfo.username,
+                fid: userInfo.fid,
+                score: currentScore,
+                walletAddress: walletAddress
             })
         });
 
         const signData = await signResponse.json();
-        
         if (!signData.success) {
             throw new Error(signData.message);
         }
 
-        let tx;
+        // ============================================
+        // 8) SUBMIT TRANSACTION
+        // ============================================
+        btn.textContent = '⏳ Submitting score...';
         
-        if (window.ethers && window.ethers.Contract && signer) {
+        if (signer && window.ethers?.Contract) {
             const ethers = window.ethers;
             const contract = new ethers.Contract(
                 CONTRACT_ADDRESS,
                 ['function submitScore(string memory _farcasterUsername, uint256 _fid, uint256 _score, uint256 _nonce, bytes memory _signature) external'],
                 signer
             );
-
-            tx = await contract.submitScore(
+            
+            const tx = await contract.submitScore(
                 signData.data.params.farcasterUsername,
                 signData.data.params.fid,
                 signData.data.params.score,
@@ -1828,80 +1799,69 @@ async function saveScore() {
             
             btn.textContent = '⏳ Waiting confirmation...';
             await tx.wait();
-        } else if (rawProvider) {
-            console.log('Using raw transaction without ethers.js');
-            
+        } 
+        else if (rawProvider && window.ethers?.utils) {
             const ethers = window.ethers;
+            const iface = new ethers.utils.Interface([
+                'function submitScore(string memory _farcasterUsername, uint256 _fid, uint256 _score, uint256 _nonce, bytes memory _signature) external'
+            ]);
             
-            if (ethers && ethers.utils) {
-                const iface = new ethers.utils.Interface([
-                    'function submitScore(string memory _farcasterUsername, uint256 _fid, uint256 _score, uint256 _nonce, bytes memory _signature) external'
-                ]);
-                const data = iface.encodeFunctionData('submitScore', [
-                    signData.data.params.farcasterUsername,
-                    signData.data.params.fid,
-                    signData.data.params.score,
-                    signData.data.nonce,
-                    signData.data.signature
-                ]);
-                
-                const txParams = {
-                    to: CONTRACT_ADDRESS,
-                    from: walletAddress,
-                    data: data,
-                    gas: '0x30000'
-                };
-                
-                btn.textContent = '⏳ Sending transaction...';
-                const txHash = await rawProvider.request({
-                    method: 'eth_sendTransaction',
-                    params: [txParams]
+            const data = iface.encodeFunctionData('submitScore', [
+                signData.data.params.farcasterUsername,
+                signData.data.params.fid,
+                signData.data.params.score,
+                signData.data.nonce,
+                signData.data.signature
+            ]);
+
+            const txParams = {
+                to: CONTRACT_ADDRESS,
+                from: walletAddress,
+                data: data,
+                gas: '0x30000'
+            };
+
+            const txHash = await rawProvider.request({
+                method: 'eth_sendTransaction',
+                params: [txParams]
+            });
+
+            btn.textContent = '⏳ Waiting confirmation...';
+            
+            let receipt = null;
+            let attempts = 0;
+            while (!receipt && attempts < 60) {
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                receipt = await rawProvider.request({
+                    method: 'eth_getTransactionReceipt',
+                    params: [txHash]
                 });
-                
-                btn.textContent = '⏳ Waiting confirmation...';
-                
-                let receipt = null;
-                let attempts = 0;
-                while (!receipt && attempts < 60) {
-                    await new Promise(resolve => setTimeout(resolve, 2000));
-                    receipt = await rawProvider.request({
-                        method: 'eth_getTransactionReceipt',
-                        params: [txHash]
-                    });
-                    attempts++;
-                }
-                
-                if (!receipt) {
-                    throw new Error('Transaction timeout');
-                }
-                
-                if (receipt.status === '0x0') {
-                    throw new Error('Transaction failed');
-                }
-            } else {
-                throw new Error('Cannot encode transaction without ethers.js');
+                attempts++;
             }
-        } else {
-            throw new Error('No provider available for transaction');
+
+            if (!receipt) throw new Error('Transaction timeout');
+            if (receipt.status === '0x0') throw new Error('Transaction failed');
+        } 
+        else {
+            throw new Error('Ethers.js library not available');
         }
-        
+
         if (!window.sdk) {
             alert('✅ Score saved successfully!');
         }
         btn.textContent = '✅ Saved!';
-        
+
     } catch (error) {
-        console.error(error);
-        
         if (!window.sdk) {
-            if (error.code === 'ACTION_REJECTED') {
-                alert('Transaction cancelled.');
+            if (error.code === 'ACTION_REJECTED' || error.code === 4001) {
+                alert('❌ Transaction cancelled.');
             } else if (error.message?.includes('insufficient funds')) {
-                alert('Insufficient ETH!');
+                alert('❌ Insufficient ETH for gas!');
             } else {
-                alert('Error: ' + (error.message || 'Unknown error'));
+                alert('❌ Error: ' + (error.message || 'Unknown error'));
             }
         } else {
+            // Sandboxed: show status on button only
             btn.textContent = '❌ Error';
         }
         
@@ -1913,19 +1873,15 @@ async function saveScore() {
 async function viewLeaderboard() {
     const modal = document.getElementById('leaderboard-modal');
     const content = document.getElementById('leaderboard-content');
-    
     modal.classList.remove('hidden');
     content.innerHTML = '⏳ Yükleniyor...';
-
     try {
         const response = await fetch(`${API_URL}/api/leaderboard?limit=20`);
         const data = await response.json();
-
         if (!data.success || data.leaderboard.length === 0) {
             content.innerHTML = '<p>Henüz skor yok. İlk sen ol! 🎯</p>';
             return;
         }
-
         let html = '';
         data.leaderboard.forEach((item) => {
             html += `
@@ -1935,66 +1891,98 @@ async function viewLeaderboard() {
                 </div>
             `;
         });
-
         content.innerHTML = html;
-
-    } catch (error) {
+    }
+    catch (error) {
         content.innerHTML = '<p>Bağlantı hatası!</p>';
     }
 }
-
 function closeLeaderboard() {
     document.getElementById('leaderboard-modal').classList.add('hidden');
 }
-
-function shareOnFarcaster() {
-    const message = `Scored ${currentScore} points in Base Fruits! 🥇 Can you beat me? 🍓🍉`;
-    const gameUrl = 'https://base-fruits.vercel.app/';
-    
+// SHARE ON FARCASTER
+async function shareOnFarcaster() {    
+    const message = `🍉 Base Fruits'ta ${currentScore} puan yaptım! 🥇\n\nBeni yenebilir misin? 🍓🍉`;
+    const gameUrl = 'https://base-fruits-farcaster-miniapp.vercel.app/';    
+    // Create Farcaster cast URL with proper encoding
     const castText = encodeURIComponent(message);
     const embedUrl = encodeURIComponent(gameUrl);
+    const farcasterUrl = `https://warpcast.com/~/compose?text=${castText}&embeds[]=${embedUrl}`;    
+    // Check if we're in Farcaster mini app context
+    if (window.sdk && window.sdk.actions) {        
+        // Try openUrl method
+        if (typeof window.sdk.actions.openUrl === 'function') {
+            try {
+                await window.sdk.actions.openUrl(farcasterUrl);
+                return;
+            } catch (error) {
+                // Silent fail, try next method
+            }
+        }
+        
+        // Try shareUrl method (some SDK versions use this)
+        if (typeof window.sdk.actions.shareUrl === 'function') {
+            try {
+                await window.sdk.actions.shareUrl(farcasterUrl);
+                return;
+            } catch (error) {
+                // Silent fail, try next method
+            }
+        }
+        
+        // Try casting directly if SDK supports it
+        if (typeof window.sdk.actions.createCast === 'function') {
+            try {
+                await window.sdk.actions.createCast({
+                    text: message,
+                    embeds: [gameUrl]
+                });
+                return;
+            } catch (error) {
+                // Silent fail, fall through to browser methods
+            }
+        }    } else {    }
     
-    const farcasterUrl = `https://warpcast.com/~/compose?text=${castText}&embeds[]=${embedUrl}`;
-    
+    // Fallback to browser methods
     try {
-        const newWindow = window.open(farcasterUrl, '_blank');
-        if (!newWindow) {
+        const newWindow = window.open(farcasterUrl, '_blank', 'noopener,noreferrer');
+        
+        if (newWindow) {
+            newWindow.focus();
+        } else {
             window.location.href = farcasterUrl;
         }
     } catch (error) {
-        navigator.clipboard.writeText(message + ' ' + gameUrl).then(() => {
-            alert('Farcaster link could not be opened. Message copied to clipboard!');
-        }).catch(() => {
-            alert('Unable to open Farcaster. Please manually share: ' + message + ' ' + gameUrl);
-        });
+        // Final fallback: Copy to clipboard
+        try {
+            const shareText = `${message}\n\n${gameUrl}`;
+            await navigator.clipboard.writeText(shareText);
+            alert('📋 Paylaşım linki kopyalandı!\n\nWarpcast\'e yapıştırabilirsiniz.');
+        } catch (clipboardError) {
+            // Last resort: Show the message
+            const userMessage = `Lütfen manuel olarak paylaşın:\n\n${message}\n\n${gameUrl}`;
+            alert(userMessage);
+        }
     }
 }
-
 // ===== INITIALIZE GAME =====
-window.addEventListener('DOMContentLoaded', () => {
-    try {
-        const game = new FruitSliceGame();
-        
-        const closeLeaderboardBtn = document.getElementById('close-leaderboard');
-        if (closeLeaderboardBtn) {
-            closeLeaderboardBtn.addEventListener('click', closeLeaderboard);
-        }
-        
+window.addEventListener('DOMContentLoaded', () => {    try {
+        const game = new FruitSliceGame();        // Leaderboard event listeners
+        document.getElementById('close-leaderboard').addEventListener('click', closeLeaderboard);
+        // Share button event listener
         const shareButton = document.getElementById('share-score-button');
         if (shareButton) {
             shareButton.addEventListener('click', shareOnFarcaster);
         }
-        
-        const leaderboardModal = document.getElementById('leaderboard-modal');
-        if (leaderboardModal) {
-            leaderboardModal.addEventListener('click', (e) => {
-                if (e.target === leaderboardModal) {
-                    closeLeaderboard();
-                }
-            });
-        }
-        
-    } catch (error) {
-        console.error('Error initializing game:', error);
+        // Modal dışına tıklayınca kapat
+        document.getElementById('leaderboard-modal').addEventListener('click', (e) => {
+            if (e.target === document.getElementById('leaderboard-modal')) {
+                closeLeaderboard();
+            }
+        });
+    }
+    catch (error) {
+        alert('⚠️ Oyun başlatılamadı. Lütfen sayfayı yenileyin.');
     }
 });
+//# sourceMappingURL=game.js.map

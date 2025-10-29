@@ -96,10 +96,6 @@ const FRUIT_TYPES = [
 
 const SCORE_TABLE = [0, 10, 30, 135, 200, 375, 675, 1200];
 
-// Global variable to store current score before saving
-let currentScore = 0;
-let globalUsername = '';
-
 // ===== GAME STATE =====
 class GameState {
     canvas: HTMLCanvasElement;
@@ -216,147 +212,6 @@ class GameState {
     }
 }
 
-// ===== LEADERBOARD FUNCTIONS (Placeholder for non-Farcaster environment) =====
-function openLeaderboard() {
-    // Show modal
-    document.getElementById('leaderboard-modal')!.classList.remove('hidden');
-    
-    // Trigger loading state or fetch data here
-    // In a real application, you would fetch leaderboard data from a backend/storage
-    // For this example, we just show a placeholder
-    const leaderboardBody = document.getElementById('leaderboard-body')!;
-    leaderboardBody.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-gray-400">Loading Leaderboard...</td></tr>';
-    
-    // Farcaster logic goes here
-    fetchLeaderboard();
-}
-
-function closeLeaderboard() {
-    document.getElementById('leaderboard-modal')!.classList.add('hidden');
-}
-
-async function saveScoreToLeaderboard() {
-    const usernameInput = document.getElementById('username-input') as HTMLInputElement;
-    let username = usernameInput.value.trim();
-    
-    if (username.length < 3 || username.length > 15) {
-        alert('Username must be between 3 and 15 characters.');
-        return;
-    }
-    
-    // Basic XSS prevention (sanitize the input)
-    username = username.replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    globalUsername = username;
-    
-    const saveBtn = document.getElementById('save-leaderboard-button') as HTMLButtonElement;
-    saveBtn.disabled = true;
-    saveBtn.textContent = 'Saving...';
-    
-    // Simulate saving and fetching (in a real app, this would be an API call)
-    // Here we'll just show the leaderboard with the new score added visually.
-    
-    // Farcaster logic to save score
-    await postScoreToFarcaster(username, currentScore, game.state.level);
-    
-    saveBtn.textContent = '✅ Saved!';
-    
-    // Open leaderboard after saving (it will fetch the score)
-    openLeaderboard();
-}
-
-// Farcaster Specific Functions
-const FC_API_ENDPOINT = 'YOUR_FC_API_ENDPOINT'; // Replace with your actual API endpoint
-
-async function fetchLeaderboard() {
-    const leaderboardBody = document.getElementById('leaderboard-body')!;
-    leaderboardBody.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-gray-400">Farcaster API is required for the leaderboard.</td></tr>';
-    
-    // In a real implementation:
-    /*
-    try {
-        const response = await fetch(`${FC_API_ENDPOINT}/leaderboard`);
-        const data = await response.json();
-        
-        leaderboardBody.innerHTML = '';
-        data.scores.forEach((item: any, index: number) => {
-            const row = `
-                <tr>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${index + 1}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${item.username}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${item.score}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${item.level}</td>
-                </tr>
-            `;
-            leaderboardBody.innerHTML += row;
-        });
-    } catch (error) {
-        leaderboardBody.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-red-500">Failed to load leaderboard.</td></tr>';
-    }
-    */
-}
-
-async function postScoreToFarcaster(username: string, score: number, level: number) {
-    console.log(`Simulating score post: ${username}, Score: ${score}, Level: ${level}`);
-    
-    // In a real implementation:
-    /*
-    try {
-        const response = await fetch(`${FC_API_ENDPOINT}/score`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, score, level })
-        });
-        
-        if (!response.ok) {
-            throw new Error('Failed to post score to Farcaster API');
-        }
-        
-        console.log('Score posted successfully.');
-    } catch (error) {
-        console.error('Error posting score:', error);
-        alert('Failed to save score. Please try again.');
-    }
-    */
-}
-
-async function shareOnFarcaster() {
-    if (!currentScore) {
-        alert("Please play a game first!");
-        return;
-    }
-    
-    const message = `I just scored ${currentScore} and reached wave ${game.state.level} in the Fruit Slice game! Can you beat my score? #fruitslicegame #farcaster #game`;
-    const gameUrl = window.location.href.split('?')[0]; // Clean URL
-    
-    // Preferred sharing URL for Warpcast
-    const farcasterUrl = `https://warpcast.com/~/compose?text=${encodeURIComponent(message)}&embeds[]=${encodeURIComponent(gameUrl)}`;
-    
-    try {
-        // Method 1: Check for mobile/Warpcast app (Less reliable, relies on user-agent)
-        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-        
-        if (isMobile) {
-            // Attempt to open in new tab for better compatibility
-            window.open(farcasterUrl, '_blank');
-        } else {
-            // Method 2: Open in current window for desktop
-            const newWindow = window.open(farcasterUrl, '_blank', 'width=550,height=420');
-            if (newWindow) {
-                newWindow.focus();
-            } else {
-                window.location.href = farcasterUrl;
-            }
-        }
-    } catch (error) {
-        // Method 3: Copy to clipboard as fallback
-        navigator.clipboard.writeText(message + ' ' + gameUrl).then(() => {
-            alert('Farcaster link could not be opened. Message copied to clipboard!');
-        }).catch(() => {
-            alert('Unable to open Farcaster. Please manually share: ' + message + ' ' + gameUrl);
-        });
-    }
-}
-
 // ===== GAME LOGIC =====
 class FruitSliceGame {
     state: GameState;
@@ -382,13 +237,6 @@ class FruitSliceGame {
         document.getElementById('restart-button')!.addEventListener('click', () => {
             this.startGame();
         });
-        
-        // Save score button
-        document.getElementById('save-leaderboard-button')!.addEventListener('click', saveScoreToLeaderboard);
-        
-        // Leaderboard button
-        document.getElementById('leaderboard-button')!.addEventListener('click', openLeaderboard);
-        document.getElementById('final-leaderboard-button')!.addEventListener('click', openLeaderboard);
         
         // Mouse events
         this.state.canvas.addEventListener('mousedown', (e) => this.handleInputStart(e.clientX, e.clientY));
@@ -419,7 +267,6 @@ class FruitSliceGame {
         document.getElementById('start-screen')!.classList.remove('hidden');
         document.getElementById('game-hud')!.classList.add('hidden');
         document.getElementById('game-over-screen')!.classList.add('hidden');
-        document.getElementById('leaderboard-modal')!.classList.add('hidden');
     }
     
     showGameOver(playFailSound: boolean = true) {
@@ -444,15 +291,6 @@ class FruitSliceGame {
         
         document.getElementById('final-score')!.textContent = this.state.score.toString();
         document.getElementById('final-level')!.textContent = this.state.level.toString();
-        
-        // If a username was saved during the game, pre-fill it
-        const usernameInput = document.getElementById('username-input') as HTMLInputElement;
-        if (globalUsername) {
-            usernameInput.value = globalUsername;
-        } else {
-            usernameInput.value = '';
-        }
-        
         document.getElementById('game-over-screen')!.classList.remove('hidden');
         document.getElementById('game-hud')!.classList.add('hidden');
     }
@@ -782,6 +620,12 @@ class FruitSliceGame {
             }
         };
         
+        const launchBomb = (beforeFruit: boolean) => {
+            // beforeFruit: true = bomb launches before fruits (350ms earlier), false = after fruits (350ms later)
+            const delay = beforeFruit ? 0 : 350;
+            launchBombAt(delay);
+        };
+
         const launchBombAt = (delayMs: number) => {
             const delay = Math.max(0, delayMs);
             setTimeout(() => {
@@ -836,7 +680,6 @@ class FruitSliceGame {
                 const bombEarly = Math.random() < 0.5;
                 launchBombAt(fruitBaseDelay + (bombEarly ? 0 : 350));
             } else {
-                // No bomb
             }
         } else if (wave >= 21 && wave <= 30) {
             // 50% chance of 1 bomb
@@ -858,6 +701,19 @@ class FruitSliceGame {
             if (hasSecond) {
                 // Second bomb 1s after fruits
                 launchBombAt(fruitBaseDelay + 1000);
+            } else {
+                // If only one bomb, randomly choose before or after
+                if (Math.random() < 0.5) {
+                    // already scheduled before-fruit bomb (keep it)
+                } else {
+                    // replace timing to after-fruit bomb instead
+                    // Note: To keep simple, also schedule an after-fruit bomb and rely on gameplay to handle
+                    // a single bomb feel by keeping spawn count small (two bombs visually okay if happens)
+                    // Better approach: randomly schedule only after-fruit
+                    // Schedule after-fruit and cancel pre-fruit by not scheduling extra (pre-fruit already scheduled)
+                    // To strictly have only one bomb, prefer after-fruit by adding it and removing the pre-fruit spawn cannot be done here.
+                    // Therefore, do nothing; keep the before-fruit as the single bomb.
+                }
             }
         }
     }
@@ -1174,6 +1030,7 @@ class FruitSliceGame {
                         this.state.lives++;
                         this.updateUI();
                     }
+                    
                     // Show milestone message
                     this.showMilestoneMessage(currentWave);
                 } else if (currentWave < MAX_LEVEL) {
@@ -1215,6 +1072,7 @@ class FruitSliceGame {
                 // If angle is closer to horizontal (left/right), make it horizontal
                 const absAngle = Math.abs(rawAngle);
                 let sliceAngle: number;
+                
                 if (absAngle < Math.PI / 4 || absAngle > 3 * Math.PI / 4) {
                     // Horizontal cut (left-right)
                     sliceAngle = 0;
@@ -1256,7 +1114,7 @@ class FruitSliceGame {
             }
         }
     }
-
+    
     lineCircleIntersect(p1: Point, p2: Point, fruit: Fruit): boolean {
         // Vector from p1 to p2
         const dx = p2.x - p1.x;
@@ -1279,7 +1137,7 @@ class FruitSliceGame {
         
         return (t1 >= 0 && t1 <= 1) || (t2 >= 0 && t2 <= 1);
     }
-
+    
     createFruitHalves(fruit: Fruit, sliceAngle: number) {
         // Calculate perpendicular offset for the two halves
         const offsetDist = fruit.radius * 0.3;
@@ -1317,7 +1175,7 @@ class FruitSliceGame {
             opacity: 1
         });
     }
-
+    
     createSliceParticles(fruit: Fruit) {
         // Create juice particles (reduced for mobile)
         if (this.state.particles.length < MAX_PARTICLES) {
@@ -1325,7 +1183,7 @@ class FruitSliceGame {
             for (let i = 0; i < particleCount; i++) {
                 const angle = Math.random() * Math.PI * 2;
                 const speed = 2 + Math.random() * 3;
-                
+            
                 this.state.particles.push({
                     x: fruit.x,
                     y: fruit.y,
@@ -1338,25 +1196,25 @@ class FruitSliceGame {
             }
         }
     }
-
+    
     playKnifeSwooshSound(): void {
         const sound = this.state.swooshSound.cloneNode() as HTMLAudioElement;
         sound.volume = this.state.swooshSound.volume;
         sound.play().catch((e: any) => console.log('Audio play failed:', e));
     }
-
+    
     playBurningSound(): void {
         const sound = this.state.explosionSound.cloneNode() as HTMLAudioElement;
         sound.volume = this.state.explosionSound.volume;
         sound.play().catch((e: any) => console.log('Audio play failed:', e));
     }
-
+    
     playFallSound(): void {
         const sound = this.state.fallSound.cloneNode() as HTMLAudioElement;
         sound.volume = this.state.fallSound.volume;
         sound.play().catch((e: any) => console.log('Audio play failed:', e));
     }
-
+    
     playComboSound(type: 'excellent' | 'amazing' | 'legendary'): void {
         let sourceSound: HTMLAudioElement;
         if (type === 'excellent') {
@@ -1371,10 +1229,9 @@ class FruitSliceGame {
         sound.volume = sourceSound.volume;
         sound.play().catch((e: any) => console.log('Audio play failed:', e));
     }
-
+    
     playSliceSound(comboCount: number): void {
         const sound = this.state.sliceSound.cloneNode() as HTMLAudioElement;
-        // Increase volume slightly with combo for effect, capping at 1.0
         sound.volume = Math.min(1.0, this.state.sliceSound.volume * (1 + comboCount * 0.1));
         sound.play().catch((e: any) => console.log('Audio play failed:', e));
     }
@@ -1390,180 +1247,93 @@ class FruitSliceGame {
         const particles: Particle[] = [];
         
         for (let i = 0; i < 50; i++) {
-            const angle = Math.random() * Math.PI * 2;
-            const speed = 2 + Math.random() * 5;
+            const angle = (Math.PI * 2 * i) / 50;
+            const speed = 3 + Math.random() * 5;
             
             particles.push({
                 x: x,
                 y: y,
                 vx: Math.cos(angle) * speed,
                 vy: Math.sin(angle) * speed,
-                size: 2 + Math.random() * 4,
+                size: 3 + Math.random() * 4,
                 color: colors[Math.floor(Math.random() * colors.length)],
                 life: 1
             });
         }
         
-        // Limit fireworks count
-        if (this.state.fireworks.length < 3) {
-            this.state.fireworks.push({ x, y, particles });
-        }
+        this.state.fireworks.push({ x, y, particles });
     }
     
-    update(deltaTime: number) {
-        if (!this.state.isPlaying || this.state.isPaused) return;
-
-        // Apply screen shake decay
-        this.state.screenShake = Math.max(0, this.state.screenShake - deltaTime * 0.05);
-        this.state.redFlash = Math.max(0, this.state.redFlash - deltaTime * 0.005);
+    updatePhysics(dt: number): void {
+        // Don't update physics if paused
+        if (this.state.isPaused) {
+            // Still update visual effects
+            if (this.state.screenShake > 0) {
+                this.state.screenShake -= 1 * dt;
+                if (this.state.screenShake < 0) this.state.screenShake = 0;
+            }
+            if (this.state.redFlash > 0) {
+                this.state.redFlash -= 0.05 * dt;
+                if (this.state.redFlash < 0) this.state.redFlash = 0;
+            }
+            return;
+        }
         
-        // Update Fruits
-        let allFruitsInactive = true;
-        for (let i = this.state.fruits.length - 1; i >= 0; i--) {
-            const fruit = this.state.fruits[i];
-            
+        const normalizedDt = Math.min(dt, 20) / 16.67; // Normalize to 60fps
+        dt = normalizedDt;
+        
+        // Update fruits
+        for (const fruit of this.state.fruits) {
             if (!fruit.active) continue;
             
-            allFruitsInactive = false;
-
-            // Apply gravity
-            fruit.vy += GRAVITY * deltaTime;
-
-            // Update position
-            fruit.x += fruit.vx * deltaTime;
-            fruit.y += fruit.vy * deltaTime;
+            fruit.x += fruit.vx * dt;
+            fruit.y += fruit.vy * dt;
+            fruit.vy += GRAVITY * dt;
+            fruit.rotation += fruit.rotationSpeed * dt;
             
-            // Update rotation
-            fruit.rotation += fruit.rotationSpeed * deltaTime;
-            
-            // Wall bouncing logic (for fun/realism)
-            if (fruit.x - fruit.radius < 0 || fruit.x + fruit.radius > this.state.width) {
-                fruit.vx *= -WALL_BOUNCE_DAMPING;
-                fruit.x = fruit.x - fruit.radius < 0 ? fruit.radius : this.state.width - fruit.radius;
+            // Wall bouncing - left wall
+            if (fruit.x - fruit.radius < 0) {
+                fruit.x = fruit.radius;
+                fruit.vx = Math.abs(fruit.vx) * WALL_BOUNCE_DAMPING;
             }
-
-            // Check if fruit has fallen off the bottom
-            if (fruit.y > this.state.height + fruit.radius * 2) {
+            
+            // Wall bouncing - right wall
+            if (fruit.x + fruit.radius > this.state.width) {
+                fruit.x = this.state.width - fruit.radius;
+                fruit.vx = -Math.abs(fruit.vx) * WALL_BOUNCE_DAMPING;
+            }
+            
+            // Check if fruit fell off screen
+            if (fruit.y > this.state.height + fruit.radius) {
                 fruit.active = false;
                 
                 // Stop fuse sound if it's a bomb
                 if (fruit.isBomb && fruit.fuseSound) {
                     fruit.fuseSound.pause();
                     fruit.fuseSound.currentTime = 0;
-                    fruit.fuseSound = undefined;
+                    fruit.fuseSound = undefined; // Clear reference
                 }
                 
-                // Only lose a life if it was a non-sliced, non-bomb fruit
+                // Lose life if not sliced AND not a bomb
                 if (!fruit.sliced && !fruit.isBomb) {
                     this.state.lives--;
-                    this.playFallSound();
+                    this.playFallSound(); // Play fall sound when fruit is missed
                     this.updateUI();
                     
                     if (this.state.lives <= 0) {
                         this.showGameOver();
-                        return; // Stop updating if game over
+                        return;
                     }
                 }
             }
         }
         
-        // Update Fruit Halves
-        for (let i = this.state.fruitHalves.length - 1; i >= 0; i--) {
-            const half = this.state.fruitHalves[i];
-            
-            // Apply gravity
-            half.vy += GRAVITY * deltaTime;
-
-            // Update position
-            half.x += half.vx * deltaTime;
-            half.y += half.vy * deltaTime;
-            
-            // Update rotation
-            half.rotation += half.rotationSpeed * deltaTime;
-            
-            // Fade out the half as it falls
-            half.opacity = Math.max(0, half.opacity - deltaTime * 0.005);
-            
-            // Remove if off screen and faded out
-            if (half.y > this.state.height + half.radius || half.opacity <= 0) {
-                this.state.fruitHalves.splice(i, 1);
-            }
-        }
-        
-        // Update Trails (Current Trail is handled by inputMove, fading trails here)
-        for (let i = this.state.trails.length - 1; i >= 0; i--) {
-            const trail = this.state.trails[i];
-            trail.opacity = Math.max(0, trail.opacity - TRAIL_FADE_SPEED * deltaTime * 0.01);
-            if (trail.opacity <= 0) {
-                this.state.trails.splice(i, 1);
-            }
-        }
-        
-        // Update Particles
-        for (let i = this.state.particles.length - 1; i >= 0; i--) {
-            const particle = this.state.particles[i];
-            
-            // Apply gravity
-            particle.vy += GRAVITY * deltaTime * 0.5; // Less gravity for particles
-            
-            // Update position
-            particle.x += particle.vx * deltaTime;
-            particle.y += particle.vy * deltaTime;
-            
-            // Fade out
-            particle.life -= deltaTime * 0.005; // Fade time is about 200ms
-            
-            if (particle.life <= 0) {
-                this.state.particles.splice(i, 1);
-            }
-        }
-        
-        // Update Score Popups
-        for (let i = this.state.scorePopups.length - 1; i >= 0; i--) {
-            const popup = this.state.scorePopups[i];
-            
-            popup.y -= deltaTime * 0.05; // Float upwards
-            popup.opacity = Math.max(0, popup.opacity - deltaTime * 0.005);
-            popup.scale = Math.min(2.0, popup.scale + deltaTime * 0.001);
-            
-            if (popup.opacity <= 0) {
-                this.state.scorePopups.splice(i, 1);
-            }
-        }
-        
-        // Update Fireworks
-        for (let i = this.state.fireworks.length - 1; i >= 0; i--) {
-            const firework = this.state.fireworks[i];
-            let fireworkActive = false;
-            for (let j = firework.particles.length - 1; j >= 0; j--) {
-                const particle = firework.particles[j];
-                
-                // Apply gravity
-                particle.vy += GRAVITY * deltaTime * 0.5;
-                
-                // Update position
-                particle.x += particle.vx * deltaTime;
-                particle.y += particle.vy * deltaTime;
-                
-                // Fade out
-                particle.life -= deltaTime * 0.002;
-                
-                if (particle.life <= 0) {
-                    firework.particles.splice(j, 1);
-                } else {
-                    fireworkActive = true;
-                }
-            }
-            
-            if (!fireworkActive) {
-                this.state.fireworks.splice(i, 1);
-            }
-        }
-
-        // Wave advancement logic
-        // Check if all fruits have been launched and all are now inactive
-        if (this.state.allFruitsLaunched && allFruitsInactive && !this.state.showingMilestone) {
+        // Check if all fruits are gone (advance level)
+        if (this.state.allFruitsLaunched && this.state.fruits.every(f => !f.active) && !this.state.showingMilestone && this.state.isPlaying) {
             const currentWave = this.state.level;
+            
+            // Reset flag to prevent multiple wave advancements (but keep game running)
+            this.state.allFruitsLaunched = false;
             
             // Check if this is a milestone wave (10, 20, 30, 40, 50)
             if (currentWave === 10 || currentWave === 20 || currentWave === 30 || currentWave === 40 || currentWave === 50) {
@@ -1572,8 +1342,10 @@ class FruitSliceGame {
                     this.state.lives++;
                     this.updateUI();
                 }
+                
                 // Show milestone message
                 this.showMilestoneMessage(currentWave);
+                // Note: isPlaying will be set to true when milestone ends and next wave starts
             } else if (currentWave < MAX_LEVEL) {
                 // Regular wave advancement
                 this.state.level++;
@@ -1582,7 +1354,7 @@ class FruitSliceGame {
                 // Check if this is a chapter start wave
                 const nextWave = this.state.level;
                 if (nextWave === 11 || nextWave === 21 || nextWave === 31 || nextWave === 41) {
-                    // Show chapter name and immediately launch fruits
+                    // Show chapter name and launch fruits after it disappears
                     this.showChapterName(nextWave, () => {
                         this.launchFruits();
                     });
@@ -1594,271 +1366,834 @@ class FruitSliceGame {
                 this.showGameOver(false);
             }
         }
+        
+        // Update fruit halves
+        for (let i = this.state.fruitHalves.length - 1; i >= 0; i--) {
+            const half = this.state.fruitHalves[i];
+            half.x += half.vx * dt;
+            half.y += half.vy * dt;
+            half.vy += GRAVITY * dt;
+            half.rotation += half.rotationSpeed * dt;
+            
+            // Fade out as they fall
+            if (half.y > this.state.height * 0.5) {
+                half.opacity -= 0.015 * dt;
+            }
+            
+            // Remove when off screen or fully faded
+            if (half.y > this.state.height + half.radius || half.opacity <= 0) {
+                this.state.fruitHalves.splice(i, 1);
+            }
+        }
+        
+        // Update particles (more aggressive cleanup for performance)
+        for (let i = this.state.particles.length - 1; i >= 0; i--) {
+            const p = this.state.particles[i];
+            p.x += p.vx * dt;
+            p.y += p.vy * dt;
+            p.vy += GRAVITY * 0.3 * dt;
+            p.life -= 0.02 * dt;
+            
+            // Remove particles that are off-screen or dead
+            if (p.life <= 0 || p.y > this.state.height || p.x < 0 || p.x > this.state.width) {
+                this.state.particles.splice(i, 1);
+            }
+        }
+        
+        // Update fireworks
+        for (let i = this.state.fireworks.length - 1; i >= 0; i--) {
+            const fw = this.state.fireworks[i];
+            let allDead = true;
+            
+            for (const p of fw.particles) {
+                p.x += p.vx * dt;
+                p.y += p.vy * dt;
+                p.vy += GRAVITY * 0.2 * dt;
+                p.life -= 0.015 * dt;
+                
+                if (p.life > 0) allDead = false;
+            }
+            
+            if (allDead) {
+                this.state.fireworks.splice(i, 1);
+            }
+        }
+        
+        // Update score popups
+        for (let i = this.state.scorePopups.length - 1; i >= 0; i--) {
+            const popup = this.state.scorePopups[i];
+            popup.y -= 1 * dt;
+            popup.opacity -= 0.02 * dt;
+            popup.scale += 0.01 * dt;
+            
+            if (popup.opacity <= 0) {
+                this.state.scorePopups.splice(i, 1);
+            }
+        }
+        
+        // Update current trail (remove old points even when mouse is stationary)
+        if (this.state.isDrawing && this.state.currentTrail.length > 0) {
+            const now = performance.now();
+            this.state.currentTrail = this.state.currentTrail.filter(p => 
+                !p.timestamp || (now - p.timestamp) < 150
+            );
+        }
+        
+        // Update trails (fade out and cleanup)
+        for (let i = this.state.trails.length - 1; i >= 0; i--) {
+            const trail = this.state.trails[i];
+            trail.opacity -= TRAIL_FADE_SPEED * dt;
+            
+            // Remove old points from trail for performance
+            if (trail.points.length > MAX_TRAIL_POINTS) {
+                trail.points = trail.points.slice(-MAX_TRAIL_POINTS);
+            }
+            
+            if (trail.opacity <= 0) {
+                this.state.trails.splice(i, 1);
+            }
+        }
+        
+        // Limit score popups to prevent memory leaks
+        if (this.state.scorePopups.length > MAX_SCORE_POPUPS) {
+            this.state.scorePopups = this.state.scorePopups.slice(-MAX_SCORE_POPUPS);
+        }
+        
+        // Update screen shake
+        if (this.state.screenShake > 0) {
+            this.state.screenShake -= 1 * dt;
+            if (this.state.screenShake < 0) this.state.screenShake = 0;
+        }
+        
+        // Update red flash
+        if (this.state.redFlash > 0) {
+            this.state.redFlash -= 0.05 * dt;
+            if (this.state.redFlash < 0) this.state.redFlash = 0;
+        }
     }
     
-    draw() {
+    render(): void {
         const ctx = this.state.ctx;
         
-        // Apply screen shake offset
-        const offsetX = this.state.screenShake * (Math.random() - 0.5);
-        const offsetY = this.state.screenShake * (Math.random() - 0.5);
-        
-        // Apply red flash effect
-        const redFlashColor = `rgba(255, 0, 0, ${this.state.redFlash * 0.5})`;
-        
+        // Apply screen shake
         ctx.save();
-        ctx.translate(offsetX, offsetY);
+        if (this.state.screenShake > 0) {
+            const shakeX = (Math.random() - 0.5) * this.state.screenShake;
+            const shakeY = (Math.random() - 0.5) * this.state.screenShake;
+            ctx.translate(shakeX, shakeY);
+        }
         
-        // Clear canvas (Red flash effect is drawn on top)
+        // Clear canvas with transparency to show background image
         ctx.clearRect(0, 0, this.state.width, this.state.height);
         
-        // Draw red flash background
+        // Draw red flash overlay
         if (this.state.redFlash > 0) {
-            ctx.fillStyle = redFlashColor;
+            ctx.fillStyle = `rgba(255, 0, 0, ${this.state.redFlash * 0.5})`;
             ctx.fillRect(0, 0, this.state.width, this.state.height);
         }
-
-        // Draw Trails (Fading Trails first)
-        for (const trail of this.state.trails) {
-            this.drawTrail(ctx, trail.points, trail.opacity);
+        
+        // Draw particles
+        for (const p of this.state.particles) {
+            ctx.globalAlpha = p.life;
+            ctx.fillStyle = p.color;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            ctx.fill();
         }
         
-        // Draw Current Trail
-        if (this.state.isDrawing && this.state.currentTrail.length > 1) {
-            this.drawTrail(ctx, this.state.currentTrail, 1.0);
+        // Draw fireworks (skip shadows on mobile for performance)
+        for (const fw of this.state.fireworks) {
+            for (const p of fw.particles) {
+                ctx.globalAlpha = p.life;
+                ctx.fillStyle = p.color;
+                // Skip shadows for better mobile performance
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
         }
-
-        // Draw Fruits
+        ctx.globalAlpha = 1;
+        
+        // Draw fruits (only unsliced ones)
         for (const fruit of this.state.fruits) {
-            if (fruit.active && !fruit.sliced) {
-                this.drawFruit(ctx, fruit);
+            if (!fruit.active || fruit.sliced) continue;
+            
+            ctx.globalAlpha = 1;
+            
+            ctx.save();
+            ctx.translate(fruit.x, fruit.y);
+            ctx.rotate(fruit.rotation);
+            
+            if (fruit.isBomb) {
+                // Draw bomb emoji
+                ctx.font = `${fruit.radius * 2}px Arial`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('💣', 0, 0);
+            } else {
+                // Use fruit image with custom sizes
+                const img = this.state.fruitImages.get(fruit.fruitType);
+                if (img && img.complete) {
+                    let sizeMultiplier = 2.5; // default size
+                    
+                    // Custom sizes for different fruits
+                    switch (fruit.fruitType) {
+                        case 'pineapple':
+                            sizeMultiplier = 3.2; // büyüt
+                            break;
+                        case 'lemon':
+                            sizeMultiplier = 1.8; // daha da küçült
+                            break;
+                        case 'apple':
+                        case 'orange':
+                        case 'kiwi':
+                        case 'watermelon':
+                        case 'strawberry':
+                        default:
+                            sizeMultiplier = 2.5; // normal size
+                            break;
+                    }
+                    
+                    const imgSize = fruit.radius * sizeMultiplier;
+                    ctx.drawImage(img, -imgSize / 2, -imgSize / 2, imgSize, imgSize);
+                }
             }
+            
+            ctx.restore();
         }
         
-        // Draw Fruit Halves
+        // Draw fruit halves
         for (const half of this.state.fruitHalves) {
-            this.drawFruitHalf(ctx, half);
+            ctx.save();
+            ctx.globalAlpha = half.opacity;
+            ctx.translate(half.x, half.y);
+            ctx.rotate(half.rotation);
+            
+            // Use half fruit image with custom sizes
+            const halfImg = this.state.halfFruitImages.get(half.fruitType);
+            if (halfImg && halfImg.complete) {
+                let sizeMultiplier = 2.8; // default size
+                
+                // Custom sizes for different fruit halves
+                switch (half.fruitType) {
+                    case 'apple':
+                        sizeMultiplier = 1.8; // daha da küçült
+                        break;
+                    case 'pineapple':
+                        sizeMultiplier = 3.5; // büyüt
+                        break;
+                    case 'orange':
+                    case 'lemon':
+                        sizeMultiplier = 1.9; // daha da küçült
+                        break;
+                    case 'kiwi':
+                        sizeMultiplier = 2; // küçült
+                        break;
+                    case 'strawberry':
+                        sizeMultiplier = 1.9; // küçült
+                        break;
+                    case 'watermelon':
+                        sizeMultiplier = 3.0; // büyüt
+                        break;
+                    default:
+                        sizeMultiplier = 2.2; // normal size
+                        break;
+                }
+                
+                const imgSize = half.radius * sizeMultiplier;
+                ctx.drawImage(halfImg, -imgSize / 2, -imgSize / 2, imgSize, imgSize);
+            }
+            
+            ctx.restore();
         }
         
-        // Draw Juice Particles
-        for (const particle of this.state.particles) {
-            this.drawParticle(ctx, particle);
+        ctx.globalAlpha = 1;
+        
+        // Draw old trails
+        for (const trail of this.state.trails) {
+            this.drawTrail(trail.points, trail.opacity);
         }
         
-        // Draw Fireworks
-        for (const firework of this.state.fireworks) {
-            for (const particle of firework.particles) {
-                this.drawParticle(ctx, particle, true);
+        // Draw current trail
+        if (this.state.currentTrail.length > 1) {
+            this.drawTrail(this.state.currentTrail, 1);
+        }
+        
+        // Draw score popups
+        for (const popup of this.state.scorePopups) {
+            ctx.globalAlpha = popup.opacity;
+            ctx.textAlign = 'center';
+            
+            // Simple green popup for 1-2 fruits
+            if (popup.isSimple) {
+                ctx.fillStyle = '#4ade80'; // Green color
+                ctx.font = `bold ${28}px Arial`;
+                ctx.textBaseline = 'middle';
+                ctx.shadowBlur = 12;
+                ctx.shadowColor = '#4ade80';
+                ctx.fillText(`+${popup.score}`, popup.x, popup.y);
+            }
+            // Combo popup for 3+ fruits
+            else if (popup.comboText) {
+                // Draw combo text in yellow
+                ctx.fillStyle = '#FFD700';
+                ctx.font = `bold ${32}px Arial`;
+                ctx.textBaseline = 'bottom';
+                ctx.shadowBlur = 20;
+                ctx.shadowColor = '#FFD700';
+                ctx.fillText(popup.comboText, popup.x, popup.y - 10);
+                // Draw score below combo text in white
+                ctx.fillStyle = '#FFFFFF';
+                ctx.font = `bold ${28}px Arial`;
+                ctx.textBaseline = 'top';
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = '#FFFFFF';
+                ctx.fillText(`+${popup.score}`, popup.x, popup.y + 10);
             }
         }
         
-        // Draw Score Popups (Combo text)
-        for (const popup of this.state.scorePopups) {
-            this.drawScorePopup(ctx, popup);
-        }
+        ctx.shadowBlur = 0;
+        ctx.globalAlpha = 1;
         
+        // Restore canvas (remove screen shake)
         ctx.restore();
     }
     
-    drawTrail(ctx: CanvasRenderingContext2D, points: Point[], opacity: number) {
-        ctx.save();
-        ctx.strokeStyle = `rgba(255, 255, 255, ${opacity})`;
-        ctx.lineWidth = 6;
+    
+    getFleshColor(emoji: string): string {
+        // Return realistic flesh colors for different fruits
+        switch (emoji) {
+            case '🍎': return '#f5f5dc'; // Apple - pale cream/white
+            case '🍊': return '#ffd699'; // Orange - light orange
+            case '🍋': return '#fffacd'; // Lemon - pale yellow
+            case '🍌': return '#fff8dc'; // Banana - cream
+            case '🍉': return '#ffb3ba'; // Watermelon - light pink/red
+            case '🍇': return '#dda0dd'; // Grapes - light purple
+            case '🍓': return '#ffcccb'; // Strawberry - light pink
+            case '🥝': return '#d4f1d4'; // Kiwi - pale green
+            default: return '#ffffff'; // Default white
+        }
+    }
+    
+    getLighterColor(color: string): string {
+        // Convert hex color to lighter shade for fruit flesh
+        const hex = color.replace('#', '');
+        const r = parseInt(hex.substring(0, 2), 16);
+        const g = parseInt(hex.substring(2, 4), 16);
+        const b = parseInt(hex.substring(4, 6), 16);
+        
+        // Make it lighter by adding to RGB values
+        const lighter = (val: number) => Math.min(255, val + 80);
+        
+        return `rgb(${lighter(r)}, ${lighter(g)}, ${lighter(b)})`;
+    }
+    
+    getDarkerColor(color: string): string {
+        // Convert hex color to darker shade for borders
+        const hex = color.replace('#', '');
+        const r = parseInt(hex.substring(0, 2), 16);
+        const g = parseInt(hex.substring(2, 4), 16);
+        const b = parseInt(hex.substring(4, 6), 16);
+        
+        // Make it darker by reducing RGB values
+        const darker = (val: number) => Math.max(0, val - 60);
+        
+        return `rgb(${darker(r)}, ${darker(g)}, ${darker(b)})`;
+    }
+    
+    drawFruitDetails(ctx: CanvasRenderingContext2D, half: FruitHalf): void {
+        // Add seeds or details based on fruit type
+        const fruitType = half.fruitType;
+        
+        // Watermelon - add black seeds
+        if (fruitType === 'watermelon') {
+            ctx.fillStyle = '#2c2c2c';
+            for (let i = 0; i < 3; i++) {
+                const angle = (Math.PI * 2 * i) / 3;
+                const x = Math.cos(angle) * half.radius * 0.3;
+                const y = Math.sin(angle) * half.radius * 0.3;
+                ctx.beginPath();
+                ctx.ellipse(x, y, 2, 3, angle, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+        // Kiwi - add small seeds pattern
+        else if (fruitType === 'kiwi') {
+            ctx.fillStyle = '#2c2c2c';
+            for (let i = 0; i < 8; i++) {
+                const angle = (Math.PI * 2 * i) / 8;
+                const x = Math.cos(angle) * half.radius * 0.25;
+                const y = Math.sin(angle) * half.radius * 0.25;
+                ctx.beginPath();
+                ctx.arc(x, y, 1, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+        // Orange/Lemon - add segment lines
+        else if (fruitType === 'orange' || fruitType === 'lemon') {
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+            ctx.lineWidth = 1;
+            for (let i = 0; i < 6; i++) {
+                const angle = (Math.PI * 2 * i) / 6;
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.lineTo(Math.cos(angle) * half.radius * 0.5, Math.sin(angle) * half.radius * 0.5);
+                ctx.stroke();
+            }
+        }
+        // Strawberry - add small seeds
+        else if (fruitType === 'strawberry') {
+            ctx.fillStyle = '#ffe66d';
+            for (let i = 0; i < 6; i++) {
+                const angle = (Math.PI * 2 * i) / 6 + Math.random() * 0.3;
+                const dist = half.radius * (0.2 + Math.random() * 0.2);
+                const x = Math.cos(angle) * dist;
+                const y = Math.sin(angle) * dist;
+                ctx.beginPath();
+                ctx.arc(x, y, 1.5, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+    }
+    drawTrail(points: Point[], opacity: number): void {
+        if (points.length < 2) return;
+        
+        const ctx = this.state.ctx;
+        ctx.globalAlpha = opacity;
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
         
-        ctx.beginPath();
+        const step = this.state.isLowPerformance ? 2 : 1;
         
-        // Draw only the last 5 points for better performance and smoother look
-        const start = Math.max(0, points.length - 5);
-        ctx.moveTo(points[start].x, points[start].y);
+        // Draw multiple passes with increasing thickness for gradient effect
+        const layers = [
+            { widthStart: 3, widthEnd: 9, color: 'rgba(80, 180, 255, 0.3)', blur: 12 },
+            { widthStart: 1.5, widthEnd: 4, color: 'rgba(150, 220, 255, 0.9)', blur: 6 }
+        ];
         
-        for (let i = start + 1; i < points.length; i++) {
-            ctx.lineTo(points[i].x, points[i].y);
-        }
-        
-        ctx.stroke();
-        ctx.restore();
-    }
-    
-    drawFruit(ctx: CanvasRenderingContext2D, fruit: Fruit) {
-        ctx.save();
-        ctx.translate(fruit.x, fruit.y);
-        ctx.rotate(fruit.rotation);
-        
-        const image = this.state.fruitImages.get(fruit.fruitType);
-        const size = fruit.radius * 2;
-        
-        if (image && image.complete) {
-            ctx.drawImage(image, -fruit.radius, -fruit.radius, size, size);
-        } else {
-            // Fallback: draw a colored circle
-            ctx.fillStyle = fruit.color;
-            ctx.beginPath();
-            ctx.arc(0, 0, fruit.radius, 0, Math.PI * 2);
-            ctx.fill();
-            
-            // Bomb fallback: draw a fuse and bomb highlight
-            if (fruit.isBomb) {
-                ctx.fillStyle = '#000000';
-                ctx.fillRect(-2, -fruit.radius * 1.5, 4, fruit.radius * 0.5); // Fuse
-                ctx.strokeStyle = '#ff0000';
-                ctx.lineWidth = 2;
+        for (const layer of layers) {
+            // Draw the path in small segments with varying width
+            for (let i = 0; i < points.length - 1; i += step) {
+                const progress = i / (points.length - 1);
+                const width = layer.widthStart + (layer.widthEnd - layer.widthStart) * progress;
+                
+                ctx.strokeStyle = layer.color;
+                ctx.lineWidth = width;
+                ctx.shadowBlur = layer.blur;
+                ctx.shadowColor = layer.color;
+                
                 ctx.beginPath();
-                ctx.arc(0, 0, fruit.radius - 2, 0, Math.PI * 2);
+                ctx.moveTo(points[i].x, points[i].y);
+                
+                // Use quadratic curve for smooth connection
+                if (i < points.length - 2) {
+                    const xc = (points[i + 1].x + points[Math.min(i + 2, points.length - 1)].x) / 2;
+                    const yc = (points[i + 1].y + points[Math.min(i + 2, points.length - 1)].y) / 2;
+                    ctx.quadraticCurveTo(points[i + 1].x, points[i + 1].y, xc, yc);
+                } else {
+                    ctx.lineTo(points[i + 1].x, points[i + 1].y);
+                }
+                
                 ctx.stroke();
             }
         }
         
-        ctx.restore();
+        // Reset shadow
+        ctx.shadowBlur = 0;
+        ctx.globalAlpha = 1;
     }
     
-    drawFruitHalf(ctx: CanvasRenderingContext2D, half: FruitHalf) {
-        ctx.save();
-        ctx.globalAlpha = half.opacity;
-        ctx.translate(half.x, half.y);
-        ctx.rotate(half.rotation);
+    updateUI(): void {
+        document.getElementById('score')!.textContent = this.state.score.toString();
+        document.getElementById('level')!.textContent = this.state.level.toString();
         
-        const image = this.state.halfFruitImages.get(half.fruitType);
-        const size = half.radius * 2;
-        const offset = half.isLeft ? -half.radius : 0;
-        
-        if (image && image.complete) {
-            // Drawing a half image requires cropping the source image
-            // We draw the full half image at the rotated position
-            ctx.drawImage(image, offset, -half.radius, half.radius, size, half.radius * (half.isLeft ? -1 : 0), -half.radius, size, size);
-        } else {
-            // Fallback: draw a colored arc/shape (more complex for halves)
-            ctx.fillStyle = half.color;
-            ctx.beginPath();
-            // Simple approach: just draw a full circle with reduced opacity
-            ctx.arc(0, 0, half.radius, 0, Math.PI * 2);
-            ctx.fill();
-        }
-        
-        ctx.restore();
+        // Ensure lives is at least 0 before displaying
+        const livesCount = Math.max(0, this.state.lives);
+        const hearts = '❤️'.repeat(livesCount);
+        document.getElementById('lives')!.textContent = hearts;
     }
     
-    drawParticle(ctx: CanvasRenderingContext2D, particle: Particle, isFirework: boolean = false) {
-        ctx.save();
-        
-        const alpha = particle.life;
-        const color = isFirework ? particle.color : `rgba(255, 255, 255, ${alpha})`;
-        
-        if (!isFirework) {
-            // Juice particles: use fruit color and gradually fade
-            ctx.fillStyle = particle.color;
-        } else {
-            // Firework particles: bright glow effect
-            ctx.fillStyle = particle.color;
-        }
-        
-        ctx.globalAlpha = alpha;
-        
-        ctx.beginPath();
-        ctx.arc(particle.x, particle.y, particle.size / 2, 0, Math.PI * 2);
-        ctx.fill();
-        
-        ctx.restore();
-    }
-    
-    drawScorePopup(ctx: CanvasRenderingContext2D, popup: ScorePopup) {
-        ctx.save();
-        ctx.globalAlpha = popup.opacity;
-        ctx.font = `${popup.isSimple ? 24 : 36}px Arial, sans-serif`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        
-        let text: string;
-        let yOffset = 0;
-        
-        if (popup.comboText) {
-            if (popup.isSimple) {
-                // Simple score popup (small green score)
-                ctx.fillStyle = 'rgba(0, 255, 0, 1)';
-                ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
-                ctx.shadowBlur = 4;
-                text = `+${popup.score}`;
-            } else {
-                // Combo message (large white text)
-                ctx.fillStyle = 'white';
-                ctx.shadowColor = 'black';
-                ctx.shadowBlur = 10;
-                
-                // Draw combo text first (larger)
-                ctx.font = 'bold 36px Impact, sans-serif';
-                ctx.fillText(popup.comboText, popup.x, popup.y);
-                
-                // Draw score below
-                ctx.font = 'bold 24px Arial, sans-serif';
-                text = `+${popup.score} Points`;
-                yOffset = 40;
-            }
-        } else {
-            // Single score popup (default green)
-            ctx.fillStyle = 'rgba(0, 255, 0, 1)';
-            ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
-            ctx.shadowBlur = 4;
-            text = `+${popup.score}`;
-        }
-        
-        ctx.scale(popup.scale, popup.scale);
-        
-        // Adjust coordinates after scale
-        const scaleFactor = 1 / popup.scale;
-        ctx.fillText(text, popup.x * scaleFactor, (popup.y + yOffset) * scaleFactor);
-        
-        ctx.restore();
-    }
-    
-    updateUI() {
-        document.getElementById('score-value')!.textContent = this.state.score.toString().padStart(6, '0');
-        document.getElementById('wave-value')!.textContent = this.state.level.toString().padStart(2, '0');
-        
-        const livesContainer = document.getElementById('lives-container')!;
-        livesContainer.innerHTML = '';
-        for (let i = 0; i < INITIAL_LIVES; i++) {
-            const heart = document.createElement('span');
-            heart.className = 'text-2xl transition-opacity duration-300';
-            heart.textContent = '❤️';
-            if (i >= this.state.lives) {
-                heart.style.opacity = '0.3'; // Dim lost lives
-            }
-            livesContainer.appendChild(heart);
-        }
-    }
-
-    gameLoop(currentTime: number) {
+    gameLoop(currentTime: number): void {
         if (!this.state.isPlaying) return;
         
-        // Calculate delta time
-        const deltaTime = (currentTime - this.state.lastFrameTime) / 1000;
-        this.state.lastFrameTime = currentTime;
+        const deltaTime = currentTime - this.state.lastFrameTime;
         
-        // Performance check (simple frame skipping)
-        // If deltaTime is too large (e.g., > 100ms), we skip the update step to avoid physics glitches
-        const maxDeltaTime = 100;
-        
-        if (deltaTime < maxDeltaTime) {
-            this.update(deltaTime);
-        } else {
-            console.warn(`Frame skipped due to large delta time: ${deltaTime.toFixed(2)}ms`);
+        // Detect low performance (FPS < 30)
+        if (deltaTime > 33 && !this.state.isLowPerformance) {
+            this.state.frameSkipCounter++;
+            if (this.state.frameSkipCounter > 10) {
+                console.log('Low performance detected, enabling optimizations');
+                this.state.isLowPerformance = true;
+            }
+        } else if (deltaTime < 20 && this.state.isLowPerformance) {
+            this.state.frameSkipCounter = 0;
         }
         
-        this.draw();
+        this.state.lastFrameTime = currentTime;
         
-        // Request next frame
-        requestAnimationFrame((time) => this.gameLoop(time));
+        // Always update physics
+        this.updatePhysics(deltaTime);
+        
+        // Skip rendering every other frame on low performance devices
+        if (!this.state.isLowPerformance || this.state.frameSkipCounter % 2 === 0) {
+            this.render();
+        }
+        
+        requestAnimationFrame((time) => { this.gameLoop(time); });
     }
 }
 
-// Global reference for leaderboard functions to access game state
-let game: FruitSliceGame;
+// ===== LEADERBOARD FUNCTIONALITY =====
+
+const CONTRACT_ADDRESS = '0xa4f109Eb679970C0b30C21812C99318837A81c73';
+const API_URL = '';
+let currentScore = 0;
+
+// SAVE LEADERBOARD - Farcaster SDK veya MetaMask
+async function saveScore() {
+    console.log('=== SAVE SCORE STARTED ===');
+    console.log('Current score:', currentScore);
+    console.log('Window parent:', (window as any).parent);
+    console.log('SDK present:', !!(window as any).sdk);
+    
+    // Farcaster kullanıcı adını çek veya test için rastgele oluştur
+    let username = '';
+    let fid = 0;
+    
+    // Farcaster SDK context (Mini App)
+    try {
+        if ((window as any).sdk) {
+            const context = await (window as any).sdk.context;
+            if (context?.user?.fid && context?.user?.username) {
+                username = context.user.username;
+                fid = context.user.fid;
+                console.log('Farcaster user:', { username, fid });
+            }
+        }
+    } catch (error: any) {
+        console.log('Farcaster SDK context error:', error?.message || error);
+    }
+    
+    // Test ortamı için rastgele kullanıcı adı
+    if (!username) {
+        const testUsernames = ['Player1', 'FruitNinja', 'SliceKing', 'BombAvoider', 'ComboMaster', 'FruitHero'];
+        username = testUsernames[Math.floor(Math.random() * testUsernames.length)] + Math.floor(Math.random() * 1000);
+        fid = Math.floor(Math.random() * 100000); // Test FID
+    }
+
+    const btn = document.getElementById('save-leaderboard-button') as HTMLButtonElement;
+    btn.disabled = true;
+    btn.textContent = '⏳ Processing...';
+
+    try {
+        let provider;
+        let signer;
+        let walletAddress;
+        let rawProvider; // Store the raw EIP-1193 provider
+
+        // First check if we're in Farcaster Mini App
+        let inFarcasterFrame = false;
+        let farcasterWalletAvailable = false;
+        
+        // Farcaster Mini App wallet (no cross-origin access)
+        try {
+            if ((window as any).sdk?.wallet?.getEthereumProvider) {
+                rawProvider = await (window as any).sdk.wallet.getEthereumProvider();
+                if (!rawProvider && (window as any).sdk?.actions?.signin) {
+                    console.log('Attempting Farcaster signin to enable wallet...');
+                    await (window as any).sdk.actions.signin();
+                    rawProvider = await (window as any).sdk.wallet.getEthereumProvider();
+                }
+                if (rawProvider) {
+                    farcasterWalletAvailable = true;
+                    try {
+                        const accounts = await rawProvider.request({ method: 'eth_requestAccounts' });
+                        walletAddress = accounts?.[0];
+                    } catch {}
+                    if ((window as any).ethers?.providers) {
+                        const ethers = (window as any).ethers;
+                        provider = new ethers.providers.Web3Provider(rawProvider);
+                        signer = provider.getSigner();
+                    }
+                    console.log('Farcaster wallet connected:', walletAddress);
+                }
+            }
+        } catch (sdkProvErr: any) {
+            console.log('SDK provider error:', sdkProvErr?.message || sdkProvErr);
+        }
+        
+        // If not in Farcaster or Farcaster wallet failed, try MetaMask
+        if (!farcasterWalletAvailable) {
+            console.log('Trying MetaMask/browser wallet...');
+            
+            if (!(window as any).ethereum) {
+                console.error('No wallet provider available');
+                if (inFarcasterFrame) {
+                    alert('Wallet connection failed in Farcaster. Please try refreshing the app.');
+                } else {
+                    alert('Please install MetaMask or use this app in Farcaster!');
+                }
+                return;
+            }
+            
+            rawProvider = (window as any).ethereum;
+            
+            // Wait for ethers.js
+            if (!(window as any).ethers) {
+                console.log('Waiting for ethers.js...');
+                let attempts = 0;
+                while (!(window as any).ethers && attempts < 30) {
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    attempts++;
+                }
+            }
+            
+            if ((window as any).ethers && (window as any).ethers.providers) {
+                const ethers = (window as any).ethers;
+                provider = new ethers.providers.Web3Provider(rawProvider);
+                await provider.send("eth_requestAccounts", []);
+                signer = provider.getSigner();
+                walletAddress = await signer.getAddress();
+                console.log('MetaMask wallet connected:', walletAddress);
+            } else {
+                // Fallback: use raw provider directly
+                console.log('Using raw provider without ethers.js');
+                const accounts = await rawProvider.request({ method: 'eth_requestAccounts' });
+                walletAddress = accounts[0];
+            }
+        }
+
+        // Base Mainnet kontrolü (chainId via EIP-1193)
+        try {
+            const chainIdHex = await rawProvider.request({ method: 'eth_chainId' });
+            const currentChain = typeof chainIdHex === 'string' ? chainIdHex : '0x0';
+            if (currentChain !== '0x2105') {
+                try {
+                    await rawProvider.request({
+                        method: 'wallet_switchEthereumChain',
+                        params: [{ chainId: '0x2105' }]
+                    });
+                } catch (switchError: any) {
+                    if (switchError.code === 4902) {
+                        await rawProvider.request({
+                            method: 'wallet_addEthereumChain',
+                            params: [{
+                                chainId: '0x2105',
+                                chainName: 'Base Mainnet',
+                                nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+                                rpcUrls: ['https://mainnet.base.org'],
+                                blockExplorerUrls: ['https://basescan.org']
+                            }]
+                        });
+                    } else {
+                        throw switchError;
+                    }
+                }
+            }
+        } catch (netErr: any) {
+            console.log('Network check failed:', netErr?.message || netErr);
+        }
+
+        // İmza al
+        const signResponse = await fetch(`${API_URL}/api/sign-score`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                playerAddress: walletAddress,
+                farcasterUsername: username,
+                fid: fid,
+                score: currentScore
+            })
+        });
+
+        const signData = await signResponse.json();
+        
+        if (!signData.success) {
+            throw new Error(signData.message);
+        }
+
+        // Contract interaction
+        let tx;
+        
+        if ((window as any).ethers && (window as any).ethers.Contract && signer) {
+            // Use ethers.js if available
+            const ethers = (window as any).ethers;
+            const contract = new ethers.Contract(
+                CONTRACT_ADDRESS,
+                ['function submitScore(string memory _farcasterUsername, uint256 _fid, uint256 _score, uint256 _nonce, bytes memory _signature) external'],
+                signer
+            );
+
+            tx = await contract.submitScore(
+                signData.data.params.farcasterUsername,
+                signData.data.params.fid,
+                signData.data.params.score,
+                signData.data.nonce,
+                signData.data.signature
+            );
+            
+            btn.textContent = '⏳ Waiting confirmation...';
+            await tx.wait();
+        } else if (rawProvider) {
+            // Fallback: use raw provider to send transaction
+            console.log('Using raw transaction without ethers.js');
+            
+            // Encode function call
+            const functionSignature = 'submitScore(string,uint256,uint256,uint256,bytes)';
+            const ethers = (window as any).ethers;
+            
+            if (ethers && ethers.utils) {
+                // If ethers utils is available, use it
+                const iface = new ethers.utils.Interface([
+                    'function submitScore(string memory _farcasterUsername, uint256 _fid, uint256 _score, uint256 _nonce, bytes memory _signature) external'
+                ]);
+                const data = iface.encodeFunctionData('submitScore', [
+                    signData.data.params.farcasterUsername,
+                    signData.data.params.fid,
+                    signData.data.params.score,
+                    signData.data.nonce,
+                    signData.data.signature
+                ]);
+                
+                const txParams = {
+                    to: CONTRACT_ADDRESS,
+                    from: walletAddress,
+                    data: data,
+                    gas: '0x30000' // 196608 gas
+                };
+                
+                btn.textContent = '⏳ Sending transaction...';
+                const txHash = await rawProvider.request({
+                    method: 'eth_sendTransaction',
+                    params: [txParams]
+                });
+                
+                btn.textContent = '⏳ Waiting confirmation...';
+                
+                // Wait for transaction receipt
+                let receipt = null;
+                let attempts = 0;
+                while (!receipt && attempts < 60) {
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                    receipt = await rawProvider.request({
+                        method: 'eth_getTransactionReceipt',
+                        params: [txHash]
+                    });
+                    attempts++;
+                }
+                
+                if (!receipt) {
+                    throw new Error('Transaction timeout');
+                }
+                
+                if (receipt.status === '0x0') {
+                    throw new Error('Transaction failed');
+                }
+            } else {
+                throw new Error('Cannot encode transaction without ethers.js');
+            }
+        } else {
+            throw new Error('No provider available for transaction');
+        }
+        
+        if (!(window as any).sdk) {
+            alert('✅ Score saved successfully!');
+        }
+        btn.textContent = '✅ Saved!';
+        
+    } catch (error: any) {
+        console.error(error);
+        
+        if (!(window as any).sdk) {
+            if (error.code === 'ACTION_REJECTED') {
+                alert('Transaction cancelled.');
+            } else if (error.message?.includes('insufficient funds')) {
+                alert('Insufficient ETH!');
+            } else {
+                alert('Error: ' + (error.message || 'Unknown error'));
+            }
+        } else {
+            btn.textContent = '❌ Error';
+        }
+        
+        btn.disabled = false;
+        btn.textContent = '💾 Save Leaderboard';
+    }
+}
+
+// VIEW LEADERBOARD - Wallet gerekmez
+async function viewLeaderboard() {
+    const modal = document.getElementById('leaderboard-modal')!;
+    const content = document.getElementById('leaderboard-content')!;
+    
+    modal.classList.remove('hidden');
+    content.innerHTML = '⏳ Yükleniyor...';
+
+    try {
+        const response = await fetch(`${API_URL}/api/leaderboard?limit=20`);
+        const data = await response.json();
+
+        if (!data.success || data.leaderboard.length === 0) {
+            content.innerHTML = '<p>Henüz skor yok. İlk sen ol! 🎯</p>';
+            return;
+        }
+
+        let html = '';
+        data.leaderboard.forEach((item: any) => {
+            html += `
+                <div class="leaderboard-item">
+                    <span>${item.rank}. ${item.username}</span>
+                    <span><strong>${item.score}</strong></span>
+                </div>
+            `;
+        });
+
+        content.innerHTML = html;
+
+    } catch (error) {
+        content.innerHTML = '<p>Bağlantı hatası!</p>';
+    }
+}
+
+function closeLeaderboard() {
+    document.getElementById('leaderboard-modal')!.classList.add('hidden');
+}
+
+
+// SHARE ON FARCASTER
+function shareOnFarcaster() {
+    const message = `Scored ${currentScore} points in Base Fruits! 🥇 Can you beat me? 🍓🍉`;
+    const gameUrl = 'https://base-fruits.vercel.app/';
+    
+    // Create Farcaster cast URL with parameters (only text and link)
+    const castText = encodeURIComponent(message);
+    const embedUrl = encodeURIComponent(gameUrl);
+    
+    // Farcaster cast URL format - link will automatically show preview image
+    const farcasterUrl = `https://warpcast.com/~/compose?text=${castText}&embeds[]=${embedUrl}`;
+    
+    // Try multiple methods to open the URL
+    try {
+        // Method 1: window.open
+        const newWindow = window.open(farcasterUrl, '_blank');
+        if (!newWindow) {
+            // Method 2: Direct navigation
+            window.location.href = farcasterUrl;
+        }
+    } catch (error) {
+        // Method 3: Copy to clipboard as fallback
+        navigator.clipboard.writeText(message + ' ' + gameUrl).then(() => {
+            alert('Farcaster link could not be opened. Message copied to clipboard!');
+        }).catch(() => {
+            alert('Unable to open Farcaster. Please manually share: ' + message + ' ' + gameUrl);
+        });
+    }
+}
 
 // ===== INITIALIZE GAME =====
 window.addEventListener('DOMContentLoaded', () => {
     try {
-        game = new FruitSliceGame();
+        const game = new FruitSliceGame();
         
         // Close leaderboard button
         const closeLeaderboardBtn = document.getElementById('close-leaderboard');
