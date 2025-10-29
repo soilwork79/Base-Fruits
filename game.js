@@ -171,22 +171,21 @@ class FruitSliceGame {
                 e.preventDefault();
                 console.log('Space key detected!');
                 
-                if (!this.state.isPlaying) {
-                    const startScreen = document.getElementById('start-screen');
-                    const gameOverScreen = document.getElementById('game-over-screen');
-                    
-                    console.log('Start screen hidden:', startScreen?.classList.contains('hidden'));
-                    console.log('Game over screen hidden:', gameOverScreen?.classList.contains('hidden'));
-                    
-                    if (startScreen && !startScreen.classList.contains('hidden')) {
-                        console.log('Starting game from start screen...');
-                        this.startGame();
-                    } else if (gameOverScreen && !gameOverScreen.classList.contains('hidden')) {
-                        console.log('Restarting game from game over screen...');
-                        this.startGame();
-                    }
-                } else {
-                    console.log('Game is already playing, ignoring space key');
+                const startScreen = document.getElementById('start-screen');
+                const gameOverScreen = document.getElementById('game-over-screen');
+                
+                const startScreenVisible = startScreen && !startScreen.classList.contains('hidden');
+                const gameOverScreenVisible = gameOverScreen && !gameOverScreen.classList.contains('hidden');
+                
+                console.log('Start screen visible:', startScreenVisible);
+                console.log('Game over screen visible:', gameOverScreenVisible);
+                
+                if (startScreenVisible) {
+                    console.log('Starting game from start screen via SPACE...');
+                    this.startGame();
+                } else if (gameOverScreenVisible) {
+                    console.log('Restarting game from game over screen via SPACE...');
+                    this.startGame();
                 }
             }
             
@@ -195,19 +194,18 @@ class FruitSliceGame {
                 e.preventDefault();
                 console.log('Enter key detected!');
                 
-                if (!this.state.isPlaying) {
-                    const startScreen = document.getElementById('start-screen');
-                    const gameOverScreen = document.getElementById('game-over-screen');
-                    
-                    if (startScreen && !startScreen.classList.contains('hidden')) {
-                        console.log('Starting game from start screen...');
-                        this.startGame();
-                    } else if (gameOverScreen && !gameOverScreen.classList.contains('hidden')) {
-                        console.log('Restarting game from game over screen...');
-                        this.startGame();
-                    }
-                } else {
-                    console.log('Game is already playing, ignoring enter key');
+                const startScreen = document.getElementById('start-screen');
+                const gameOverScreen = document.getElementById('game-over-screen');
+                
+                const startScreenVisible = startScreen && !startScreen.classList.contains('hidden');
+                const gameOverScreenVisible = gameOverScreen && !gameOverScreen.classList.contains('hidden');
+                
+                if (startScreenVisible) {
+                    console.log('Starting game from start screen via ENTER...');
+                    this.startGame();
+                } else if (gameOverScreenVisible) {
+                    console.log('Restarting game from game over screen via ENTER...');
+                    this.startGame();
                 }
             }
         });
