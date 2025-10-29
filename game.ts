@@ -2241,60 +2241,68 @@ function shareOnFarcaster() {
     const message = `Scored ${currentScore} points in Base Fruits! 🥇 Can you beat me? 🍓🍉`;
     const gameUrl = 'https://base-fruits.vercel.app/';
     
-    // Create Farcaster cast URL with parameters (only text and link)
+    // PRIORITY 1: Check if we're in Farcaster mini app context (MOST IMPORTANT FOR MOBILE)
+    if ((window as any).sdk && (window as any).sdk.actions) {        
+        console.log('Farcaster SDK detected, using SDK methods...');
+        
+        // Try composeCast - The official Mini App way (works in mobile Warpcast)
+        if (typeof (window as any).sdk.actions.composeCast === 'function') {
+            try {
+                console.log('Trying composeCast...');
+                (window as any).sdk.actions.composeCast({
+                    text: message,
+                    embeds: [gameUrl]
+                });
+                console.log('composeCast success!');
+                return;
+            } catch (error) {
+                console.log('composeCast failed:', error);
+            }
+        }
+        
+        // Fallback: Try openUrl for SDK
+        if (typeof (window as any).sdk.actions.openUrl === 'function') {
+            try {
+                console.log('Trying openUrl...');
+                const castText = encodeURIComponent(message);
+                const embedUrl = encodeURIComponent(gameUrl);
+                const farcasterUrl = `https://warpcast.com/~/compose?text=${castText}&embeds[]=${embedUrl}`;
+                (window as any).sdk.actions.openUrl(farcasterUrl);
+                console.log('openUrl success!');
+                return;
+            } catch (error) {
+                console.log('openUrl failed:', error);
+            }
+        }
+    }
+    
+    // PRIORITY 2: Browser fallback (Desktop or mobile browser)
+    console.log('No SDK, using browser methods...');
+    
     const castText = encodeURIComponent(message);
     const embedUrl = encodeURIComponent(gameUrl);
+    const farcasterUrl = `https://warpcast.com/~/compose?text=${castText}&embeds[]=${embedUrl}`;
     
-    // Detect if we're on mobile
+    // Detect if we're on mobile browser (not in Warpcast app)
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     
     if (isMobile) {
-        // Mobile: Try Warpcast app deep link first
-        const warpcastDeepLink = `warpcast://compose?text=${castText}&embeds[]=${embedUrl}`;
-        const webFallback = `https://warpcast.com/~/compose?text=${castText}&embeds[]=${embedUrl}`;
-        
-        // Create a hidden iframe to trigger the app
-        const iframe = document.createElement('iframe');
-        iframe.style.display = 'none';
-        iframe.src = warpcastDeepLink;
-        document.body.appendChild(iframe);
-        
-        // Wait a moment to see if app opens
-        setTimeout(() => {
-            document.body.removeChild(iframe);
-        }, 500);
-        
-        // Set a timeout to open web version if app doesn't open
-        const timeout = setTimeout(() => {
-            window.location.href = webFallback;
-        }, 1000);
-        
-        // Listen for visibility change (app opened successfully)
-        const visibilityHandler = () => {
-            clearTimeout(timeout);
-            document.removeEventListener('visibilitychange', visibilityHandler);
-        };
-        document.addEventListener('visibilitychange', visibilityHandler);
-        
+        console.log('Mobile browser detected, redirecting to Warpcast web...');
+        // On mobile browser, just go directly to Warpcast web
+        // User will need to login to Warpcast web to cast
+        window.location.href = farcasterUrl;
     } else {
+        console.log('Desktop detected, opening in new tab...');
         // Desktop: Open in new tab
-        const farcasterUrl = `https://warpcast.com/~/compose?text=${castText}&embeds[]=${embedUrl}`;
-        
-        // Try multiple methods to open the URL
         try {
-            // Method 1: window.open
             const newWindow = window.open(farcasterUrl, '_blank');
             if (!newWindow) {
-                // Method 2: Direct navigation
+                // Popup blocked, redirect same page
                 window.location.href = farcasterUrl;
             }
         } catch (error) {
-            // Method 3: Copy to clipboard as fallback
-            navigator.clipboard.writeText(message + ' ' + gameUrl).then(() => {
-                alert('Farcaster link could not be opened. Message copied to clipboard!');
-            }).catch(() => {
-                alert('Unable to open Farcaster. Please manually share: ' + message + ' ' + gameUrl);
-            });
+            console.log('window.open failed, redirecting...', error);
+            window.location.href = farcasterUrl;
         }
     }
 }
