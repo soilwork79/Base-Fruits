@@ -146,6 +146,43 @@ class FruitSliceGame {
             e.preventDefault();
             this.handleInputEnd();
         }, { passive: false });
+        
+        // Keyboard events for desktop
+        document.addEventListener('keydown', (e) => {
+            // Space bar to start/restart game
+            if (e.code === 'Space' || e.key === ' ') {
+                e.preventDefault();
+                if (!this.state.isPlaying) {
+                    const startScreen = document.getElementById('start-screen');
+                    const gameOverScreen = document.getElementById('game-over-screen');
+                    
+                    if (startScreen && !startScreen.classList.contains('hidden')) {
+                        console.log('Space pressed - Starting game');
+                        this.startGame();
+                    } else if (gameOverScreen && !gameOverScreen.classList.contains('hidden')) {
+                        console.log('Space pressed - Restarting game');
+                        this.startGame();
+                    }
+                }
+            }
+            
+            // Enter key as alternative
+            if (e.code === 'Enter' || e.key === 'Enter') {
+                e.preventDefault();
+                if (!this.state.isPlaying) {
+                    const startScreen = document.getElementById('start-screen');
+                    const gameOverScreen = document.getElementById('game-over-screen');
+                    
+                    if (startScreen && !startScreen.classList.contains('hidden')) {
+                        console.log('Enter pressed - Starting game');
+                        this.startGame();
+                    } else if (gameOverScreen && !gameOverScreen.classList.contains('hidden')) {
+                        console.log('Enter pressed - Restarting game');
+                        this.startGame();
+                    }
+                }
+            }
+        });
     }
     showStartScreen() {
         document.getElementById('start-screen').classList.remove('hidden');
