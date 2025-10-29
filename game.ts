@@ -62,6 +62,7 @@ interface ScorePopup {
     scale: number;
     comboText?: string;
     color?: string;
+    isSimple?: boolean;
 }
 
 interface Firework {
