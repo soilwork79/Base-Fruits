@@ -1981,7 +1981,7 @@ function closeLeaderboard() {
 }
 // SHARE ON FARCASTER
 async function shareOnFarcaster() {    
-    const message = `🍉 Base Fruits'ta ${currentScore} puan yaptım! 🥇\n\nBeni yenebilir misin? 🍓🍉`;
+    const message = `🍉 I scored ${currentScore} points in Base Fruits! 🥇\n\nCan you beat me? 🍓🍉`;
     const gameUrl = 'https://base-fruits-farcaster-miniapp.vercel.app/';    
     
     // PRIORITY 1: Check if we're in Farcaster mini app context (MOST IMPORTANT FOR MOBILE)
