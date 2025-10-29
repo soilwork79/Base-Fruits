@@ -540,7 +540,53 @@ class FruitSliceGame {
         this.gameLoop(performance.now());
     }
     
+    cleanupMemory() {
+        // CRITICAL: Aggressive memory cleanup to prevent performance degradation
+        
+        // Clear all game objects arrays
+        this.state.fruits = [];
+        this.state.fruitHalves = [];
+        this.state.trails = [];
+        this.state.particles = [];
+        this.state.scorePopups = [];
+        this.state.fireworks = [];
+        this.state.currentTrail = [];
+        this.state.slicedThisSwipe = [];
+        this.state.comboFruits = [];
+        
+        // Reset trail tracking
+        this.state.lastTrailPoint = null;
+        
+        // Clear any timers
+        if (this.state.comboTimer) {
+            clearTimeout(this.state.comboTimer);
+            this.state.comboTimer = null;
+        }
+        
+        // Reset visual effects
+        this.state.screenShake = 0;
+        this.state.redFlash = 0;
+        
+        // Stop all bomb fuse sounds that might be playing
+        // (This is important to prevent audio memory leaks)
+        const allAudioElements = document.querySelectorAll('audio');
+        allAudioElements.forEach(audio => {
+            if (audio.src.includes('fuse.mp3')) {
+                audio.pause();
+                audio.currentTime = 0;
+            }
+        });
+        
+        // Force garbage collection hint (browser will decide)
+        if ((window as any).gc) {
+            (window as any).gc();
+        }
+    }
+    
     launchFruits() {
+        // CRITICAL: Memory cleanup before each wave to prevent performance degradation
+        this.cleanupMemory();
+        
         const wave = this.state.level;
         console.log(`launchFruits called for wave ${wave}`);
         let fruitCount = 7; // Default to 7 fruits
@@ -1420,6 +1466,11 @@ class FruitSliceGame {
             }
         }
         
+        // CRITICAL: Aggressively limit particles if too many (memory leak protection)
+        if (this.state.particles.length > MAX_PARTICLES) {
+            this.state.particles = this.state.particles.slice(-MAX_PARTICLES);
+        }
+        
         // Update fireworks
         for (let i = this.state.fireworks.length - 1; i >= 0; i--) {
             const fw = this.state.fireworks[i];
@@ -1472,6 +1523,11 @@ class FruitSliceGame {
             if (trail.opacity <= 0) {
                 this.state.trails.splice(i, 1);
             }
+        }
+        
+        // CRITICAL: Aggressively limit trails if too many (memory leak protection)
+        if (this.state.trails.length > MAX_TRAILS) {
+            this.state.trails = this.state.trails.slice(-MAX_TRAILS);
         }
         
         // Limit score popups to prevent memory leaks
