@@ -8,7 +8,7 @@
     <meta name="description" content="Farcaster Fruit Slice - Web3 Mini Game">
     <title>Base Fruits 🍉</title>
     
-   <!-- Farcaster Frame Metadata - CRITICAL FOR VALIDATIONN-->
+   <!-- Farcaster Frame Metadata -->
    <meta name="fc:miniapp" content='{"version":"1","imageUrl":"https://base-fruits-farcaster-miniapp.vercel.app/images/splash.png","button":{"title":"🎮 Play Game","action":{"type":"launch_miniapp","name":"Base Fruits","url":"https://base-fruits-farcaster-miniapp.vercel.app/","splashImageUrl":"https://base-fruits-farcaster-miniapp.vercel.app/images/splash.png","splashBackgroundColor":"#0a0a15"}}}' />
    <meta name="fc:frame" content='{"version":"1","imageUrl":"https://base-fruits-farcaster-miniapp.vercel.app/images/splash.png","button":{"title":"🎮 Play Game","action":{"type":"launch_frame","name":"Base Fruits","url":"https://base-fruits-farcaster-miniapp.vercel.app/","splashImageUrl":"https://base-fruits-farcaster-miniapp.vercel.app/images/splash.png","splashBackgroundColor":"#0a0a15"}}}' />
   
@@ -28,79 +28,14 @@
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="styles.css?v=8">
     
-    <!-- ⚠️ CRITICAL: Load scripts in correct order -->
-    
-    <!-- 1. Ethers.js FIRST (v5.7.2) -->
+    <!-- Scripts in correct order -->
     <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
-    <script>
-        // Verify ethers loaded
-        if (window.ethers && window.ethers.providers) {
-            window.ethersReady = true;
-        } else {
-            window.ethersReady = false;
-            alert('⚠️ Failed to load required libraries. Please refresh the page.');
-        }
-    </script>
-    
-    <!-- 2. Farcaster SDK SECOND (UMD) -->
     <script src="https://cdn.jsdelivr.net/npm/@farcaster/frame-sdk/dist/index.min.js"></script>
     
-    <!-- 3. Privy SDK for wallet connection -->
-    <script src="https://unpkg.com/@privy-io/js-sdk-core@0.26.0/dist/index.global.js"></script>
-    
-    <!-- 4. Initialize Privy SDK -->
+    <!-- Initialize Farcaster SDK -->
     <script>
-        // Initialize Privy
-        let privyClient = null;
-        
         (async function() {
             try {
-                // Initialize Privy with your app ID
-                privyClient = new window.Privy.PrivyClient({
-                    appId: 'cmh9kqxh5005rlb0cqv01vxrc', // Your Privy App ID
-                    config: {
-                        loginMethods: ['wallet', 'farcaster'],
-                        appearance: {
-                            theme: 'dark',
-                            accentColor: '#8B5CF6',
-                        },
-                        defaultChain: 8453, // Base mainnet
-                        chains: [
-                            {
-                                id: 8453,
-                                name: 'Base',
-                                network: 'base',
-                                nativeCurrency: {
-                                    decimals: 18,
-                                    name: 'Ether',
-                                    symbol: 'ETH',
-                                },
-                                rpcUrls: {
-                                    default: {
-                                        http: ['https://mainnet.base.org'],
-                                    },
-                                },
-                                blockExplorers: {
-                                    default: { name: 'BaseScan', url: 'https://basescan.org' },
-                                },
-                            }
-                        ],
-                    }
-                });
-                
-                window.privyClient = privyClient;
-            } catch (error) {
-                // Silently fail - will try to initialize again if needed
-            }
-        })();
-    </script>
-    
-    <!-- 5. Initialize SDK BEFORE game.js -->
-    <script>
-        // Initialize Farcaster SDK globally as window.sdk (for game.js compatibility)
-        (async function() {
-            try {
-                // Resolve SDK across possible host globals
                 const resolveSdk = () => {
                     if (window.frame && window.frame.sdk) return window.frame.sdk;
                     if (window.farcaster && typeof window.farcaster.createFrameSDK === 'function') return window.farcaster.createFrameSDK();
@@ -110,7 +45,6 @@
 
                 let sdk = resolveSdk();
                 if (!sdk) {
-                    // Poll briefly to wait for host injection
                     const start = Date.now();
                     while (!sdk && (Date.now() - start) < 2000) {
                         await new Promise(r => setTimeout(r, 50));
@@ -123,13 +57,15 @@
                     try {
                         const context = await sdk.actions.ready();
                         window.farcasterContext = context;
+                        console.log('Farcaster SDK initialized:', context);
                     } catch (readyError) {
-                        // SDK ready failed, continue anyway
+                        console.log('SDK ready failed:', readyError);
                     }
                 } else {
                     window.sdk = null;
                 }
             } catch (error) {
+                console.log('SDK initialization error:', error);
                 window.sdk = null;
             }
         })();
@@ -195,9 +131,11 @@
                 <p>Wave Reached: <span id="final-level">1</span></p>
             </div>
             
-            <!-- Leaderboard Section -->
+            <!-- Leaderboard Section - BUTONLAR BURADA -->
             <div class="leaderboard-section">
                 <div class="button-group-vertical">
+                    <button id="save-leaderboard-button" class="game-button primary-btn">💾 Save to Leaderboard</button>
+                    <button id="view-leaderboard-button" class="game-button secondary-btn">🏆 View Leaderboard</button>
                     <button id="share-score-button" class="game-button share-btn">🚀 Share on Farcaster</button>
                     <button id="restart-button" class="game-button restart-btn">🔄 Play Again</button>
                 </div>
@@ -218,8 +156,7 @@
         </div>
     </div>
     
-    <!-- 4. Game script LAST -->
-    <script src="game.js?v=10"></script>
-    <script src="game-privy.js?v=2"></script>
+    <!-- Game script -->
+    <script src="game.js?v=11"></script>
 </body>
 </html>
