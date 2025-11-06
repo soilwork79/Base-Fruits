@@ -12,7 +12,7 @@
    <meta name="fc:miniapp" content='{"version":"1","imageUrl":"https://base-fruits-farcaster-miniapp.vercel.app/images/splash.png","button":{"title":"🎮 Play Game","action":{"type":"launch_miniapp","name":"Base Fruits","url":"https://base-fruits-farcaster-miniapp.vercel.app/","splashImageUrl":"https://base-fruits-farcaster-miniapp.vercel.app/images/splash.png","splashBackgroundColor":"#0a0a15"}}}' />
    <meta name="fc:frame" content='{"version":"1","imageUrl":"https://base-fruits-farcaster-miniapp.vercel.app/images/splash.png","button":{"title":"🎮 Play Game","action":{"type":"launch_frame","name":"Base Fruits","url":"https://base-fruits-farcaster-miniapp.vercel.app/","splashImageUrl":"https://base-fruits-farcaster-miniapp.vercel.app/images/splash.png","splashBackgroundColor":"#0a0a15"}}}' />
   
-   <!-- Open Graph for Social Sharing -->
+   <!-- Open Graph -->
    <meta property="og:title" content="Base Fruits 🍉 - Farcaster Mini Game" />
    <meta property="og:description" content="Slice fruits, avoid bombs, and compete on the blockchain leaderboard! 🍓🍉🍊" />
    <meta property="og:image" content="https://base-fruits-farcaster-miniapp.vercel.app/images/splash.png" />
@@ -26,9 +26,9 @@
    <meta name="twitter:image" content="https://base-fruits-farcaster-miniapp.vercel.app/images/splash.png" />
     
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="styles.css?v=8">
+    <link rel="stylesheet" href="styles.css?v=9">
     
-    <!-- Scripts in correct order -->
+    <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@farcaster/frame-sdk/dist/index.min.js"></script>
     
@@ -57,7 +57,7 @@
                     try {
                         const context = await sdk.actions.ready();
                         window.farcasterContext = context;
-                        console.log('Farcaster SDK initialized:', context);
+                        console.log('✅ Farcaster SDK initialized:', context);
                     } catch (readyError) {
                         console.log('SDK ready failed:', readyError);
                     }
@@ -65,7 +65,7 @@
                     window.sdk = null;
                 }
             } catch (error) {
-                console.log('SDK initialization error:', error);
+                console.log('SDK init error:', error);
                 window.sdk = null;
             }
         })();
@@ -120,27 +120,27 @@
             </div>
         </div>
         
-        <!-- Game Over Screen -->
-        <div id="game-over-screen" class="screen hidden">
-            <h1>Game Over</h1>
-            <div class="final-score">
-                <p class="label">Final Score</p>
-                <p id="final-score" class="score-value">0</p>
-            </div>
-            <div class="stats">
-                <p>Wave Reached: <span id="final-level">1</span></p>
-            </div>
-            
-            <!-- Leaderboard Section - BUTONLAR BURADA -->
-            <div class="leaderboard-section">
-                <div class="button-group-vertical">
-                    <button id="save-leaderboard-button" class="game-button primary-btn">💾 Save to Leaderboard</button>
-                    <button id="view-leaderboard-button" class="game-button secondary-btn">🏆 View Leaderboard</button>
-                    <button id="share-score-button" class="game-button share-btn">🚀 Share on Farcaster</button>
-                    <button id="restart-button" class="game-button restart-btn">🔄 Play Again</button>
-                </div>
-            </div>
+        <!-- Game Over Screen - hidden class KALDIRILDI -->
+<div id="game-over-screen" class="screen" style="display: none;">
+    <h1>Game Over</h1>
+    <div class="final-score">
+        <p class="label">Final Score</p>
+        <p id="final-score" class="score-value">0</p>
+    </div>
+    <div class="stats">
+        <p>Wave Reached: <span id="final-level">1</span></p>
+    </div>
+    
+    <!-- KRİTİK: Butonlar her zaman burada ama görünmez -->
+    <div class="leaderboard-section">
+        <div class="button-group-vertical">
+            <button id="save-leaderboard-button" class="game-button primary-btn" style="display: none;">💾 Save to Leaderboard</button>
+            <button id="view-leaderboard-button" class="game-button secondary-btn" style="display: none;">🏆 View Leaderboard</button>
+            <button id="share-score-button" class="game-button share-btn" style="display: none;">🚀 Share on Farcaster</button>
+            <button id="restart-button" class="game-button restart-btn">🔄 Play Again</button>
         </div>
+    </div>
+</div>
         
         <!-- Leaderboard Modal -->
         <div id="leaderboard-modal" class="modal hidden">
@@ -157,6 +157,6 @@
     </div>
     
     <!-- Game script -->
-    <script src="game.js?v=11"></script>
+    <script src="game.js?v=12"></script>
 </body>
 </html>
