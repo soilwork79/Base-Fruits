@@ -247,8 +247,9 @@ class FruitSliceGame {
         if (finalLevelEl)
             finalLevelEl.textContent = this.state.level.toString();
         if (gameOverScreenEl) {
-            console.log('🎯 Removing hidden class from game-over-screen');
+            console.log('🎯 Removing hidden class and inline style from game-over-screen');
             gameOverScreenEl.classList.remove('hidden');
+            gameOverScreenEl.style.display = ''; // Remove inline style that blocks visibility
         }
         if (gameHudEl) {
             console.log('🙈 Adding hidden class to game-hud');
