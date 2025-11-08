@@ -327,13 +327,18 @@
                 }
                 
                 // Initialize SDK if available
-                if (sdk && typeof sdk.ready === 'function') {
-                    await sdk.ready();
-                    console.log('✅ Farcaster SDK initialized successfully');
-                    
-                    // Store SDK globally for game use
+                if (sdk) {
+                    // Store SDK globally for game use (use both 'sdk' and 'farcasterSDK' for compatibility)
+                    window.sdk = sdk;
                     window.farcasterSDK = sdk;
-                    
+
+                    if (typeof sdk.ready === 'function') {
+                        await sdk.ready();
+                        console.log('✅ Farcaster SDK initialized successfully');
+                    } else {
+                        console.log('✅ Farcaster SDK loaded (no ready method)');
+                    }
+
                     // Try to get context if available
                     if (typeof sdk.context === 'function') {
                         try {
@@ -345,7 +350,7 @@
                         }
                     }
                 } else {
-                    console.warn('⚠️ SDK loaded but ready method not available');
+                    console.warn('⚠️ SDK could not be loaded');
                 }
                 
             } catch (error) {

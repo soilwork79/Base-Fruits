@@ -2106,32 +2106,58 @@ async function saveScore() {
         // First check if we're in Farcaster Mini App
         let inFarcasterFrame = false;
         let farcasterWalletAvailable = false;
-        
-        // Farcaster Mini App wallet (no cross-origin access)
+
+        console.log('🔍 Checking wallet providers...');
+        console.log('window.sdk available:', !!(window as any).sdk);
+        console.log('window.farcasterSDK available:', !!(window as any).farcasterSDK);
+        console.log('window.ethereum available:', !!(window as any).ethereum);
+
+        // Farcaster Mini App wallet
+        const sdk = (window as any).sdk || (window as any).farcasterSDK;
         try {
-            if ((window as any).sdk?.wallet?.getEthereumProvider) {
-                rawProvider = await (window as any).sdk.wallet.getEthereumProvider();
-                if (!rawProvider && (window as any).sdk?.actions?.signin) {
-                    console.log('Attempting Farcaster signin to enable wallet...');
-                    await (window as any).sdk.actions.signin();
-                    rawProvider = await (window as any).sdk.wallet.getEthereumProvider();
+            if (sdk?.wallet?.getEthereumProvider) {
+                console.log('📱 Farcaster SDK wallet found, attempting to get provider...');
+                rawProvider = await sdk.wallet.getEthereumProvider();
+                console.log('Provider result:', !!rawProvider);
+
+                if (!rawProvider && sdk?.actions?.signin) {
+                    console.log('🔐 No provider, attempting Farcaster signin...');
+                    await sdk.actions.signin();
+                    rawProvider = await sdk.wallet.getEthereumProvider();
+                    console.log('Provider after signin:', !!rawProvider);
                 }
+
                 if (rawProvider) {
                     farcasterWalletAvailable = true;
+                    console.log('✅ Farcaster wallet provider obtained!');
+
                     try {
+                        console.log('Requesting accounts...');
                         const accounts = await rawProvider.request({ method: 'eth_requestAccounts' });
                         walletAddress = accounts?.[0];
-                    } catch {}
+                        console.log('Wallet address:', walletAddress);
+                    } catch (accountErr: any) {
+                        console.error('Account request error:', accountErr?.message || accountErr);
+                    }
+
                     if ((window as any).ethers?.providers) {
                         const ethers = (window as any).ethers;
                         provider = new ethers.providers.Web3Provider(rawProvider);
                         signer = provider.getSigner();
+                        console.log('✅ Ethers provider created');
+                    } else {
+                        console.warn('⚠️ Ethers.js not available');
                     }
-                    console.log('Farcaster wallet connected:', walletAddress);
+                }
+            } else {
+                console.log('⚠️ Farcaster SDK wallet API not available');
+                if (sdk) {
+                    console.log('SDK methods:', Object.keys(sdk));
                 }
             }
         } catch (sdkProvErr: any) {
-            console.log('SDK provider error:', sdkProvErr?.message || sdkProvErr);
+            console.error('❌ SDK provider error:', sdkProvErr?.message || sdkProvErr);
+            console.error('Full error:', sdkProvErr);
         }
         
         // If not in Farcaster or Farcaster wallet failed, try MetaMask
