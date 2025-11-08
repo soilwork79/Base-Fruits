@@ -2132,12 +2132,29 @@ async function saveScore() {
                     console.log('✅ Farcaster wallet provider obtained!');
 
                     try {
-                        console.log('Requesting accounts...');
-                        const accounts = await rawProvider.request({ method: 'eth_requestAccounts' });
-                        walletAddress = accounts?.[0];
-                        console.log('Wallet address:', walletAddress);
+                        console.log('Requesting accounts from Farcaster provider...');
+                        const accountsResult = await rawProvider.request({ method: 'eth_requestAccounts' });
+                        console.log('Accounts result:', accountsResult);
+                        console.log('Accounts result type:', typeof accountsResult);
+                        console.log('Is array?:', Array.isArray(accountsResult));
+
+                        // Handle both array and object responses
+                        if (Array.isArray(accountsResult)) {
+                            walletAddress = accountsResult[0];
+                        } else if (accountsResult?.result) {
+                            walletAddress = Array.isArray(accountsResult.result) ? accountsResult.result[0] : accountsResult.result;
+                        } else if (typeof accountsResult === 'string') {
+                            walletAddress = accountsResult;
+                        }
+
+                        console.log('✅ Wallet address obtained:', walletAddress);
                     } catch (accountErr: any) {
-                        console.error('Account request error:', accountErr?.message || accountErr);
+                        console.error('❌ Account request error:', accountErr);
+                        console.error('Error details:', {
+                            message: accountErr?.message,
+                            code: accountErr?.code,
+                            data: accountErr?.data
+                        });
                     }
 
                     if ((window as any).ethers?.providers) {
@@ -2145,6 +2162,16 @@ async function saveScore() {
                         provider = new ethers.providers.Web3Provider(rawProvider);
                         signer = provider.getSigner();
                         console.log('✅ Ethers provider created');
+
+                        // Try to get wallet address via ethers if not obtained yet
+                        if (!walletAddress) {
+                            try {
+                                walletAddress = await signer.getAddress();
+                                console.log('✅ Wallet address via ethers.js:', walletAddress);
+                            } catch (ethersErr) {
+                                console.error('❌ Failed to get address via ethers:', ethersErr);
+                            }
+                        }
                     } else {
                         console.warn('⚠️ Ethers.js not available');
                     }
