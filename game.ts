@@ -222,7 +222,7 @@ class FruitSliceGame {
     constructor() {
         this.state = new GameState();
         this.setupEventListeners();
-        this.showStartScreen();
+        // Don't show start screen - wallet connect screen shows first
     }
     
     setupEventListeners() {
