@@ -331,11 +331,14 @@ class FruitSliceGame {
     }
     
     showGameOver(playFailSound: boolean = true) {
-        // Prevent multiple game over calls
-        if (this.state.gameOverPending || !this.state.isPlaying) {
+        // Check if already shown (but allow if gameOverPending is set - means we're in the delayed call)
+        const gameOverScreen = document.getElementById('game-over-screen');
+        if (gameOverScreen && !gameOverScreen.classList.contains('hidden')) {
+            console.log('Game over screen already visible, skipping');
             return;
         }
 
+        console.log('showGameOver called - displaying game over screen');
         this.state.gameOverPending = true;
         this.state.isPlaying = false;
 
@@ -1151,8 +1154,10 @@ class FruitSliceGame {
         
         // Check game over AFTER updating UI
         if (this.state.lives <= 0 && !this.state.gameOverPending) {
+            console.log('💣 Bomb exploded! Lives reached 0. Setting gameOverPending...');
             this.state.gameOverPending = true;
             setTimeout(() => {
+                console.log('⏰ Bomb timeout - calling showGameOver. Lives:', this.state.lives, 'isPlaying:', this.state.isPlaying);
                 this.state.isPaused = false; // Unpause before showing game over
                 this.showGameOver();
             }, 2000);
@@ -1472,14 +1477,18 @@ class FruitSliceGame {
                     // Check for game over but don't show immediately
                     // Let the physics continue so remaining fruits fall naturally
                     if (this.state.lives <= 0 && !this.state.gameOverPending) {
+                        console.log('🔴 Lives reached 0! Setting gameOverPending and scheduling game over...');
                         // Mark game as ending but don't stop physics yet
                         this.state.gameOverPending = true;
                         this.state.isPaused = false;
 
                         // Wait a bit for remaining fruits to fall off screen
                         setTimeout(() => {
+                            console.log('⏰ Timeout triggered - calling showGameOver now. Lives:', this.state.lives, 'isPlaying:', this.state.isPlaying);
                             if (this.state.lives <= 0) {
                                 this.showGameOver();
+                            } else {
+                                console.log('⚠️ Lives increased during delay, not showing game over');
                             }
                         }, 1500); // Give fruits time to fall
                         return;
