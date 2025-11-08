@@ -1797,8 +1797,27 @@ async function saveScore() {
                     farcasterWalletAvailable = true;
                     console.log('✅ Farcaster wallet provider obtained!');
                     try {
-                        console.log('Requesting accounts from Farcaster provider...');
-                        const accountsResult = await rawProvider.request({ method: 'eth_requestAccounts' });
+                        // First, check if wallet is already connected
+                        console.log('Checking existing accounts...');
+                        let accountsResult;
+                        try {
+                            accountsResult = await rawProvider.request({ method: 'eth_accounts' });
+                            console.log('Existing accounts:', accountsResult);
+                        }
+                        catch (e) {
+                            console.log('No existing accounts, will request');
+                        }
+                        // If no accounts, request connection
+                        if (!accountsResult || (Array.isArray(accountsResult) && accountsResult.length === 0)) {
+                            console.log('📱 No connected wallet, requesting user permission...');
+                            // Show user a message before requesting
+                            const userConfirmed = confirm('Connect your wallet to save your score to the blockchain?');
+                            if (!userConfirmed) {
+                                throw new Error('User cancelled wallet connection');
+                            }
+                            console.log('Calling eth_requestAccounts...');
+                            accountsResult = await rawProvider.request({ method: 'eth_requestAccounts' });
+                        }
                         console.log('Accounts result:', accountsResult);
                         console.log('Accounts result type:', typeof accountsResult);
                         console.log('Is array?:', Array.isArray(accountsResult));
