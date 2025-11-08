@@ -1732,6 +1732,94 @@ class FruitSliceGame {
         }
     }
 }
+// ===== WALLET CONNECT FUNCTIONALITY =====
+let connectedWalletAddress = null;
+let connectedProvider = null;
+let connectedSigner = null;
+async function initializeWalletConnect() {
+    console.log('🔗 Initializing wallet connect screen...');
+    // Show Farcaster profile if available
+    const context = window.farcasterContext;
+    if (context?.user) {
+        const profileSection = document.getElementById('farcaster-profile');
+        const profilePic = document.getElementById('profile-pic');
+        const profileName = document.getElementById('profile-name');
+        const profileUsername = document.getElementById('profile-username');
+        if (profileSection && profilePic && profileName && profileUsername) {
+            profilePic.src = context.user.pfpUrl || '';
+            profileName.textContent = context.user.displayName || 'Farcaster User';
+            profileUsername.textContent = `@${context.user.username || 'username'}`;
+            profileSection.classList.remove('hidden');
+        }
+    }
+    // Connect wallet button handler
+    const connectButton = document.getElementById('connect-wallet-button');
+    if (connectButton) {
+        connectButton.addEventListener('click', connectWallet);
+    }
+}
+async function connectWallet() {
+    console.log('🔗 Connect Wallet clicked');
+    const statusEl = document.getElementById('wallet-status');
+    const buttonEl = document.getElementById('connect-wallet-button');
+    if (!buttonEl || !statusEl)
+        return;
+    buttonEl.disabled = true;
+    buttonEl.textContent = '⏳ Connecting...';
+    statusEl.textContent = '🔄 Connecting wallet...';
+    try {
+        // Reuse the same wallet connection logic from saveScore
+        const sdk = window.sdk || window.farcasterSDK;
+        // Try SDK wallet first
+        if (sdk?.wallet?.ethProvider) {
+            const provider = sdk.wallet.ethProvider;
+            try {
+                const accounts = await provider.request({ method: 'eth_requestAccounts' });
+                if (accounts && accounts[0]) {
+                    connectedWalletAddress = accounts[0];
+                    connectedProvider = provider;
+                }
+            }
+            catch (e) {
+                console.log('SDK provider failed, trying window.ethereum');
+            }
+        }
+        // Fallback to window.ethereum
+        if (!connectedWalletAddress && window.ethereum) {
+            const provider = window.ethereum;
+            const accounts = await provider.request({ method: 'eth_requestAccounts' });
+            if (accounts && accounts[0]) {
+                connectedWalletAddress = accounts[0];
+                connectedProvider = provider;
+            }
+        }
+        if (connectedWalletAddress) {
+            // Create ethers provider
+            if (window.ethers?.providers && connectedProvider) {
+                const ethers = window.ethers;
+                connectedProvider = new ethers.providers.Web3Provider(connectedProvider);
+                connectedSigner = connectedProvider.getSigner();
+            }
+            statusEl.textContent = `✅ Connected: ${connectedWalletAddress.slice(0, 6)}...${connectedWalletAddress.slice(-4)}`;
+            buttonEl.textContent = '✅ Connected';
+            // Show start screen after 1 second
+            setTimeout(() => {
+                document.getElementById('wallet-connect-screen')?.classList.add('hidden');
+                document.getElementById('start-screen')?.classList.remove('hidden');
+            }, 1000);
+        }
+        else {
+            throw new Error('No wallet provider available');
+        }
+    }
+    catch (error) {
+        console.error('Failed to connect wallet:', error);
+        statusEl.textContent = '❌ Connection failed';
+        buttonEl.textContent = '🔗 Try Again';
+        buttonEl.disabled = false;
+        alert('Failed to connect wallet. Please try again or check your wallet settings.');
+    }
+}
 // ===== LEADERBOARD FUNCTIONALITY =====
 const CONTRACT_ADDRESS = '0xa4f109Eb679970C0b30C21812C99318837A81c73';
 const API_URL = '';
@@ -1772,212 +1860,223 @@ async function saveScore() {
         let provider;
         let signer;
         let walletAddress;
-        let rawProvider; // Store the raw EIP-1193 provider
-        // First check if we're in Farcaster Mini App
-        let inFarcasterFrame = false;
-        let farcasterWalletAvailable = false;
-        console.log('🔍 Checking wallet providers...');
-        console.log('window.sdk available:', !!window.sdk);
-        console.log('window.farcasterSDK available:', !!window.farcasterSDK);
-        console.log('window.ethereum available:', !!window.ethereum);
-        // Farcaster Mini App wallet
-        const sdk = window.sdk || window.farcasterSDK;
-        try {
-            // Try both API styles (old and new SDK versions)
-            if (sdk?.wallet) {
-                console.log('📱 Farcaster SDK wallet found, attempting to get provider...');
-                // Try direct property access first (newer SDK)
-                if (sdk.wallet.ethProvider) {
-                    console.log('Using sdk.wallet.ethProvider (direct property)');
-                    rawProvider = sdk.wallet.ethProvider;
-                }
-                // Fallback to method call (older SDK)
-                else if (sdk.wallet.getEthereumProvider) {
-                    console.log('Using sdk.wallet.getEthereumProvider() (method)');
-                    rawProvider = await sdk.wallet.getEthereumProvider();
-                }
-                console.log('Provider result:', !!rawProvider);
-                if (!rawProvider && sdk?.actions?.signin) {
-                    console.log('🔐 No provider, attempting Farcaster signin...');
-                    await sdk.actions.signin();
-                    // Try again after signin
-                    rawProvider = sdk.wallet.ethProvider || (await sdk.wallet.getEthereumProvider?.());
-                    console.log('Provider after signin:', !!rawProvider);
-                }
-                if (rawProvider) {
-                    farcasterWalletAvailable = true;
-                    console.log('✅ Farcaster wallet provider obtained!');
-                    try {
-                        // First, check if wallet is already connected
-                        console.log('Checking existing accounts...');
-                        let accountsResult;
-                        try {
-                            accountsResult = await rawProvider.request({ method: 'eth_accounts' });
-                            console.log('Existing accounts:', accountsResult);
-                        }
-                        catch (e) {
-                            console.log('No existing accounts, will request');
-                        }
-                        // If no accounts, request connection
-                        if (!accountsResult || (Array.isArray(accountsResult) && accountsResult.length === 0)) {
-                            console.log('📱 No connected wallet, requesting user permission...');
-                            // Show user a message before requesting
-                            const userConfirmed = confirm('Connect your wallet to save your score to the blockchain?');
-                            if (!userConfirmed) {
-                                throw new Error('User cancelled wallet connection');
-                            }
-                            console.log('Calling eth_requestAccounts...');
-                            accountsResult = await rawProvider.request({ method: 'eth_requestAccounts' });
-                        }
-                        console.log('Accounts result:', accountsResult);
-                        console.log('Accounts result type:', typeof accountsResult);
-                        console.log('Is array?:', Array.isArray(accountsResult));
-                        // Handle both array and object responses
-                        if (Array.isArray(accountsResult)) {
-                            walletAddress = accountsResult[0];
-                        }
-                        else if (accountsResult?.result) {
-                            walletAddress = Array.isArray(accountsResult.result) ? accountsResult.result[0] : accountsResult.result;
-                        }
-                        else if (typeof accountsResult === 'string') {
-                            walletAddress = accountsResult;
-                        }
-                        console.log('✅ Wallet address obtained:', walletAddress);
-                    }
-                    catch (accountErr) {
-                        console.error('❌ Account request error:', accountErr);
-                        console.error('Error details:', {
-                            message: accountErr?.message,
-                            code: accountErr?.code,
-                            data: accountErr?.data
-                        });
-                    }
-                    if (window.ethers?.providers) {
-                        const ethers = window.ethers;
-                        provider = new ethers.providers.Web3Provider(rawProvider);
-                        signer = provider.getSigner();
-                        console.log('✅ Ethers provider created');
-                        // Try to get wallet address via ethers if not obtained yet
-                        if (!walletAddress) {
-                            try {
-                                walletAddress = await signer.getAddress();
-                                console.log('✅ Wallet address via ethers.js:', walletAddress);
-                            }
-                            catch (ethersErr) {
-                                console.error('❌ Failed to get address via ethers:', ethersErr);
-                            }
-                        }
-                    }
-                    else {
-                        console.warn('⚠️ Ethers.js not available');
-                    }
-                }
-            }
-            else {
-                console.log('⚠️ Farcaster SDK wallet API not available');
-                if (sdk) {
-                    console.log('SDK methods:', Object.keys(sdk));
-                }
-            }
+        let rawProvider; // Store the raw EIP-1193 provider (declare outside blocks)
+        // Use already-connected wallet if available
+        if (connectedWalletAddress && connectedProvider && connectedSigner) {
+            console.log('✅ Using already-connected wallet:', connectedWalletAddress);
+            walletAddress = connectedWalletAddress;
+            provider = connectedProvider;
+            signer = connectedSigner;
         }
-        catch (sdkProvErr) {
-            console.error('❌ SDK provider error:', sdkProvErr?.message || sdkProvErr);
-            console.error('Full error:', sdkProvErr);
-        }
-        // If Farcaster wallet provider available but eth_requestAccounts fails,
-        // try using window.ethereum directly (might work in Farcaster mobile app)
-        if (farcasterWalletAvailable && !walletAddress && window.ethereum) {
-            console.log('⚠️ Farcaster provider exists but account request failed');
-            console.log('🔄 Trying window.ethereum as fallback...');
+        else {
+            // Fallback to old connection flow if not connected yet
+            console.log('⚠️ No connected wallet found, attempting connection...');
+            // First check if we're in Farcaster Mini App
+            let inFarcasterFrame = false;
+            let farcasterWalletAvailable = false;
+            console.log('🔍 Checking wallet providers...');
+            console.log('window.sdk available:', !!window.sdk);
+            console.log('window.farcasterSDK available:', !!window.farcasterSDK);
+            console.log('window.ethereum available:', !!window.ethereum);
+            // Farcaster Mini App wallet
+            const sdk = window.sdk || window.farcasterSDK;
             try {
-                const ethProvider = window.ethereum;
-                const accounts = await ethProvider.request({ method: 'eth_requestAccounts' });
-                if (accounts && accounts[0]) {
-                    walletAddress = accounts[0];
-                    rawProvider = ethProvider;
-                    console.log('✅ Got address via window.ethereum:', walletAddress);
-                    if (window.ethers?.providers) {
-                        const ethers = window.ethers;
-                        provider = new ethers.providers.Web3Provider(ethProvider);
-                        signer = provider.getSigner();
+                // Try both API styles (old and new SDK versions)
+                if (sdk?.wallet) {
+                    console.log('📱 Farcaster SDK wallet found, attempting to get provider...');
+                    // Try direct property access first (newer SDK)
+                    if (sdk.wallet.ethProvider) {
+                        console.log('Using sdk.wallet.ethProvider (direct property)');
+                        rawProvider = sdk.wallet.ethProvider;
                     }
-                }
-            }
-            catch (windowEthErr) {
-                console.error('❌ window.ethereum also failed:', windowEthErr);
-            }
-        }
-        // If not in Farcaster or Farcaster wallet failed, try MetaMask
-        if (!farcasterWalletAvailable && !walletAddress) {
-            console.log('Trying MetaMask/browser wallet...');
-            if (!window.ethereum) {
-                console.error('No wallet provider available');
-                if (inFarcasterFrame) {
-                    alert('Wallet connection failed in Farcaster. Please try refreshing the app.');
+                    // Fallback to method call (older SDK)
+                    else if (sdk.wallet.getEthereumProvider) {
+                        console.log('Using sdk.wallet.getEthereumProvider() (method)');
+                        rawProvider = await sdk.wallet.getEthereumProvider();
+                    }
+                    console.log('Provider result:', !!rawProvider);
+                    if (!rawProvider && sdk?.actions?.signin) {
+                        console.log('🔐 No provider, attempting Farcaster signin...');
+                        await sdk.actions.signin();
+                        // Try again after signin
+                        rawProvider = sdk.wallet.ethProvider || (await sdk.wallet.getEthereumProvider?.());
+                        console.log('Provider after signin:', !!rawProvider);
+                    }
+                    if (rawProvider) {
+                        farcasterWalletAvailable = true;
+                        console.log('✅ Farcaster wallet provider obtained!');
+                        try {
+                            // First, check if wallet is already connected
+                            console.log('Checking existing accounts...');
+                            let accountsResult;
+                            try {
+                                accountsResult = await rawProvider.request({ method: 'eth_accounts' });
+                                console.log('Existing accounts:', accountsResult);
+                            }
+                            catch (e) {
+                                console.log('No existing accounts, will request');
+                            }
+                            // If no accounts, request connection
+                            if (!accountsResult || (Array.isArray(accountsResult) && accountsResult.length === 0)) {
+                                console.log('📱 No connected wallet, requesting user permission...');
+                                // Show user a message before requesting
+                                const userConfirmed = confirm('Connect your wallet to save your score to the blockchain?');
+                                if (!userConfirmed) {
+                                    throw new Error('User cancelled wallet connection');
+                                }
+                                console.log('Calling eth_requestAccounts...');
+                                accountsResult = await rawProvider.request({ method: 'eth_requestAccounts' });
+                            }
+                            console.log('Accounts result:', accountsResult);
+                            console.log('Accounts result type:', typeof accountsResult);
+                            console.log('Is array?:', Array.isArray(accountsResult));
+                            // Handle both array and object responses
+                            if (Array.isArray(accountsResult)) {
+                                walletAddress = accountsResult[0];
+                            }
+                            else if (accountsResult?.result) {
+                                walletAddress = Array.isArray(accountsResult.result) ? accountsResult.result[0] : accountsResult.result;
+                            }
+                            else if (typeof accountsResult === 'string') {
+                                walletAddress = accountsResult;
+                            }
+                            console.log('✅ Wallet address obtained:', walletAddress);
+                        }
+                        catch (accountErr) {
+                            console.error('❌ Account request error:', accountErr);
+                            console.error('Error details:', {
+                                message: accountErr?.message,
+                                code: accountErr?.code,
+                                data: accountErr?.data
+                            });
+                        }
+                        if (window.ethers?.providers) {
+                            const ethers = window.ethers;
+                            provider = new ethers.providers.Web3Provider(rawProvider);
+                            signer = provider.getSigner();
+                            console.log('✅ Ethers provider created');
+                            // Try to get wallet address via ethers if not obtained yet
+                            if (!walletAddress) {
+                                try {
+                                    walletAddress = await signer.getAddress();
+                                    console.log('✅ Wallet address via ethers.js:', walletAddress);
+                                }
+                                catch (ethersErr) {
+                                    console.error('❌ Failed to get address via ethers:', ethersErr);
+                                }
+                            }
+                        }
+                        else {
+                            console.warn('⚠️ Ethers.js not available');
+                        }
+                    }
                 }
                 else {
-                    alert('Please install MetaMask or use this app in Farcaster!');
-                }
-                return;
-            }
-            rawProvider = window.ethereum;
-            // Wait for ethers.js
-            if (!window.ethers) {
-                console.log('Waiting for ethers.js...');
-                let attempts = 0;
-                while (!window.ethers && attempts < 30) {
-                    await new Promise(resolve => setTimeout(resolve, 100));
-                    attempts++;
+                    console.log('⚠️ Farcaster SDK wallet API not available');
+                    if (sdk) {
+                        console.log('SDK methods:', Object.keys(sdk));
+                    }
                 }
             }
-            if (window.ethers && window.ethers.providers) {
-                const ethers = window.ethers;
-                provider = new ethers.providers.Web3Provider(rawProvider);
-                await provider.send("eth_requestAccounts", []);
-                signer = provider.getSigner();
-                walletAddress = await signer.getAddress();
-                console.log('MetaMask wallet connected:', walletAddress);
+            catch (sdkProvErr) {
+                console.error('❌ SDK provider error:', sdkProvErr?.message || sdkProvErr);
+                console.error('Full error:', sdkProvErr);
             }
-            else {
-                // Fallback: use raw provider directly
-                console.log('Using raw provider without ethers.js');
-                const accounts = await rawProvider.request({ method: 'eth_requestAccounts' });
-                walletAddress = accounts[0];
-            }
-        }
-        // Base Mainnet kontrolü (chainId via EIP-1193)
-        try {
-            const chainIdHex = await rawProvider.request({ method: 'eth_chainId' });
-            const currentChain = typeof chainIdHex === 'string' ? chainIdHex : '0x0';
-            if (currentChain !== '0x2105') {
+            // If Farcaster wallet provider available but eth_requestAccounts fails,
+            // try using window.ethereum directly (might work in Farcaster mobile app)
+            if (farcasterWalletAvailable && !walletAddress && window.ethereum) {
+                console.log('⚠️ Farcaster provider exists but account request failed');
+                console.log('🔄 Trying window.ethereum as fallback...');
                 try {
-                    await rawProvider.request({
-                        method: 'wallet_switchEthereumChain',
-                        params: [{ chainId: '0x2105' }]
-                    });
+                    const ethProvider = window.ethereum;
+                    const accounts = await ethProvider.request({ method: 'eth_requestAccounts' });
+                    if (accounts && accounts[0]) {
+                        walletAddress = accounts[0];
+                        rawProvider = ethProvider;
+                        console.log('✅ Got address via window.ethereum:', walletAddress);
+                        if (window.ethers?.providers) {
+                            const ethers = window.ethers;
+                            provider = new ethers.providers.Web3Provider(ethProvider);
+                            signer = provider.getSigner();
+                        }
+                    }
                 }
-                catch (switchError) {
-                    if (switchError.code === 4902) {
-                        await rawProvider.request({
-                            method: 'wallet_addEthereumChain',
-                            params: [{
-                                    chainId: '0x2105',
-                                    chainName: 'Base Mainnet',
-                                    nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
-                                    rpcUrls: ['https://mainnet.base.org'],
-                                    blockExplorerUrls: ['https://basescan.org']
-                                }]
-                        });
+                catch (windowEthErr) {
+                    console.error('❌ window.ethereum also failed:', windowEthErr);
+                }
+            }
+            // If not in Farcaster or Farcaster wallet failed, try MetaMask
+            if (!farcasterWalletAvailable && !walletAddress) {
+                console.log('Trying MetaMask/browser wallet...');
+                if (!window.ethereum) {
+                    console.error('No wallet provider available');
+                    if (inFarcasterFrame) {
+                        alert('Wallet connection failed in Farcaster. Please try refreshing the app.');
                     }
                     else {
-                        throw switchError;
+                        alert('Please install MetaMask or use this app in Farcaster!');
+                    }
+                    return;
+                }
+                rawProvider = window.ethereum;
+                // Wait for ethers.js
+                if (!window.ethers) {
+                    console.log('Waiting for ethers.js...');
+                    let attempts = 0;
+                    while (!window.ethers && attempts < 30) {
+                        await new Promise(resolve => setTimeout(resolve, 100));
+                        attempts++;
+                    }
+                }
+                if (window.ethers && window.ethers.providers) {
+                    const ethers = window.ethers;
+                    provider = new ethers.providers.Web3Provider(rawProvider);
+                    await provider.send("eth_requestAccounts", []);
+                    signer = provider.getSigner();
+                    walletAddress = await signer.getAddress();
+                    console.log('MetaMask wallet connected:', walletAddress);
+                }
+                else {
+                    // Fallback: use raw provider directly
+                    console.log('Using raw provider without ethers.js');
+                    const accounts = await rawProvider.request({ method: 'eth_requestAccounts' });
+                    walletAddress = accounts[0];
+                }
+            }
+            // Base Mainnet kontrolü (chainId via EIP-1193)
+            try {
+                const chainIdHex = await rawProvider.request({ method: 'eth_chainId' });
+                const currentChain = typeof chainIdHex === 'string' ? chainIdHex : '0x0';
+                if (currentChain !== '0x2105') {
+                    try {
+                        await rawProvider.request({
+                            method: 'wallet_switchEthereumChain',
+                            params: [{ chainId: '0x2105' }]
+                        });
+                    }
+                    catch (switchError) {
+                        if (switchError.code === 4902) {
+                            await rawProvider.request({
+                                method: 'wallet_addEthereumChain',
+                                params: [{
+                                        chainId: '0x2105',
+                                        chainName: 'Base Mainnet',
+                                        nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+                                        rpcUrls: ['https://mainnet.base.org'],
+                                        blockExplorerUrls: ['https://basescan.org']
+                                    }]
+                            });
+                        }
+                        else {
+                            throw switchError;
+                        }
                     }
                 }
             }
-        }
-        catch (netErr) {
-            console.log('Network check failed:', netErr?.message || netErr);
-        }
+            catch (netErr) {
+                console.log('Network check failed:', netErr?.message || netErr);
+            }
+        } // Close the else block
         // İmza al
         const signResponse = await fetch(`${API_URL}/api/sign-score`, {
             method: 'POST',
@@ -2184,6 +2283,8 @@ function shareOnFarcaster() {
 // ===== INITIALIZE GAME =====
 window.addEventListener('DOMContentLoaded', () => {
     try {
+        // Initialize wallet connect screen first
+        initializeWalletConnect();
         const game = new FruitSliceGame();
         // Save leaderboard button
         const saveLeaderboardBtn = document.getElementById('save-leaderboard-button');

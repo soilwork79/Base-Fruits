@@ -2055,6 +2055,105 @@ class FruitSliceGame {
     }
 }
 
+// ===== WALLET CONNECT FUNCTIONALITY =====
+
+let connectedWalletAddress: string | null = null;
+let connectedProvider: any = null;
+let connectedSigner: any = null;
+
+async function initializeWalletConnect() {
+    console.log('🔗 Initializing wallet connect screen...');
+
+    // Show Farcaster profile if available
+    const context = (window as any).farcasterContext;
+    if (context?.user) {
+        const profileSection = document.getElementById('farcaster-profile');
+        const profilePic = document.getElementById('profile-pic') as HTMLImageElement;
+        const profileName = document.getElementById('profile-name');
+        const profileUsername = document.getElementById('profile-username');
+
+        if (profileSection && profilePic && profileName && profileUsername) {
+            profilePic.src = context.user.pfpUrl || '';
+            profileName.textContent = context.user.displayName || 'Farcaster User';
+            profileUsername.textContent = `@${context.user.username || 'username'}`;
+            profileSection.classList.remove('hidden');
+        }
+    }
+
+    // Connect wallet button handler
+    const connectButton = document.getElementById('connect-wallet-button');
+    if (connectButton) {
+        connectButton.addEventListener('click', connectWallet);
+    }
+}
+
+async function connectWallet() {
+    console.log('🔗 Connect Wallet clicked');
+    const statusEl = document.getElementById('wallet-status');
+    const buttonEl = document.getElementById('connect-wallet-button') as HTMLButtonElement;
+
+    if (!buttonEl || !statusEl) return;
+
+    buttonEl.disabled = true;
+    buttonEl.textContent = '⏳ Connecting...';
+    statusEl.textContent = '🔄 Connecting wallet...';
+
+    try {
+        // Reuse the same wallet connection logic from saveScore
+        const sdk = (window as any).sdk || (window as any).farcasterSDK;
+
+        // Try SDK wallet first
+        if (sdk?.wallet?.ethProvider) {
+            const provider = sdk.wallet.ethProvider;
+            try {
+                const accounts = await provider.request({ method: 'eth_requestAccounts' });
+                if (accounts && accounts[0]) {
+                    connectedWalletAddress = accounts[0];
+                    connectedProvider = provider;
+                }
+            } catch (e) {
+                console.log('SDK provider failed, trying window.ethereum');
+            }
+        }
+
+        // Fallback to window.ethereum
+        if (!connectedWalletAddress && (window as any).ethereum) {
+            const provider = (window as any).ethereum;
+            const accounts = await provider.request({ method: 'eth_requestAccounts' });
+            if (accounts && accounts[0]) {
+                connectedWalletAddress = accounts[0];
+                connectedProvider = provider;
+            }
+        }
+
+        if (connectedWalletAddress) {
+            // Create ethers provider
+            if ((window as any).ethers?.providers && connectedProvider) {
+                const ethers = (window as any).ethers;
+                connectedProvider = new ethers.providers.Web3Provider(connectedProvider);
+                connectedSigner = connectedProvider.getSigner();
+            }
+
+            statusEl.textContent = `✅ Connected: ${connectedWalletAddress.slice(0, 6)}...${connectedWalletAddress.slice(-4)}`;
+            buttonEl.textContent = '✅ Connected';
+
+            // Show start screen after 1 second
+            setTimeout(() => {
+                document.getElementById('wallet-connect-screen')?.classList.add('hidden');
+                document.getElementById('start-screen')?.classList.remove('hidden');
+            }, 1000);
+        } else {
+            throw new Error('No wallet provider available');
+        }
+    } catch (error: any) {
+        console.error('Failed to connect wallet:', error);
+        statusEl.textContent = '❌ Connection failed';
+        buttonEl.textContent = '🔗 Try Again';
+        buttonEl.disabled = false;
+        alert('Failed to connect wallet. Please try again or check your wallet settings.');
+    }
+}
+
 // ===== LEADERBOARD FUNCTIONALITY =====
 
 const CONTRACT_ADDRESS = '0xa4f109Eb679970C0b30C21812C99318837A81c73';
@@ -2101,16 +2200,26 @@ async function saveScore() {
         let provider;
         let signer;
         let walletAddress;
-        let rawProvider; // Store the raw EIP-1193 provider
+        let rawProvider: any; // Store the raw EIP-1193 provider (declare outside blocks)
 
-        // First check if we're in Farcaster Mini App
-        let inFarcasterFrame = false;
-        let farcasterWalletAvailable = false;
+        // Use already-connected wallet if available
+        if (connectedWalletAddress && connectedProvider && connectedSigner) {
+            console.log('✅ Using already-connected wallet:', connectedWalletAddress);
+            walletAddress = connectedWalletAddress;
+            provider = connectedProvider;
+            signer = connectedSigner;
+        } else {
+            // Fallback to old connection flow if not connected yet
+            console.log('⚠️ No connected wallet found, attempting connection...');
 
-        console.log('🔍 Checking wallet providers...');
-        console.log('window.sdk available:', !!(window as any).sdk);
-        console.log('window.farcasterSDK available:', !!(window as any).farcasterSDK);
-        console.log('window.ethereum available:', !!(window as any).ethereum);
+            // First check if we're in Farcaster Mini App
+            let inFarcasterFrame = false;
+            let farcasterWalletAvailable = false;
+
+            console.log('🔍 Checking wallet providers...');
+            console.log('window.sdk available:', !!(window as any).sdk);
+            console.log('window.farcasterSDK available:', !!(window as any).farcasterSDK);
+            console.log('window.ethereum available:', !!(window as any).ethereum);
 
         // Farcaster Mini App wallet
         const sdk = (window as any).sdk || (window as any).farcasterSDK;
@@ -2318,6 +2427,7 @@ async function saveScore() {
         } catch (netErr: any) {
             console.log('Network check failed:', netErr?.message || netErr);
         }
+        } // Close the else block
 
         // İmza al
         const signResponse = await fetch(`${API_URL}/api/sign-score`, {
@@ -2559,6 +2669,9 @@ function shareOnFarcaster() {
 // ===== INITIALIZE GAME =====
 window.addEventListener('DOMContentLoaded', () => {
     try {
+        // Initialize wallet connect screen first
+        initializeWalletConnect();
+
         const game = new FruitSliceGame();
         
         // Save leaderboard button
