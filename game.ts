@@ -509,9 +509,14 @@ class FruitSliceGame {
         
         // Hide milestone message after 3 seconds
         setTimeout(() => {
+            // Don't continue if game over is pending
+            if (this.state.gameOverPending) {
+                return;
+            }
+
             document.getElementById('milestone-message')!.classList.add('hidden');
             this.state.showingMilestone = false;
-            
+
             if (wave === 50) {
                 // Final screen without fail sound
                 this.showGameOver(false);
@@ -519,7 +524,7 @@ class FruitSliceGame {
                 // Advance to next wave
                 this.state.level++;
                 this.updateUI();
-                
+
                 // Check if this is a chapter start wave
                 const nextWave = this.state.level;
                 if (nextWave === 11 || nextWave === 21 || nextWave === 31 || nextWave === 41) {
@@ -650,9 +655,15 @@ class FruitSliceGame {
     }
     
     launchFruits() {
+        // Don't launch fruits if game over is pending
+        if (this.state.gameOverPending || !this.state.isPlaying) {
+            console.log('launchFruits cancelled - game over pending or not playing');
+            return;
+        }
+
         // CRITICAL: Memory cleanup before each wave to prevent performance degradation
         this.cleanupMemory();
-        
+
         const wave = this.state.level;
         console.log(`launchFruits called for wave ${wave}`);
         let fruitCount = 7; // Default to 7 fruits
@@ -689,8 +700,8 @@ class FruitSliceGame {
                 const launchDelay = Math.random() * 500;
                 
                 setTimeout(() => {
-                    if (!this.state.isPlaying) {
-                        console.log(`Fruit launch cancelled: isPlaying = false at wave ${wave}`);
+                    if (!this.state.isPlaying || this.state.gameOverPending) {
+                        console.log(`Fruit launch cancelled: isPlaying = ${this.state.isPlaying}, gameOverPending = ${this.state.gameOverPending}`);
                         return;
                     }
                     
@@ -743,8 +754,8 @@ class FruitSliceGame {
         const launchBombAt = (delayMs: number) => {
             const delay = Math.max(0, delayMs);
             setTimeout(() => {
-                if (!this.state.isPlaying) {
-                    console.log(`Bomb launch cancelled: isPlaying = false at wave ${wave}`);
+                if (!this.state.isPlaying || this.state.gameOverPending) {
+                    console.log(`Bomb launch cancelled: isPlaying = ${this.state.isPlaying}, gameOverPending = ${this.state.gameOverPending}`);
                     return;
                 }
                 
@@ -1150,10 +1161,15 @@ class FruitSliceGame {
         
         // Resume game after 2 seconds and check if wave should advance
         setTimeout(() => {
+            // Don't advance wave if game over is pending
+            if (this.state.gameOverPending) {
+                return;
+            }
+
             this.state.isPaused = false;
-            
+
             // Check if all fruits are gone and advance wave if needed
-            if (this.state.allFruitsLaunched && this.state.fruits.every(f => !f.active) && !this.state.showingMilestone) {
+            if (this.state.allFruitsLaunched && this.state.fruits.every(f => !f.active) && !this.state.showingMilestone && this.state.isPlaying) {
                 const currentWave = this.state.level;
                 
                 // Check if this is a milestone wave (10, 20, 30, 40, 50)
@@ -1473,7 +1489,7 @@ class FruitSliceGame {
         }
         
         // Check if all fruits are gone (advance level)
-        if (this.state.allFruitsLaunched && this.state.fruits.every(f => !f.active) && !this.state.showingMilestone && this.state.isPlaying) {
+        if (this.state.allFruitsLaunched && this.state.fruits.every(f => !f.active) && !this.state.showingMilestone && this.state.isPlaying && !this.state.gameOverPending) {
             const currentWave = this.state.level;
             
             // Reset flag to prevent multiple wave advancements (but keep game running)
