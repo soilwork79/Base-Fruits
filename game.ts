@@ -1443,9 +1443,19 @@ class FruitSliceGame {
                     this.state.lives--;
                     this.playFallSound(); // Play fall sound when fruit is missed
                     this.updateUI();
-                    
+
+                    // Check for game over but don't show immediately
+                    // Let the physics continue so remaining fruits fall naturally
                     if (this.state.lives <= 0) {
-                        this.showGameOver();
+                        // Mark game as ending but don't stop physics yet
+                        this.state.isPaused = false;
+
+                        // Wait a bit for remaining fruits to fall off screen
+                        setTimeout(() => {
+                            if (this.state.lives <= 0) {
+                                this.showGameOver();
+                            }
+                        }, 1500); // Give fruits time to fall
                         return;
                     }
                 }
@@ -1949,9 +1959,9 @@ class FruitSliceGame {
     
     gameLoop(currentTime: number): void {
         if (!this.state.isPlaying) return;
-        
+
         const deltaTime = currentTime - this.state.lastFrameTime;
-        
+
         // Detect low performance (FPS < 30)
         if (deltaTime > 33 && !this.state.isLowPerformance) {
             this.state.frameSkipCounter++;
@@ -1962,18 +1972,21 @@ class FruitSliceGame {
         } else if (deltaTime < 20 && this.state.isLowPerformance) {
             this.state.frameSkipCounter = 0;
         }
-        
+
         this.state.lastFrameTime = currentTime;
-        
+
         // Always update physics
         this.updatePhysics(deltaTime);
-        
+
         // Skip rendering every other frame on low performance devices
         if (!this.state.isLowPerformance || this.state.frameSkipCounter % 2 === 0) {
             this.render();
         }
-        
-        requestAnimationFrame((time) => { this.gameLoop(time); });
+
+        // Only continue the game loop if the game is still playing
+        if (this.state.isPlaying) {
+            requestAnimationFrame((time) => { this.gameLoop(time); });
+        }
     }
 }
 
