@@ -2222,8 +2222,33 @@ async function saveScore() {
             console.error('Full error:', sdkProvErr);
         }
         
+        // If Farcaster wallet provider available but eth_requestAccounts fails,
+        // try using window.ethereum directly (might work in Farcaster mobile app)
+        if (farcasterWalletAvailable && !walletAddress && (window as any).ethereum) {
+            console.log('⚠️ Farcaster provider exists but account request failed');
+            console.log('🔄 Trying window.ethereum as fallback...');
+
+            try {
+                const ethProvider = (window as any).ethereum;
+                const accounts = await ethProvider.request({ method: 'eth_requestAccounts' });
+                if (accounts && accounts[0]) {
+                    walletAddress = accounts[0];
+                    rawProvider = ethProvider;
+                    console.log('✅ Got address via window.ethereum:', walletAddress);
+
+                    if ((window as any).ethers?.providers) {
+                        const ethers = (window as any).ethers;
+                        provider = new ethers.providers.Web3Provider(ethProvider);
+                        signer = provider.getSigner();
+                    }
+                }
+            } catch (windowEthErr) {
+                console.error('❌ window.ethereum also failed:', windowEthErr);
+            }
+        }
+
         // If not in Farcaster or Farcaster wallet failed, try MetaMask
-        if (!farcasterWalletAvailable) {
+        if (!farcasterWalletAvailable && !walletAddress) {
             console.log('Trying MetaMask/browser wallet...');
             
             if (!(window as any).ethereum) {
