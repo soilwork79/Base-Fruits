@@ -1,16 +1,25 @@
-"use strict";
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
 // ===== GAME CONSTANTS =====
 const GRAVITY = 0.17; // Adjusted gravity for optimal fruit trajectories
 const INITIAL_LIVES = 4;
 const MAX_LEVEL = 50;
 const FRUIT_RADIUS = 26.46; // 40% smaller than original 44.1
-const TRAIL_FADE_SPEED = 0.35;
-const MAX_TRAIL_POINTS = 15; // Reduced for mobile performance
+const TRAIL_FADE_SPEED = 0.45; // Optimized: Daha hızlı kaybolma
+const MAX_TRAIL_POINTS = 8; // Optimized: Daha az nokta - performans için
+const TRAIL_POINT_DISTANCE = 15; // Optimized: Trail noktaları arası minimum mesafe
 const WALL_BOUNCE_DAMPING = 0.7;
 const MAX_FRUITS = 7;
-const MAX_PARTICLES = 100; // Limit particles for performance
-const MAX_TRAILS = 3; // Limit simultaneous trails
-const MAX_SCORE_POPUPS = 5; // Limit score popups
+const MAX_PARTICLES = 50; // Optimized: Daha az partikül - performans için
+const MAX_TRAILS = 2; // Optimized: Daha az trail
+const MAX_SCORE_POPUPS = 3; // Optimized: Daha az popup
 const FRUIT_TYPES = [
     { name: 'apple', emoji: '🍎', color: '#ff6b6b', imagePath: 'images/apple.png', halfImagePath: 'images/half_apple.png' },
     { name: 'orange', emoji: '🍊', color: '#ffa500', imagePath: 'images/orange.png', halfImagePath: 'images/half_orange.png' },
@@ -26,6 +35,7 @@ class GameState {
     constructor() {
         // Game state
         this.isPlaying = false;
+        this.gameOverPending = false; // Prevents multiple game over calls
         this.score = 0;
         this.level = 1;
         this.lives = INITIAL_LIVES;
@@ -40,6 +50,8 @@ class GameState {
         this.currentTrail = [];
         this.isDrawing = false;
         this.slicedThisSwipe = [];
+        this.lastSwooshTime = 0; // Track last swoosh sound play time
+        this.lastTrailPoint = null; // Optimized: Trail mesafe kontrolü için
         // Combo system
         this.comboFruits = [];
         this.comboTimer = null;
@@ -112,6 +124,7 @@ class FruitSliceGame {
         this.showStartScreen();
     }
     setupEventListeners() {
+        console.log('Setting up event listeners...');
         // Start button
         const startButton = document.getElementById('start-button');
         console.log('Start button found:', startButton);
@@ -122,9 +135,14 @@ class FruitSliceGame {
             });
         }
         // Restart button
-        document.getElementById('restart-button').addEventListener('click', () => {
-            this.startGame();
-        });
+        const restartButton = document.getElementById('restart-button');
+        console.log('Restart button:', restartButton);
+        if (restartButton) {
+            restartButton.addEventListener('click', () => {
+                console.log('Restart button clicked!');
+                this.startGame();
+            });
+        }
         // Mouse events
         this.state.canvas.addEventListener('mousedown', (e) => this.handleInputStart(e.clientX, e.clientY));
         this.state.canvas.addEventListener('mousemove', (e) => this.handleInputMove(e.clientX, e.clientY));
@@ -145,6 +163,48 @@ class FruitSliceGame {
             e.preventDefault();
             this.handleInputEnd();
         }, { passive: false });
+        // Keyboard events for desktop
+        console.log('Setting up keyboard listeners...');
+        document.addEventListener('keydown', (e) => {
+            console.log('Key pressed:', e.key, e.code, 'isPlaying:', this.state.isPlaying);
+            // Space bar to start/restart game
+            if (e.code === 'Space' || e.key === ' ') {
+                e.preventDefault();
+                console.log('Space key detected!');
+                const startScreen = document.getElementById('start-screen');
+                const gameOverScreen = document.getElementById('game-over-screen');
+                const startScreenVisible = startScreen && !startScreen.classList.contains('hidden');
+                const gameOverScreenVisible = gameOverScreen && !gameOverScreen.classList.contains('hidden');
+                console.log('Start screen visible:', startScreenVisible);
+                console.log('Game over screen visible:', gameOverScreenVisible);
+                if (startScreenVisible) {
+                    console.log('Starting game from start screen via SPACE...');
+                    this.startGame();
+                }
+                else if (gameOverScreenVisible) {
+                    console.log('Restarting game from game over screen via SPACE...');
+                    this.startGame();
+                }
+            }
+            // Enter key as alternative
+            if (e.code === 'Enter' || e.key === 'Enter') {
+                e.preventDefault();
+                console.log('Enter key detected!');
+                const startScreen = document.getElementById('start-screen');
+                const gameOverScreen = document.getElementById('game-over-screen');
+                const startScreenVisible = startScreen && !startScreen.classList.contains('hidden');
+                const gameOverScreenVisible = gameOverScreen && !gameOverScreen.classList.contains('hidden');
+                if (startScreenVisible) {
+                    console.log('Starting game from start screen via ENTER...');
+                    this.startGame();
+                }
+                else if (gameOverScreenVisible) {
+                    console.log('Restarting game from game over screen via ENTER...');
+                    this.startGame();
+                }
+            }
+        });
+        console.log('All event listeners set up!');
     }
     showStartScreen() {
         document.getElementById('start-screen').classList.remove('hidden');
@@ -152,6 +212,11 @@ class FruitSliceGame {
         document.getElementById('game-over-screen').classList.add('hidden');
     }
     showGameOver(playFailSound = true) {
+        // Prevent multiple game over calls
+        if (this.state.gameOverPending || !this.state.isPlaying) {
+            return;
+        }
+        this.state.gameOverPending = true;
         this.state.isPlaying = false;
         // Stop all fuse sounds
         for (const fruit of this.state.fruits) {
@@ -372,6 +437,7 @@ class FruitSliceGame {
         this.state.isPaused = false;
         this.state.showingMilestone = false;
         this.state.allFruitsLaunched = false;
+        this.state.gameOverPending = false; // Reset game over flag
         // Reset save leaderboard button
         const saveBtn = document.getElementById('save-leaderboard-button');
         if (saveBtn) {
@@ -392,7 +458,45 @@ class FruitSliceGame {
         // Start game loop
         this.gameLoop(performance.now());
     }
+    cleanupMemory() {
+        // CRITICAL: Aggressive memory cleanup to prevent performance degradation
+        // Clear all game objects arrays
+        this.state.fruits = [];
+        this.state.fruitHalves = [];
+        this.state.trails = [];
+        this.state.particles = [];
+        this.state.scorePopups = [];
+        this.state.fireworks = [];
+        this.state.currentTrail = [];
+        this.state.slicedThisSwipe = [];
+        this.state.comboFruits = [];
+        // Reset trail tracking
+        this.state.lastTrailPoint = null;
+        // Clear any timers
+        if (this.state.comboTimer) {
+            clearTimeout(this.state.comboTimer);
+            this.state.comboTimer = null;
+        }
+        // Reset visual effects
+        this.state.screenShake = 0;
+        this.state.redFlash = 0;
+        // Stop all bomb fuse sounds that might be playing
+        // (This is important to prevent audio memory leaks)
+        const allAudioElements = document.querySelectorAll('audio');
+        allAudioElements.forEach(audio => {
+            if (audio.src.includes('fuse.mp3')) {
+                audio.pause();
+                audio.currentTime = 0;
+            }
+        });
+        // Force garbage collection hint (browser will decide)
+        if (window.gc) {
+            window.gc();
+        }
+    }
     launchFruits() {
+        // CRITICAL: Memory cleanup before each wave to prevent performance degradation
+        this.cleanupMemory();
         const wave = this.state.level;
         console.log(`launchFruits called for wave ${wave}`);
         let fruitCount = 7; // Default to 7 fruits
@@ -578,10 +682,39 @@ class FruitSliceGame {
         const rect = this.state.canvas.getBoundingClientRect();
         const x = clientX - rect.left;
         const y = clientY - rect.top;
+        // Optimized: Sadece belirli mesafeden sonra nokta ekle
+        if (this.state.lastTrailPoint) {
+            const dx = x - this.state.lastTrailPoint.x;
+            const dy = y - this.state.lastTrailPoint.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < TRAIL_POINT_DISTANCE) {
+                // Çok yakın, ama yine de slicing kontrolü yap
+                const prevPoint = this.state.currentTrail[this.state.currentTrail.length - 1];
+                if (prevPoint) {
+                    this.checkSlicingSegment(prevPoint, { x, y });
+                }
+                return;
+            }
+        }
         const prevPoint = this.state.currentTrail[this.state.currentTrail.length - 1];
-        this.state.currentTrail.push({ x, y, timestamp: performance.now() });
-        // Remove old points from current trail (older than 150ms)
         const now = performance.now();
+        this.state.currentTrail.push({ x, y, timestamp: now });
+        this.state.lastTrailPoint = { x, y }; // Optimized: Son noktayı kaydet
+        // Calculate movement speed and play swoosh sound if moving fast enough
+        if (prevPoint && prevPoint.timestamp) {
+            const dx = x - prevPoint.x;
+            const dy = y - prevPoint.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            const timeDiff = now - prevPoint.timestamp;
+            const speed = timeDiff > 0 ? distance / timeDiff : 0;
+            // Play swoosh if moving fast and enough time passed since last swoosh (200ms cooldown)
+            const timeSinceLastSwoosh = now - this.state.lastSwooshTime;
+            if (speed > 1.5 && timeSinceLastSwoosh > 200 && this.state.currentTrail.length >= 3) {
+                this.playKnifeSwooshSound();
+                this.state.lastSwooshTime = now;
+            }
+        }
+        // Remove old points from current trail (older than 150ms)
         this.state.currentTrail = this.state.currentTrail.filter(p => !p.timestamp || (now - p.timestamp) < 150);
         // Check for slicing in real-time as we draw
         if (prevPoint) {
@@ -595,10 +728,6 @@ class FruitSliceGame {
         if (!this.state.isPlaying || !this.state.isDrawing)
             return;
         this.state.isDrawing = false;
-        // Play knife swoosh sound only if swipe was long enough (5+ points)
-        if (this.state.currentTrail.length >= 5) {
-            this.playKnifeSwooshSound();
-        }
         // Add trail to fading trails (limit for performance)
         if (this.state.currentTrail.length > 1) {
             // Remove oldest trail if we have too many
@@ -611,6 +740,7 @@ class FruitSliceGame {
             });
         }
         this.state.currentTrail = [];
+        this.state.lastTrailPoint = null; // Optimized: Reset trail point
         this.state.slicedThisSwipe = [];
     }
     scoreCombo() {
@@ -630,36 +760,87 @@ class FruitSliceGame {
         // Generate combo text based on fruit count
         const count = this.state.comboFruits.length;
         let comboText = '';
-        if (count === 3)
-            comboText = '3 Fruits - Good';
-        else if (count === 4)
-            comboText = '4 Fruits - Great';
-        else if (count === 5) {
-            comboText = '5 Fruits - Excellent';
-            this.playComboSound('excellent');
+        // Limit score popups for performance
+        if (this.state.scorePopups.length >= MAX_SCORE_POPUPS) {
+            this.state.scorePopups.shift();
         }
-        else if (count === 6) {
-            comboText = '6 Fruits - Amazing';
-            this.playComboSound('amazing');
+        if (count === 1 || count === 2) {
+            // Single or double fruit - show simple green score at fruit position
+            this.state.scorePopups.push({
+                x: avgX,
+                y: avgY,
+                score: comboScore,
+                opacity: 1,
+                scale: 1,
+                comboText: '', // No text, just score
+                isSimple: true // Flag for simple green style
+            });
         }
-        else if (count >= 7) {
-            comboText = '7+ Fruits - Legendary';
-            this.playComboSound('legendary');
-        }
-        // For combos (3+), show text in center of screen
-        if (count >= 3) {
-            // Limit score popups for performance
-            if (this.state.scorePopups.length >= MAX_SCORE_POPUPS) {
-                this.state.scorePopups.shift();
-            }
+        else if (count === 3) {
+            comboText = '3 Fruit Combo';
             this.state.scorePopups.push({
                 x: this.state.width / 2,
                 y: this.state.height / 2,
                 score: comboScore,
                 opacity: 1,
                 scale: 1,
-                comboText: comboText
+                comboText: comboText,
+                isSimple: false
             });
+        }
+        else if (count === 4) {
+            comboText = '4 Fruit Combo';
+            this.state.scorePopups.push({
+                x: this.state.width / 2,
+                y: this.state.height / 2,
+                score: comboScore,
+                opacity: 1,
+                scale: 1,
+                comboText: comboText,
+                isSimple: false
+            });
+        }
+        else if (count === 5) {
+            comboText = '5 Fruit Combo';
+            this.playComboSound('excellent');
+            this.state.scorePopups.push({
+                x: this.state.width / 2,
+                y: this.state.height / 2,
+                score: comboScore,
+                opacity: 1,
+                scale: 1,
+                comboText: comboText,
+                isSimple: false
+            });
+        }
+        else if (count === 6) {
+            comboText = '6 Fruit Combo';
+            this.playComboSound('amazing');
+            this.state.scorePopups.push({
+                x: this.state.width / 2,
+                y: this.state.height / 2,
+                score: comboScore,
+                opacity: 1,
+                scale: 1,
+                comboText: comboText,
+                isSimple: false
+            });
+        }
+        else if (count >= 7) {
+            comboText = '7+ Fruit Combo';
+            this.playComboSound('legendary');
+            this.state.scorePopups.push({
+                x: this.state.width / 2,
+                y: this.state.height / 2,
+                score: comboScore,
+                opacity: 1,
+                scale: 1,
+                comboText: comboText,
+                isSimple: false
+            });
+        }
+        // Create fireworks for 3+ combos
+        if (count >= 3) {
             this.createFireworks(avgX, avgY);
         }
         this.updateUI();
@@ -681,9 +862,9 @@ class FruitSliceGame {
         // Count uncut fruits
         const uncutFruits = this.state.fruits.filter(f => f.active && !f.sliced && !f.isBomb);
         const livesLost = uncutFruits.length;
-        // Create massive explosion particles from bomb center (reduced for mobile)
+        // Create massive explosion particles from bomb center (optimized for mobile)
         if (bomb && this.state.particles.length < MAX_PARTICLES) {
-            const particleCount = Math.min(25, MAX_PARTICLES - this.state.particles.length);
+            const particleCount = Math.min(15, MAX_PARTICLES - this.state.particles.length); // Optimized: 25 -> 15
             for (let i = 0; i < particleCount; i++) {
                 const angle = Math.random() * Math.PI * 2;
                 const speed = 5 + Math.random() * 10;
@@ -702,9 +883,9 @@ class FruitSliceGame {
         for (const fruit of uncutFruits) {
             fruit.active = false;
             fruit.sliced = true;
-            // Create explosion particles for each destroyed fruit (reduced for mobile)
+            // Create explosion particles for each destroyed fruit (optimized for mobile)
             if (this.state.particles.length < MAX_PARTICLES) {
-                const particleCount = Math.min(8, MAX_PARTICLES - this.state.particles.length);
+                const particleCount = Math.min(5, MAX_PARTICLES - this.state.particles.length); // Optimized: 8 -> 5
                 for (let i = 0; i < particleCount; i++) {
                     const angle = Math.random() * Math.PI * 2;
                     const speed = 3 + Math.random() * 5;
@@ -758,7 +939,8 @@ class FruitSliceGame {
             });
         }
         // Check game over AFTER updating UI
-        if (this.state.lives <= 0) {
+        if (this.state.lives <= 0 && !this.state.gameOverPending) {
+            this.state.gameOverPending = true;
             setTimeout(() => {
                 this.state.isPaused = false; // Unpause before showing game over
                 this.showGameOver();
@@ -905,9 +1087,9 @@ class FruitSliceGame {
         });
     }
     createSliceParticles(fruit) {
-        // Create juice particles (reduced for mobile)
+        // Optimized: Create juice particles (reduced for mobile performance)
         if (this.state.particles.length < MAX_PARTICLES) {
-            const particleCount = Math.min(10, MAX_PARTICLES - this.state.particles.length);
+            const particleCount = Math.min(6, MAX_PARTICLES - this.state.particles.length); // Optimized: 10 -> 6
             for (let i = 0; i < particleCount; i++) {
                 const angle = Math.random() * Math.PI * 2;
                 const speed = 2 + Math.random() * 3;
@@ -1031,8 +1213,18 @@ class FruitSliceGame {
                     this.state.lives--;
                     this.playFallSound(); // Play fall sound when fruit is missed
                     this.updateUI();
-                    if (this.state.lives <= 0) {
-                        this.showGameOver();
+                    // Check for game over but don't show immediately
+                    // Let the physics continue so remaining fruits fall naturally
+                    if (this.state.lives <= 0 && !this.state.gameOverPending) {
+                        // Mark game as ending but don't stop physics yet
+                        this.state.gameOverPending = true;
+                        this.state.isPaused = false;
+                        // Wait a bit for remaining fruits to fall off screen
+                        setTimeout(() => {
+                            if (this.state.lives <= 0) {
+                                this.showGameOver();
+                            }
+                        }, 1500); // Give fruits time to fall
                         return;
                     }
                 }
@@ -1103,6 +1295,10 @@ class FruitSliceGame {
                 this.state.particles.splice(i, 1);
             }
         }
+        // CRITICAL: Aggressively limit particles if too many (memory leak protection)
+        if (this.state.particles.length > MAX_PARTICLES) {
+            this.state.particles = this.state.particles.slice(-MAX_PARTICLES);
+        }
         // Update fireworks
         for (let i = this.state.fireworks.length - 1; i >= 0; i--) {
             const fw = this.state.fireworks[i];
@@ -1145,6 +1341,10 @@ class FruitSliceGame {
             if (trail.opacity <= 0) {
                 this.state.trails.splice(i, 1);
             }
+        }
+        // CRITICAL: Aggressively limit trails if too many (memory leak protection)
+        if (this.state.trails.length > MAX_TRAILS) {
+            this.state.trails = this.state.trails.slice(-MAX_TRAILS);
         }
         // Limit score popups to prevent memory leaks
         if (this.state.scorePopups.length > MAX_SCORE_POPUPS) {
@@ -1294,12 +1494,18 @@ class FruitSliceGame {
         // Draw score popups
         for (const popup of this.state.scorePopups) {
             ctx.globalAlpha = popup.opacity;
-            ctx.fillStyle = '#f5576c';
             ctx.textAlign = 'center';
-            ctx.shadowBlur = 15;
-            ctx.shadowColor = '#f5576c';
-            // Draw combo text if available (3+ fruits)
-            if (popup.comboText) {
+            // Simple green popup for 1-2 fruits
+            if (popup.isSimple) {
+                ctx.fillStyle = '#4ade80'; // Green color
+                ctx.font = `bold ${28}px Arial`;
+                ctx.textBaseline = 'middle';
+                ctx.shadowBlur = 12;
+                ctx.shadowColor = '#4ade80';
+                ctx.fillText(`+${popup.score}`, popup.x, popup.y);
+            }
+            // Combo popup for 3+ fruits
+            else if (popup.comboText) {
                 // Draw combo text in yellow
                 ctx.fillStyle = '#FFD700';
                 ctx.font = `bold ${32}px Arial`;
@@ -1307,23 +1513,13 @@ class FruitSliceGame {
                 ctx.shadowBlur = 20;
                 ctx.shadowColor = '#FFD700';
                 ctx.fillText(popup.comboText, popup.x, popup.y - 10);
-                // Draw score below in white
+                // Draw score below combo text in white
                 ctx.fillStyle = '#FFFFFF';
-                ctx.font = `bold ${24}px Arial`;
+                ctx.font = `bold ${28}px Arial`;
                 ctx.textBaseline = 'top';
                 ctx.shadowBlur = 15;
                 ctx.shadowColor = '#FFFFFF';
                 ctx.fillText(`+${popup.score}`, popup.x, popup.y + 10);
-            }
-            else {
-                // Draw only score for single/double fruits (smaller)
-                const popupColor = popup.color || '#f5576c'; // Use popup color or default red
-                ctx.fillStyle = popupColor;
-                ctx.font = `bold ${20}px Arial`;
-                ctx.textBaseline = 'middle';
-                ctx.shadowBlur = 10;
-                ctx.shadowColor = popupColor;
-                ctx.fillText(`+${popup.score}`, popup.x, popup.y);
             }
         }
         ctx.shadowBlur = 0;
@@ -1423,18 +1619,39 @@ class FruitSliceGame {
             return;
         const ctx = this.state.ctx;
         ctx.globalAlpha = opacity;
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
-        ctx.lineWidth = 3;
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
-        ctx.beginPath();
-        ctx.moveTo(points[0].x, points[0].y);
-        // Draw every other point on low performance devices
         const step = this.state.isLowPerformance ? 2 : 1;
-        for (let i = step; i < points.length; i += step) {
-            ctx.lineTo(points[i].x, points[i].y);
+        // Draw multiple passes with increasing thickness for gradient effect
+        const layers = [
+            { widthStart: 3, widthEnd: 9, color: 'rgba(80, 180, 255, 0.3)', blur: 12 },
+            { widthStart: 1.5, widthEnd: 4, color: 'rgba(150, 220, 255, 0.9)', blur: 6 }
+        ];
+        for (const layer of layers) {
+            // Draw the path in small segments with varying width
+            for (let i = 0; i < points.length - 1; i += step) {
+                const progress = i / (points.length - 1);
+                const width = layer.widthStart + (layer.widthEnd - layer.widthStart) * progress;
+                ctx.strokeStyle = layer.color;
+                ctx.lineWidth = width;
+                ctx.shadowBlur = layer.blur;
+                ctx.shadowColor = layer.color;
+                ctx.beginPath();
+                ctx.moveTo(points[i].x, points[i].y);
+                // Use quadratic curve for smooth connection
+                if (i < points.length - 2) {
+                    const xc = (points[i + 1].x + points[Math.min(i + 2, points.length - 1)].x) / 2;
+                    const yc = (points[i + 1].y + points[Math.min(i + 2, points.length - 1)].y) / 2;
+                    ctx.quadraticCurveTo(points[i + 1].x, points[i + 1].y, xc, yc);
+                }
+                else {
+                    ctx.lineTo(points[i + 1].x, points[i + 1].y);
+                }
+                ctx.stroke();
+            }
         }
-        ctx.stroke();
+        // Reset shadow
+        ctx.shadowBlur = 0;
         ctx.globalAlpha = 1;
     }
     updateUI() {
@@ -1467,381 +1684,388 @@ class FruitSliceGame {
         if (!this.state.isLowPerformance || this.state.frameSkipCounter % 2 === 0) {
             this.render();
         }
-        requestAnimationFrame((time) => { this.gameLoop(time); });
+        // Only continue the game loop if the game is still playing
+        if (this.state.isPlaying) {
+            requestAnimationFrame((time) => { this.gameLoop(time); });
+        }
     }
 }
 // ===== LEADERBOARD FUNCTIONALITY =====
 const CONTRACT_ADDRESS = '0xa4f109Eb679970C0b30C21812C99318837A81c73';
-const API_URL = 'https://base-fruits-game.vercel.app';
+const API_URL = '';
 let currentScore = 0;
 // SAVE LEADERBOARD - Farcaster SDK veya MetaMask
-async function saveScore() {
-    console.log('=== SAVE SCORE STARTED ===');
-    console.log('Current score:', currentScore);
-    console.log('Window parent:', window.parent);
-    console.log('Farcaster available:', !!window.parent?.farcaster);
-    // Farcaster kullanıcı adını çek veya test için rastgele oluştur
-    let username = '';
-    let fid = 0;
-    // Farcaster bağlantısını kontrol et
-    try {
-        if (window.parent && window.parent !== window) {
-            console.log('Attempting to access parent.farcaster...');
-            const farcasterUser = await window.parent.farcaster.getUser();
-            username = farcasterUser.username;
-            fid = farcasterUser.fid;
-            console.log('Farcaster user:', { username, fid });
-        }
-        else {
-            console.log('No parent frame or same origin');
-        }
-    }
-    catch (error) {
-        console.log('Farcaster access error (expected in preview):', error.message);
-        // Cross-origin hatası beklenen bir durum
-    }
-    // Test ortamı için rastgele kullanıcı adı
-    if (!username) {
-        const testUsernames = ['Player1', 'FruitNinja', 'SliceKing', 'BombAvoider', 'ComboMaster', 'FruitHero'];
-        username = testUsernames[Math.floor(Math.random() * testUsernames.length)] + Math.floor(Math.random() * 1000);
-        fid = Math.floor(Math.random() * 100000); // Test FID
-    }
-    const btn = document.getElementById('save-leaderboard-button');
-    btn.disabled = true;
-    btn.textContent = '⏳ Processing...';
-    try {
-        let provider;
-        let signer;
-        let walletAddress;
-        let rawProvider; // Store the raw EIP-1193 provider
-        // First check if we're in Farcaster Mini App
-        let inFarcasterFrame = false;
-        let farcasterWalletAvailable = false;
-        // Check if we're in an iframe and potentially in Farcaster
+function saveScore() {
+    return __awaiter(this, void 0, void 0, function* () {
+        var _a, _b, _c, _d, _e, _f, _g, _h;
+        console.log('=== SAVE SCORE STARTED ===');
+        console.log('Current score:', currentScore);
+        console.log('Window parent:', window.parent);
+        console.log('SDK present:', !!window.sdk);
+        // Farcaster kullanıcı adını çek veya test için rastgele oluştur
+        let username = '';
+        let fid = 0;
+        // Farcaster SDK context (Mini App)
         try {
-            inFarcasterFrame = window.parent !== window;
-            console.log('In iframe:', inFarcasterFrame);
-            if (inFarcasterFrame) {
-                // Try to access Farcaster SDK
-                const hasFarcasterSDK = !!window.parent?.farcaster;
-                console.log('Has Farcaster SDK:', hasFarcasterSDK);
-                if (hasFarcasterSDK) {
-                    try {
-                        console.log('Attempting Farcaster wallet connection...');
-                        rawProvider = await window.parent.farcaster.wallet.getEthereumProvider();
-                        console.log('Farcaster provider obtained:', rawProvider);
-                        if (rawProvider) {
-                            farcasterWalletAvailable = true;
-                            // Wait for ethers.js if needed
-                            if (!window.ethers) {
-                                console.log('Waiting for ethers.js...');
-                                let attempts = 0;
-                                while (!window.ethers && attempts < 30) {
-                                    await new Promise(resolve => setTimeout(resolve, 100));
-                                    attempts++;
-                                }
-                            }
-                            // Use ethers if available, otherwise use raw provider
-                            if (window.ethers && window.ethers.providers) {
-                                const ethers = window.ethers;
-                                provider = new ethers.providers.Web3Provider(rawProvider);
-                                await provider.send("eth_requestAccounts", []);
-                                signer = provider.getSigner();
-                                walletAddress = await signer.getAddress();
-                            }
-                            else {
-                                // Fallback: use raw provider directly
-                                console.log('Using raw provider without ethers.js');
-                                const accounts = await rawProvider.request({ method: 'eth_requestAccounts' });
-                                walletAddress = accounts[0];
-                                // We'll handle contract interaction differently below
-                            }
-                            console.log('Farcaster wallet connected:', walletAddress);
-                        }
-                    }
-                    catch (e) {
-                        console.error('Farcaster wallet error:', e);
-                        farcasterWalletAvailable = false;
-                    }
+            if (window.sdk) {
+                const context = yield window.sdk.context;
+                if (((_a = context === null || context === void 0 ? void 0 : context.user) === null || _a === void 0 ? void 0 : _a.fid) && ((_b = context === null || context === void 0 ? void 0 : context.user) === null || _b === void 0 ? void 0 : _b.username)) {
+                    username = context.user.username;
+                    fid = context.user.fid;
+                    console.log('Farcaster user:', { username, fid });
                 }
             }
         }
-        catch (frameError) {
-            console.log('Frame check error:', frameError);
-            inFarcasterFrame = false;
+        catch (error) {
+            console.log('Farcaster SDK context error:', (error === null || error === void 0 ? void 0 : error.message) || error);
         }
-        // If not in Farcaster or Farcaster wallet failed, try MetaMask
-        if (!farcasterWalletAvailable) {
-            console.log('Trying MetaMask/browser wallet...');
-            if (!window.ethereum) {
-                console.error('No wallet provider available');
-                if (inFarcasterFrame) {
-                    alert('Wallet connection failed in Farcaster. Please try refreshing the app.');
+        // Test ortamı için rastgele kullanıcı adı
+        if (!username) {
+            const testUsernames = ['Player1', 'FruitNinja', 'SliceKing', 'BombAvoider', 'ComboMaster', 'FruitHero'];
+            username = testUsernames[Math.floor(Math.random() * testUsernames.length)] + Math.floor(Math.random() * 1000);
+            fid = Math.floor(Math.random() * 100000); // Test FID
+        }
+        const btn = document.getElementById('save-leaderboard-button');
+        btn.disabled = true;
+        btn.textContent = '⏳ Processing...';
+        try {
+            let provider;
+            let signer;
+            let walletAddress;
+            let rawProvider; // Store the raw EIP-1193 provider
+            // First check if we're in Farcaster Mini App
+            let inFarcasterFrame = false;
+            let farcasterWalletAvailable = false;
+            // Farcaster Mini App wallet (no cross-origin access)
+            try {
+                if ((_d = (_c = window.sdk) === null || _c === void 0 ? void 0 : _c.wallet) === null || _d === void 0 ? void 0 : _d.getEthereumProvider) {
+                    rawProvider = yield window.sdk.wallet.getEthereumProvider();
+                    if (!rawProvider && ((_f = (_e = window.sdk) === null || _e === void 0 ? void 0 : _e.actions) === null || _f === void 0 ? void 0 : _f.signin)) {
+                        console.log('Attempting Farcaster signin to enable wallet...');
+                        yield window.sdk.actions.signin();
+                        rawProvider = yield window.sdk.wallet.getEthereumProvider();
+                    }
+                    if (rawProvider) {
+                        farcasterWalletAvailable = true;
+                        try {
+                            const accounts = yield rawProvider.request({ method: 'eth_requestAccounts' });
+                            walletAddress = accounts === null || accounts === void 0 ? void 0 : accounts[0];
+                        }
+                        catch (_j) { }
+                        if ((_g = window.ethers) === null || _g === void 0 ? void 0 : _g.providers) {
+                            const ethers = window.ethers;
+                            provider = new ethers.providers.Web3Provider(rawProvider);
+                            signer = provider.getSigner();
+                        }
+                        console.log('Farcaster wallet connected:', walletAddress);
+                    }
+                }
+            }
+            catch (sdkProvErr) {
+                console.log('SDK provider error:', (sdkProvErr === null || sdkProvErr === void 0 ? void 0 : sdkProvErr.message) || sdkProvErr);
+            }
+            // If not in Farcaster or Farcaster wallet failed, try MetaMask
+            if (!farcasterWalletAvailable) {
+                console.log('Trying MetaMask/browser wallet...');
+                if (!window.ethereum) {
+                    console.error('No wallet provider available');
+                    if (inFarcasterFrame) {
+                        alert('Wallet connection failed in Farcaster. Please try refreshing the app.');
+                    }
+                    else {
+                        alert('Please install MetaMask or use this app in Farcaster!');
+                    }
+                    return;
+                }
+                rawProvider = window.ethereum;
+                // Wait for ethers.js
+                if (!window.ethers) {
+                    console.log('Waiting for ethers.js...');
+                    let attempts = 0;
+                    while (!window.ethers && attempts < 30) {
+                        yield new Promise(resolve => setTimeout(resolve, 100));
+                        attempts++;
+                    }
+                }
+                if (window.ethers && window.ethers.providers) {
+                    const ethers = window.ethers;
+                    provider = new ethers.providers.Web3Provider(rawProvider);
+                    yield provider.send("eth_requestAccounts", []);
+                    signer = provider.getSigner();
+                    walletAddress = yield signer.getAddress();
+                    console.log('MetaMask wallet connected:', walletAddress);
                 }
                 else {
-                    alert('Please install MetaMask or use this app in Farcaster!');
-                }
-                return;
-            }
-            rawProvider = window.ethereum;
-            // Wait for ethers.js
-            if (!window.ethers) {
-                console.log('Waiting for ethers.js...');
-                let attempts = 0;
-                while (!window.ethers && attempts < 30) {
-                    await new Promise(resolve => setTimeout(resolve, 100));
-                    attempts++;
+                    // Fallback: use raw provider directly
+                    console.log('Using raw provider without ethers.js');
+                    const accounts = yield rawProvider.request({ method: 'eth_requestAccounts' });
+                    walletAddress = accounts[0];
                 }
             }
-            if (window.ethers && window.ethers.providers) {
-                const ethers = window.ethers;
-                provider = new ethers.providers.Web3Provider(rawProvider);
-                await provider.send("eth_requestAccounts", []);
-                signer = provider.getSigner();
-                walletAddress = await signer.getAddress();
-                console.log('MetaMask wallet connected:', walletAddress);
-            }
-            else {
-                // Fallback: use raw provider directly
-                console.log('Using raw provider without ethers.js');
-                const accounts = await rawProvider.request({ method: 'eth_requestAccounts' });
-                walletAddress = accounts[0];
-            }
-        }
-        // Base Mainnet kontrolü
-        const network = await provider.getNetwork();
-        if (network.chainId !== 8453) {
+            // Base Mainnet kontrolü (chainId via EIP-1193)
             try {
-                console.log('Switching to Base network...');
-                // Base ağına geçmeyi dene - rawProvider'ı kullan
-                await rawProvider.request({
-                    method: 'wallet_switchEthereumChain',
-                    params: [{ chainId: '0x2105' }],
-                });
-            }
-            catch (switchError) {
-                console.log('Network switch error:', switchError);
-                // Eğer ağ yoksa, Base ağını ekle
-                if (switchError.code === 4902) {
+                const chainIdHex = yield rawProvider.request({ method: 'eth_chainId' });
+                const currentChain = typeof chainIdHex === 'string' ? chainIdHex : '0x0';
+                if (currentChain !== '0x2105') {
                     try {
-                        console.log('Adding Base network...');
-                        await rawProvider.request({
-                            method: 'wallet_addEthereumChain',
-                            params: [{
-                                    chainId: '0x2105',
-                                    chainName: 'Base Mainnet',
-                                    nativeCurrency: {
-                                        name: 'Ethereum',
-                                        symbol: 'ETH',
-                                        decimals: 18
-                                    },
-                                    rpcUrls: ['https://mainnet.base.org'],
-                                    blockExplorerUrls: ['https://basescan.org']
-                                }]
+                        yield rawProvider.request({
+                            method: 'wallet_switchEthereumChain',
+                            params: [{ chainId: '0x2105' }]
                         });
                     }
-                    catch (addError) {
-                        console.error('Failed to add Base network:', addError);
-                        throw new Error('Base ağı eklenemedi. Lütfen manuel olarak ekleyin.');
+                    catch (switchError) {
+                        if (switchError.code === 4902) {
+                            yield rawProvider.request({
+                                method: 'wallet_addEthereumChain',
+                                params: [{
+                                        chainId: '0x2105',
+                                        chainName: 'Base Mainnet',
+                                        nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+                                        rpcUrls: ['https://mainnet.base.org'],
+                                        blockExplorerUrls: ['https://basescan.org']
+                                    }]
+                            });
+                        }
+                        else {
+                            throw switchError;
+                        }
+                    }
+                }
+            }
+            catch (netErr) {
+                console.log('Network check failed:', (netErr === null || netErr === void 0 ? void 0 : netErr.message) || netErr);
+            }
+            // İmza al
+            const signResponse = yield fetch(`${API_URL}/api/sign-score`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    playerAddress: walletAddress,
+                    farcasterUsername: username,
+                    fid: fid,
+                    score: currentScore
+                })
+            });
+            const signData = yield signResponse.json();
+            if (!signData.success) {
+                throw new Error(signData.message);
+            }
+            // Contract interaction
+            let tx;
+            if (window.ethers && window.ethers.Contract && signer) {
+                // Use ethers.js if available
+                const ethers = window.ethers;
+                const contract = new ethers.Contract(CONTRACT_ADDRESS, ['function submitScore(string memory _farcasterUsername, uint256 _fid, uint256 _score, uint256 _nonce, bytes memory _signature) external'], signer);
+                tx = yield contract.submitScore(signData.data.params.farcasterUsername, signData.data.params.fid, signData.data.params.score, signData.data.nonce, signData.data.signature);
+                btn.textContent = '⏳ Waiting confirmation...';
+                yield tx.wait();
+            }
+            else if (rawProvider) {
+                // Fallback: use raw provider to send transaction
+                console.log('Using raw transaction without ethers.js');
+                // Encode function call
+                const functionSignature = 'submitScore(string,uint256,uint256,uint256,bytes)';
+                const ethers = window.ethers;
+                if (ethers && ethers.utils) {
+                    // If ethers utils is available, use it
+                    const iface = new ethers.utils.Interface([
+                        'function submitScore(string memory _farcasterUsername, uint256 _fid, uint256 _score, uint256 _nonce, bytes memory _signature) external'
+                    ]);
+                    const data = iface.encodeFunctionData('submitScore', [
+                        signData.data.params.farcasterUsername,
+                        signData.data.params.fid,
+                        signData.data.params.score,
+                        signData.data.nonce,
+                        signData.data.signature
+                    ]);
+                    const txParams = {
+                        to: CONTRACT_ADDRESS,
+                        from: walletAddress,
+                        data: data,
+                        gas: '0x30000' // 196608 gas
+                    };
+                    btn.textContent = '⏳ Sending transaction...';
+                    const txHash = yield rawProvider.request({
+                        method: 'eth_sendTransaction',
+                        params: [txParams]
+                    });
+                    btn.textContent = '⏳ Waiting confirmation...';
+                    // Wait for transaction receipt
+                    let receipt = null;
+                    let attempts = 0;
+                    while (!receipt && attempts < 60) {
+                        yield new Promise(resolve => setTimeout(resolve, 2000));
+                        receipt = yield rawProvider.request({
+                            method: 'eth_getTransactionReceipt',
+                            params: [txHash]
+                        });
+                        attempts++;
+                    }
+                    if (!receipt) {
+                        throw new Error('Transaction timeout');
+                    }
+                    if (receipt.status === '0x0') {
+                        throw new Error('Transaction failed');
                     }
                 }
                 else {
-                    throw new Error('Base ağına geçilemedi: ' + switchError.message);
-                }
-            }
-        }
-        // İmza al
-        const signResponse = await fetch(`${API_URL}/api/signScore`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                playerAddress: walletAddress,
-                farcasterUsername: username,
-                fid: fid,
-                score: currentScore
-            })
-        });
-        const signData = await signResponse.json();
-        if (!signData.success) {
-            throw new Error(signData.message);
-        }
-        // Contract interaction
-        let tx;
-        if (window.ethers && window.ethers.Contract && signer) {
-            // Use ethers.js if available
-            const ethers = window.ethers;
-            const contract = new ethers.Contract(CONTRACT_ADDRESS, ['function submitScore(string memory _farcasterUsername, uint256 _fid, uint256 _score, uint256 _nonce, bytes memory _signature) external'], signer);
-            tx = await contract.submitScore(signData.data.params.farcasterUsername, signData.data.params.fid, signData.data.params.score, signData.data.nonce, signData.data.signature);
-            btn.textContent = '⏳ Waiting confirmation...';
-            await tx.wait();
-        }
-        else if (rawProvider) {
-            // Fallback: use raw provider to send transaction
-            console.log('Using raw transaction without ethers.js');
-            // Encode function call
-            const functionSignature = 'submitScore(string,uint256,uint256,uint256,bytes)';
-            const ethers = window.ethers;
-            if (ethers && ethers.utils) {
-                // If ethers utils is available, use it
-                const iface = new ethers.utils.Interface([
-                    'function submitScore(string memory _farcasterUsername, uint256 _fid, uint256 _score, uint256 _nonce, bytes memory _signature) external'
-                ]);
-                const data = iface.encodeFunctionData('submitScore', [
-                    signData.data.params.farcasterUsername,
-                    signData.data.params.fid,
-                    signData.data.params.score,
-                    signData.data.nonce,
-                    signData.data.signature
-                ]);
-                const txParams = {
-                    to: CONTRACT_ADDRESS,
-                    from: walletAddress,
-                    data: data,
-                    gas: '0x30000' // 196608 gas
-                };
-                btn.textContent = '⏳ Sending transaction...';
-                const txHash = await rawProvider.request({
-                    method: 'eth_sendTransaction',
-                    params: [txParams]
-                });
-                btn.textContent = '⏳ Waiting confirmation...';
-                // Wait for transaction receipt
-                let receipt = null;
-                let attempts = 0;
-                while (!receipt && attempts < 60) {
-                    await new Promise(resolve => setTimeout(resolve, 2000));
-                    receipt = await rawProvider.request({
-                        method: 'eth_getTransactionReceipt',
-                        params: [txHash]
-                    });
-                    attempts++;
-                }
-                if (!receipt) {
-                    throw new Error('Transaction timeout');
-                }
-                if (receipt.status === '0x0') {
-                    throw new Error('Transaction failed');
+                    throw new Error('Cannot encode transaction without ethers.js');
                 }
             }
             else {
-                throw new Error('Cannot encode transaction without ethers.js');
+                throw new Error('No provider available for transaction');
             }
+            if (!window.sdk) {
+                alert('✅ Score saved successfully!');
+            }
+            btn.textContent = '✅ Saved!';
         }
-        else {
-            throw new Error('No provider available for transaction');
+        catch (error) {
+            console.error(error);
+            if (!window.sdk) {
+                if (error.code === 'ACTION_REJECTED') {
+                    alert('Transaction cancelled.');
+                }
+                else if ((_h = error.message) === null || _h === void 0 ? void 0 : _h.includes('insufficient funds')) {
+                    alert('Insufficient ETH!');
+                }
+                else {
+                    alert('Error: ' + (error.message || 'Unknown error'));
+                }
+            }
+            else {
+                btn.textContent = '❌ Error';
+            }
+            btn.disabled = false;
+            btn.textContent = '💾 Save Leaderboard';
         }
-        alert('✅ Score saved successfully!');
-        btn.textContent = '✅ Saved!';
-    }
-    catch (error) {
-        console.error(error);
-        if (error.code === 'ACTION_REJECTED') {
-            alert('Transaction cancelled.');
-        }
-        else if (error.message?.includes('insufficient funds')) {
-            alert('Insufficient ETH!');
-        }
-        else {
-            alert('Error: ' + (error.message || 'Unknown error'));
-        }
-        btn.disabled = false;
-        btn.textContent = '💾 Save Leaderboard';
-    }
+    });
 }
 // VIEW LEADERBOARD - Wallet gerekmez
-async function viewLeaderboard() {
-    const modal = document.getElementById('leaderboard-modal');
-    const content = document.getElementById('leaderboard-content');
-    modal.classList.remove('hidden');
-    content.innerHTML = '⏳ Yükleniyor...';
-    try {
-        const response = await fetch(`${API_URL}/api/leaderboard?limit=20`);
-        const data = await response.json();
-        if (!data.success || data.leaderboard.length === 0) {
-            content.innerHTML = '<p>Henüz skor yok. İlk sen ol! 🎯</p>';
-            return;
-        }
-        let html = '';
-        data.leaderboard.forEach((item) => {
-            html += `
+function viewLeaderboard() {
+    return __awaiter(this, void 0, void 0, function* () {
+        const modal = document.getElementById('leaderboard-modal');
+        const content = document.getElementById('leaderboard-content');
+        modal.classList.remove('hidden');
+        content.innerHTML = '⏳ Yükleniyor...';
+        try {
+            const response = yield fetch(`${API_URL}/api/leaderboard?limit=20`);
+            const data = yield response.json();
+            if (!data.success || data.leaderboard.length === 0) {
+                content.innerHTML = '<p>Henüz skor yok. İlk sen ol! 🎯</p>';
+                return;
+            }
+            let html = '';
+            data.leaderboard.forEach((item) => {
+                html += `
                 <div class="leaderboard-item">
                     <span>${item.rank}. ${item.username}</span>
                     <span><strong>${item.score}</strong></span>
                 </div>
             `;
-        });
-        content.innerHTML = html;
-    }
-    catch (error) {
-        content.innerHTML = '<p>Bağlantı hatası!</p>';
-    }
+            });
+            content.innerHTML = html;
+        }
+        catch (error) {
+            content.innerHTML = '<p>Bağlantı hatası!</p>';
+        }
+    });
 }
 function closeLeaderboard() {
     document.getElementById('leaderboard-modal').classList.add('hidden');
 }
 // SHARE ON FARCASTER
 function shareOnFarcaster() {
-    console.log('Share button clicked! Current score:', currentScore);
-    const message = `Scored ${currentScore} points in Base Fruits! 🥇 Can you beat me? 🍓🍉`;
+    const message = `🍉 I scored ${currentScore} points in Base Fruits! 🥇\n\nCan you beat me? 🍓🍉`;
     const gameUrl = 'https://base-fruits.vercel.app/';
-    console.log('Share message:', message);
-    // Create Farcaster cast URL with parameters (only text and link)
-    const castText = encodeURIComponent(message);
-    const embedUrl = encodeURIComponent(gameUrl);
-    // Farcaster cast URL format - link will automatically show preview image
-    const farcasterUrl = `https://warpcast.com/~/compose?text=${castText}&embeds[]=${embedUrl}`;
-    console.log('Farcaster URL:', farcasterUrl);
-    // Try multiple methods to open the URL
-    try {
-        // Method 1: window.open
-        const newWindow = window.open(farcasterUrl, '_blank');
-        if (!newWindow) {
-            console.log('Popup blocked, trying alternative method...');
-            // Method 2: Direct navigation
-            window.location.href = farcasterUrl;
+    // PRIORITY 1: Check if we're in Farcaster mini app context (MOST IMPORTANT FOR MOBILE)
+    if (window.sdk && window.sdk.actions) {
+        console.log('Farcaster SDK detected, using SDK methods...');
+        // Try composeCast - The official Mini App way (works in mobile Warpcast)
+        if (typeof window.sdk.actions.composeCast === 'function') {
+            try {
+                console.log('Trying composeCast...');
+                window.sdk.actions.composeCast({
+                    text: message,
+                    embeds: [gameUrl]
+                });
+                console.log('composeCast success!');
+                return;
+            }
+            catch (error) {
+                console.log('composeCast failed:', error);
+            }
         }
-        else {
-            console.log('Successfully opened Farcaster compose window');
+        // Fallback: Try openUrl for SDK
+        if (typeof window.sdk.actions.openUrl === 'function') {
+            try {
+                console.log('Trying openUrl...');
+                const castText = encodeURIComponent(message);
+                const embedUrl = encodeURIComponent(gameUrl);
+                const farcasterUrl = `https://warpcast.com/~/compose?text=${castText}&embeds[]=${embedUrl}`;
+                window.sdk.actions.openUrl(farcasterUrl);
+                console.log('openUrl success!');
+                return;
+            }
+            catch (error) {
+                console.log('openUrl failed:', error);
+            }
         }
     }
-    catch (error) {
-        console.error('Error opening Farcaster URL:', error);
-        // Method 3: Copy to clipboard as fallback
-        navigator.clipboard.writeText(message + ' ' + gameUrl).then(() => {
-            alert('Farcaster link could not be opened. Message copied to clipboard!');
-        }).catch(() => {
-            alert('Unable to open Farcaster. Please manually share: ' + message + ' ' + gameUrl);
-        });
+    // PRIORITY 2: Browser fallback (Desktop or mobile browser)
+    console.log('No SDK, using browser methods...');
+    const castText = encodeURIComponent(message);
+    const embedUrl = encodeURIComponent(gameUrl);
+    const farcasterUrl = `https://warpcast.com/~/compose?text=${castText}&embeds[]=${embedUrl}`;
+    // Detect if we're on mobile browser (not in Warpcast app)
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    if (isMobile) {
+        console.log('Mobile browser detected, redirecting to Warpcast web...');
+        // On mobile browser, just go directly to Warpcast web
+        // User will need to login to Warpcast web to cast
+        window.location.href = farcasterUrl;
+    }
+    else {
+        console.log('Desktop detected, opening in new tab...');
+        // Desktop: Open in new tab
+        try {
+            const newWindow = window.open(farcasterUrl, '_blank');
+            if (!newWindow) {
+                // Popup blocked, redirect same page
+                window.location.href = farcasterUrl;
+            }
+        }
+        catch (error) {
+            console.log('window.open failed, redirecting...', error);
+            window.location.href = farcasterUrl;
+        }
     }
 }
 // ===== INITIALIZE GAME =====
 window.addEventListener('DOMContentLoaded', () => {
-    console.log('DOM loaded, initializing game...');
     try {
         const game = new FruitSliceGame();
-        console.log('Game initialized successfully:', game);
-        // Leaderboard event listeners
-        document.getElementById('save-leaderboard-button').addEventListener('click', saveScore);
-        document.getElementById('view-leaderboard-button').addEventListener('click', viewLeaderboard);
-        document.getElementById('close-leaderboard').addEventListener('click', closeLeaderboard);
+        // Close leaderboard button
+        const closeLeaderboardBtn = document.getElementById('close-leaderboard');
+        if (closeLeaderboardBtn) {
+            closeLeaderboardBtn.addEventListener('click', closeLeaderboard);
+        }
         // Share button event listener
         const shareButton = document.getElementById('share-score-button');
         if (shareButton) {
-            console.log('Share button found, adding event listener');
             shareButton.addEventListener('click', shareOnFarcaster);
         }
-        else {
-            console.error('Share button not found!');
-        }
         // Modal dışına tıklayınca kapat
-        document.getElementById('leaderboard-modal').addEventListener('click', (e) => {
-            if (e.target === document.getElementById('leaderboard-modal')) {
-                closeLeaderboard();
-            }
-        });
+        const leaderboardModal = document.getElementById('leaderboard-modal');
+        if (leaderboardModal) {
+            leaderboardModal.addEventListener('click', (e) => {
+                if (e.target === leaderboardModal) {
+                    closeLeaderboard();
+                }
+            });
+        }
     }
     catch (error) {
         console.error('Error initializing game:', error);
     }
 });
-//# sourceMappingURL=game.js.map

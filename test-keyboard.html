@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Keyboard Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #1a1a2e;
+            color: white;
+        }
+        .test-box {
+            background: #16213e;
+            padding: 20px;
+            margin: 10px 0;
+            border-radius: 8px;
+        }
+        .event-log {
+            background: #0f3460;
+            padding: 10px;
+            margin-top: 10px;
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        button {
+            background: #e94560;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 18px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 10px;
+        }
+        button:hover {
+            background: #d63447;
+        }
+        .status {
+            font-size: 24px;
+            font-weight: bold;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎮 Desktop Keyboard Test</h1>
+    
+    <div class="test-box">
+        <h2>Test 1: Button Click</h2>
+        <button id="test-button">Click Me or Press Space/Enter</button>
+        <div class="status" id="button-status">Status: Waiting...</div>
+    </div>
+
+    <div class="test-box">
+        <h2>Test 2: Keyboard Events</h2>
+        <p>Press any key on your keyboard</p>
+        <div class="status" id="keyboard-status">Status: Waiting for key...</div>
+    </div>
+
+    <div class="test-box">
+        <h2>Test 3: Focus Test</h2>
+        <p>Click anywhere on the page, then press Space/Enter</p>
+        <div class="status" id="focus-status">Status: Click page first...</div>
+    </div>
+
+    <div class="test-box">
+        <h2>Event Log</h2>
+        <div class="event-log" id="event-log"></div>
+    </div>
+
+    <script>
+        const eventLog = document.getElementById('event-log');
+        const buttonStatus = document.getElementById('button-status');
+        const keyboardStatus = document.getElementById('keyboard-status');
+        const focusStatus = document.getElementById('focus-status');
+        
+        let clickCount = 0;
+        let keyCount = 0;
+        
+        function logEvent(message) {
+            const time = new Date().toLocaleTimeString();
+            eventLog.innerHTML += `[${time}] ${message}<br>`;
+            eventLog.scrollTop = eventLog.scrollHeight;
+        }
+        
+        // Test 1: Button Click
+        const testButton = document.getElementById('test-button');
+        testButton.addEventListener('click', () => {
+            clickCount++;
+            buttonStatus.textContent = `Status: Clicked ${clickCount} times! ✅`;
+            logEvent(`Button clicked (count: ${clickCount})`);
+        });
+        
+        // Test 2: All Keyboard Events
+        document.addEventListener('keydown', (e) => {
+            keyCount++;
+            keyboardStatus.textContent = `Status: Key pressed! (${e.key}) ✅`;
+            logEvent(`KEYDOWN: key="${e.key}", code="${e.code}", keyCode=${e.keyCode}`);
+            
+            // Test 3: Specific keys
+            if (e.code === 'Space' || e.key === ' ') {
+                e.preventDefault();
+                focusStatus.textContent = 'Status: SPACE pressed! ✅';
+                logEvent('✅ SPACE key detected!');
+                testButton.click(); // Simulate button click
+            }
+            
+            if (e.code === 'Enter' || e.key === 'Enter') {
+                e.preventDefault();
+                focusStatus.textContent = 'Status: ENTER pressed! ✅';
+                logEvent('✅ ENTER key detected!');
+                testButton.click(); // Simulate button click
+            }
+        });
+        
+        document.addEventListener('keyup', (e) => {
+            logEvent(`KEYUP: key="${e.key}", code="${e.code}"`);
+        });
+        
+        document.addEventListener('keypress', (e) => {
+            logEvent(`KEYPRESS: key="${e.key}", code="${e.code}"`);
+        });
+        
+        // Log page focus
+        window.addEventListener('focus', () => {
+            logEvent('🔵 Window focused');
+        });
+        
+        window.addEventListener('blur', () => {
+            logEvent('🔴 Window blurred');
+        });
+        
+        document.addEventListener('click', () => {
+            logEvent('🖱️ Document clicked');
+        });
+        
+        logEvent('✅ Test page loaded. Try pressing keys!');
+        
+        // Auto-focus on load
+        setTimeout(() => {
+            document.body.focus();
+            logEvent('🎯 Auto-focused document body');
+        }, 100);
+    </script>
+</body>
+</html>

@@ -8,77 +8,67 @@
     <meta name="description" content="Farcaster Fruit Slice - Web3 Mini Game">
     <title>Base Fruits 🍉</title>
     
-    <!-- Immediate ethereum conflict prevention - must be first script -->
-    <script>
-        (function() {
-            // Immediately prevent ethereum property redefinition
-            const originalDefineProperty = Object.defineProperty;
-            Object.defineProperty = function(obj, prop, descriptor) {
-                if (obj === window && prop === 'ethereum') {
-                    console.warn('⚠️ Blocked ethereum property redefinition attempt');
-                    // Return the existing ethereum or the object itself
-                    return window.ethereum || obj;
-                }
-                return originalDefineProperty.call(this, obj, prop, descriptor);
-            };
-            
-            // Store for later restoration
-            window.__originalDefineProperty = originalDefineProperty;
-            
-            // Also freeze ethereum if it exists
-            if (window.ethereum) {
-                try {
-                    Object.freeze(window.ethereum);
-                    console.log('✅ Ethereum object frozen to prevent modifications');
-                } catch (e) {
-                    console.warn('Could not freeze ethereum object:', e.message);
-                }
-            }
-        })();
-    </script>
-    
-    <!-- Open Graph Meta Tags -->
-    <meta property="og:title" content="Base Fruits 🍉" />
-    <meta property="og:description" content="Slice fruits, avoid bombs, and compete on the leaderboard! Web3 gaming on Base network." />
-    <meta property="og:image" content="https://base-fruits-farcaster-miniapp.vercel.app/images/splash.png" />
-    <meta property="og:url" content="https://base-fruits-farcaster-miniapp.vercel.app/" />
-    <meta property="og:type" content="website" />
-    
-    <!-- Farcaster Frame Meta Tags -->
-    <meta property="fc:frame" content="vNext" />
-    <meta property="fc:frame:image" content="https://base-fruits-farcaster-miniapp.vercel.app/images/splash.png?v=2" />
-    <meta property="fc:frame:button:1" content="🎮 Play" />
-    <meta property="fc:frame:button:1:action" content="link" />
-    <meta property="fc:frame:button:1:target" content="https://base-fruits-farcaster-miniapp.vercel.app/" />
+   <!-- Farcaster Frame Metadata -->
+   <meta name="fc:miniapp" content='{"version":"1","imageUrl":"https://base-fruits-farcaster-miniapp.vercel.app/images/splash.png","button":{"title":"🎮 Play Game","action":{"type":"launch_miniapp","name":"Base Fruits","url":"https://base-fruits-farcaster-miniapp.vercel.app/","splashImageUrl":"https://base-fruits-farcaster-miniapp.vercel.app/images/splash.png","splashBackgroundColor":"#0a0a15"}}}' />
+   <meta name="fc:frame" content='{"version":"1","imageUrl":"https://base-fruits-farcaster-miniapp.vercel.app/images/splash.png","button":{"title":"🎮 Play Game","action":{"type":"launch_frame","name":"Base Fruits","url":"https://base-fruits-farcaster-miniapp.vercel.app/","splashImageUrl":"https://base-fruits-farcaster-miniapp.vercel.app/images/splash.png","splashBackgroundColor":"#0a0a15"}}}' />
+  
+   <!-- Open Graph -->
+   <meta property="og:title" content="Base Fruits 🍉 - Farcaster Mini Game" />
+   <meta property="og:description" content="Slice fruits, avoid bombs, and compete on the blockchain leaderboard! 🍓🍉🍊" />
+   <meta property="og:image" content="https://base-fruits-farcaster-miniapp.vercel.app/images/splash.png" />
+   <meta property="og:url" content="https://base-fruits-farcaster-miniapp.vercel.app/" />
+   <meta property="og:type" content="website" />
+  
+   <!-- Twitter Card -->
+   <meta name="twitter:card" content="summary_large_image" />
+   <meta name="twitter:title" content="Base Fruits 🍉" />
+   <meta name="twitter:description" content="Slice fruits, avoid bombs! Web3 gaming on Base." />
+   <meta name="twitter:image" content="https://base-fruits-farcaster-miniapp.vercel.app/images/splash.png" />
     
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="styles.css?v=8">
+    <link rel="stylesheet" href="styles.css?v=9">
     
-    <!-- Load Ethers.js with multiple fallbacks -->
-    <script src="https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@farcaster/frame-sdk/dist/index.min.js"></script>
+    
+    <!-- Initialize Farcaster SDK -->
     <script>
-        // Verify ethers loaded and set flag
-        if (window.ethers && window.ethers.providers) {
-            console.log('✅ Ethers.js loaded:', window.ethers.version);
-            window.ethersReady = true;
-        } else {
-            console.error('❌ Ethers.js not loaded properly');
-            window.ethersReady = false;
-            
-            // Try alternative CDN
-            const script = document.createElement('script');
-            script.src = 'https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js';
-            script.onload = function() {
-                if (window.ethers && window.ethers.providers) {
-                    console.log('✅ Ethers.js loaded from backup CDN');
-                    window.ethersReady = true;
-                } else {
-                    console.error('❌ Ethers.js still not available');
-                    window.ethersReady = false;
+        (async function() {
+            try {
+                const resolveSdk = () => {
+                    if (window.frame && window.frame.sdk) return window.frame.sdk;
+                    if (window.farcaster && typeof window.farcaster.createFrameSDK === 'function') return window.farcaster.createFrameSDK();
+                    if (window.farcaster && window.farcaster.sdk) return window.farcaster.sdk;
+                    return null;
+                };
+
+                let sdk = resolveSdk();
+                if (!sdk) {
+                    const start = Date.now();
+                    while (!sdk && (Date.now() - start) < 2000) {
+                        await new Promise(r => setTimeout(r, 50));
+                        sdk = resolveSdk();
+                    }
                 }
-            };
-            document.head.appendChild(script);
-        }
+
+                if (sdk && sdk.actions && typeof sdk.actions.ready === 'function') {
+                    window.sdk = sdk;
+                    try {
+                        const context = await sdk.actions.ready();
+                        window.farcasterContext = context;
+                        console.log('✅ Farcaster SDK initialized:', context);
+                    } catch (readyError) {
+                        console.log('SDK ready failed:', readyError);
+                    }
+                } else {
+                    window.sdk = null;
+                }
+            } catch (error) {
+                console.log('SDK init error:', error);
+                window.sdk = null;
+            }
+        })();
     </script>
 </head>
 <body>
@@ -130,27 +120,27 @@
             </div>
         </div>
         
-        <!-- Game Over Screen -->
-        <div id="game-over-screen" class="screen hidden">
-            <h1>Game Over</h1>
-            <div class="final-score">
-                <p class="label">Final Score</p>
-                <p id="final-score" class="score-value">0</p>
-            </div>
-            <div class="stats">
-                <p>Wave Reached: <span id="final-level">1</span></p>
-            </div>
-            
-            <!-- Leaderboard Section -->
-            <div class="leaderboard-section">
-                <div class="button-group-vertical">
-                    <button id="save-leaderboard-button" class="game-button leaderboard-btn">💾 Save Leaderboard</button>
-                    <button id="view-leaderboard-button" class="game-button secondary-btn">🏆 View Leaderboard</button>
-                    <button id="share-score-button" class="game-button share-btn">🚀 Share on Farcaster</button>
-                    <button id="restart-button" class="game-button restart-btn">🔄 Play Again</button>
-                </div>
-            </div>
+        <!-- Game Over Screen - hidden class KALDIRILDI -->
+<div id="game-over-screen" class="screen" style="display: none;">
+    <h1>Game Over</h1>
+    <div class="final-score">
+        <p class="label">Final Score</p>
+        <p id="final-score" class="score-value">0</p>
+    </div>
+    <div class="stats">
+        <p>Wave Reached: <span id="final-level">1</span></p>
+    </div>
+    
+    <!-- KRİTİK: Butonlar her zaman burada ama görünmez -->
+    <div class="leaderboard-section">
+        <div class="button-group-vertical">
+            <button id="save-leaderboard-button" class="game-button primary-btn" style="display: none;">💾 Save to Leaderboard</button>
+            <button id="view-leaderboard-button" class="game-button secondary-btn" style="display: none;">🏆 View Leaderboard</button>
+            <button id="share-score-button" class="game-button share-btn" style="display: none;">🚀 Share on Farcaster</button>
+            <button id="restart-button" class="game-button restart-btn">🔄 Play Again</button>
         </div>
+    </div>
+</div>
         
         <!-- Leaderboard Modal -->
         <div id="leaderboard-modal" class="modal hidden">
@@ -166,42 +156,7 @@
         </div>
     </div>
     
-    <script src="game.js?v=2"></script>
-    
-    <!-- ✅ FIXED: Farcaster Mini App SDK with proper ready() call -->
-    <script type="module">
-        // Load Farcaster SDK
-        async function initializeFarcasterSDK() {
-            try {
-                console.log('🔄 Initializing Farcaster Mini App SDK...');
-                
-                // Import SDK from CDN
-                const { sdk } = await import('https://esm.sh/@farcaster/frame-sdk');
-                
-                console.log('✅ SDK imported:', sdk);
-                
-                // Store SDK globally
-                window.farcasterSDK = sdk;
-                
-                // ✅ CRITICAL: Call ready() to hide splash screen
-                const context = await sdk.actions.ready();
-                console.log('✅ SDK ready() called successfully!');
-                console.log('📱 Farcaster context:', context);
-                
-                // Store context globally
-                window.farcasterContext = context;
-                
-            } catch (error) {
-                console.warn('⚠️ Farcaster SDK initialization failed:', error);
-                console.log('ℹ️ App will work without Farcaster features');
-                
-                // For local testing: simulate ready
-                console.log('🧪 Local testing mode - no splash screen');
-            }
-        }
-        
-        // Initialize immediately
-        initializeFarcasterSDK();
-    </script>
+    <!-- Game script -->
+    <script src="game.js?v=12"></script>
 </body>
 </html>
