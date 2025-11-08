@@ -1783,14 +1783,25 @@ async function saveScore() {
         // Farcaster Mini App wallet
         const sdk = window.sdk || window.farcasterSDK;
         try {
-            if (sdk?.wallet?.getEthereumProvider) {
+            // Try both API styles (old and new SDK versions)
+            if (sdk?.wallet) {
                 console.log('📱 Farcaster SDK wallet found, attempting to get provider...');
-                rawProvider = await sdk.wallet.getEthereumProvider();
+                // Try direct property access first (newer SDK)
+                if (sdk.wallet.ethProvider) {
+                    console.log('Using sdk.wallet.ethProvider (direct property)');
+                    rawProvider = sdk.wallet.ethProvider;
+                }
+                // Fallback to method call (older SDK)
+                else if (sdk.wallet.getEthereumProvider) {
+                    console.log('Using sdk.wallet.getEthereumProvider() (method)');
+                    rawProvider = await sdk.wallet.getEthereumProvider();
+                }
                 console.log('Provider result:', !!rawProvider);
                 if (!rawProvider && sdk?.actions?.signin) {
                     console.log('🔐 No provider, attempting Farcaster signin...');
                     await sdk.actions.signin();
-                    rawProvider = await sdk.wallet.getEthereumProvider();
+                    // Try again after signin
+                    rawProvider = sdk.wallet.ethProvider || (await sdk.wallet.getEthereumProvider?.());
                     console.log('Provider after signin:', !!rawProvider);
                 }
                 if (rawProvider) {
