@@ -331,14 +331,20 @@ class FruitSliceGame {
     }
     
     showGameOver(playFailSound: boolean = true) {
-        // Check if already shown (but allow if gameOverPending is set - means we're in the delayed call)
+        console.log('🎮 showGameOver called!', {
+            gameOverPending: this.state.gameOverPending,
+            isPlaying: this.state.isPlaying,
+            lives: this.state.lives
+        });
+
+        // Check if already shown
         const gameOverScreen = document.getElementById('game-over-screen');
         if (gameOverScreen && !gameOverScreen.classList.contains('hidden')) {
-            console.log('Game over screen already visible, skipping');
+            console.log('⚠️ Game over screen already visible, skipping');
             return;
         }
 
-        console.log('showGameOver called - displaying game over screen');
+        console.log('✅ Displaying game over screen now!');
         this.state.gameOverPending = true;
         this.state.isPlaying = false;
 
@@ -359,10 +365,30 @@ class FruitSliceGame {
         // Update global score for leaderboard
         currentScore = this.state.score;
 
-        document.getElementById('final-score')!.textContent = this.state.score.toString();
-        document.getElementById('final-level')!.textContent = this.state.level.toString();
-        document.getElementById('game-over-screen')!.classList.remove('hidden');
-        document.getElementById('game-hud')!.classList.add('hidden');
+        const finalScoreEl = document.getElementById('final-score');
+        const finalLevelEl = document.getElementById('final-level');
+        const gameOverScreenEl = document.getElementById('game-over-screen');
+        const gameHudEl = document.getElementById('game-hud');
+
+        console.log('📊 Elements found:', {
+            finalScore: !!finalScoreEl,
+            finalLevel: !!finalLevelEl,
+            gameOverScreen: !!gameOverScreenEl,
+            gameHud: !!gameHudEl
+        });
+
+        if (finalScoreEl) finalScoreEl.textContent = this.state.score.toString();
+        if (finalLevelEl) finalLevelEl.textContent = this.state.level.toString();
+        if (gameOverScreenEl) {
+            console.log('🎯 Removing hidden class from game-over-screen');
+            gameOverScreenEl.classList.remove('hidden');
+        }
+        if (gameHudEl) {
+            console.log('🙈 Adding hidden class to game-hud');
+            gameHudEl.classList.add('hidden');
+        }
+
+        console.log('🏁 showGameOver completed!');
     }
     
     getBackgroundForWave(wave: number): string {
@@ -1993,7 +2019,10 @@ class FruitSliceGame {
     }
     
     gameLoop(currentTime: number): void {
-        if (!this.state.isPlaying) return;
+        if (!this.state.isPlaying) {
+            console.log('🛑 Game loop stopped - isPlaying = false');
+            return;
+        }
 
         const deltaTime = currentTime - this.state.lastFrameTime;
 
