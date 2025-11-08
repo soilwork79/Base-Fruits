@@ -574,17 +574,6 @@ class FruitSliceGame {
     startGame() {
         console.log('startGame() called');
 
-        // Check if wallet is connected
-        if (!connectedWalletAddress) {
-            console.log('⚠️ Wallet not connected, showing wallet connect screen');
-            // Hide start and game over screens
-            document.getElementById('start-screen')?.classList.add('hidden');
-            document.getElementById('game-over-screen')?.classList.add('hidden');
-            // Show wallet connect screen
-            document.getElementById('wallet-connect-screen')?.classList.remove('hidden');
-            return; // Don't start the game
-        }
-
         // Stop all fuse sounds from previous game
         for (const fruit of this.state.fruits) {
             if (fruit.isBomb && fruit.fuseSound) {
@@ -2148,10 +2137,14 @@ async function connectWallet() {
             statusEl.textContent = `✅ Connected: ${connectedWalletAddress.slice(0, 6)}...${connectedWalletAddress.slice(-4)}`;
             buttonEl.textContent = '✅ Connected';
 
-            // Show start screen after 1 second
+            // Start game directly after 1 second
             setTimeout(() => {
                 document.getElementById('wallet-connect-screen')?.classList.add('hidden');
-                document.getElementById('start-screen')?.classList.remove('hidden');
+                // Trigger the game instance's startGame method
+                const startButton = document.getElementById('start-button');
+                if (startButton) {
+                    startButton.click(); // This will trigger the game's startGame
+                }
             }, 1000);
         } else {
             throw new Error('No wallet provider available');
