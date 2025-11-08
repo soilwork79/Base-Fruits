@@ -1,7 +1,8 @@
-// Proxy to remote sign-score to avoid CORS from Mini App
+const { ethers } = require('ethers');
+
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   if (req.method === 'OPTIONS') {
@@ -13,49 +14,52 @@ module.exports = async (req, res) => {
   }
 
   try {
-    const remoteUrl = 'https://base-fruits-game.vercel.app/api/sign-score';
+    const { playerAddress, farcasterUsername, fid, score } = req.body;
 
-    // Read raw body safely
-    const rawBody = await new Promise((resolve, reject) => {
-      let data = '';
-      req.on('data', chunk => { data += chunk; });
-      req.on('end', () => resolve(data));
-      req.on('error', reject);
-    });
-
-    const headers = { 'Content-Type': 'application/json' };
-
-    const r = await fetch(remoteUrl, {
-      method: 'POST',
-      headers,
-      body: rawBody || JSON.stringify(req.body || {})
-    });
-
-    const text = await r.text();
-    let json;
-    try {
-      json = JSON.parse(text);
-    } catch {
-      // If upstream is down or returns invalid JSON, return a mock response for testing
-      console.warn('Upstream API failed, returning mock response');
-      const body = JSON.parse(rawBody || '{}');
-      json = {
-        success: true,
-        data: {
-          params: {
-            farcasterUsername: body.farcasterUsername || 'test',
-            fid: body.fid || 0,
-            score: body.score || 0
-          },
-          nonce: Date.now(),
-          signature: '0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000'
-        }
-      };
+    // Validate input
+    if (!playerAddress || !farcasterUsername || fid === undefined || score === undefined) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Missing required fields' 
+      });
     }
 
-    res.status(r.ok ? r.status : 200).json(json);
-  } catch (err) {
-    console.error('Proxy sign-score error:', err);
-    res.status(500).json({ success: false, message: 'Proxy error' });
+    // Generate nonce
+    const nonce = Date.now();
+
+    // Create message hash
+    const messageHash = ethers.utils.solidityKeccak256(
+      ['string', 'uint256', 'uint256', 'uint256', 'address'],
+      [farcasterUsername, fid, score, nonce, playerAddress]
+    );
+
+    // Sign with backend private key (KEEP THIS SECRET!)
+    const privateKey = process.env.BACKEND_PRIVATE_KEY; // Set this in Vercel env vars
+    if (!privateKey) {
+      throw new Error('Backend private key not configured');
+    }
+
+    const wallet = new ethers.Wallet(privateKey);
+    const signature = await wallet.signMessage(ethers.utils.arrayify(messageHash));
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        params: {
+          farcasterUsername,
+          fid,
+          score
+        },
+        nonce,
+        signature
+      }
+    });
+
+  } catch (error) {
+    console.error('Sign score error:', error);
+    return res.status(500).json({ 
+      success: false, 
+      message: error.message || 'Internal server error' 
+    });
   }
 };
