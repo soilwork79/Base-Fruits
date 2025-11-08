@@ -1455,9 +1455,14 @@ class FruitSliceGame {
 
                     // Check for game over but don't show immediately
                     // Let the physics continue so remaining fruits fall naturally
+<<<<<<< HEAD
                     if (this.state.lives <= 0 && !this.state.gameOverPending) {
                         // Mark game as ending but don't stop physics yet
                         this.state.gameOverPending = true;
+=======
+                    if (this.state.lives <= 0) {
+                        // Mark game as ending but don't stop physics yet
+>>>>>>> 3b28435012fa474cd2e0f47ae22e552509eefe9d
                         this.state.isPaused = false;
 
                         // Wait a bit for remaining fruits to fall off screen
