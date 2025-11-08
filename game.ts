@@ -2474,16 +2474,37 @@ window.addEventListener('DOMContentLoaded', () => {
     try {
         const game = new FruitSliceGame();
         
+        // Save leaderboard button
+        const saveLeaderboardBtn = document.getElementById('save-leaderboard-button');
+        if (saveLeaderboardBtn) {
+            saveLeaderboardBtn.addEventListener('click', () => {
+                console.log('💾 Save Leaderboard button clicked!');
+                saveScore();
+            });
+        }
+
+        // View leaderboard button
+        const viewLeaderboardBtn = document.getElementById('view-leaderboard-button');
+        if (viewLeaderboardBtn) {
+            viewLeaderboardBtn.addEventListener('click', () => {
+                console.log('🏆 View Leaderboard button clicked!');
+                viewLeaderboard();
+            });
+        }
+
         // Close leaderboard button
         const closeLeaderboardBtn = document.getElementById('close-leaderboard');
         if (closeLeaderboardBtn) {
             closeLeaderboardBtn.addEventListener('click', closeLeaderboard);
         }
-        
+
         // Share button event listener
         const shareButton = document.getElementById('share-score-button');
         if (shareButton) {
-            shareButton.addEventListener('click', shareOnFarcaster);
+            shareButton.addEventListener('click', () => {
+                console.log('🚀 Share button clicked!');
+                shareOnFarcaster();
+            });
         }
         
         // Modal dışına tıklayınca kapat
