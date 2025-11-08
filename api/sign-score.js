@@ -34,9 +34,9 @@ module.exports = async (req, res) => {
     );
 
     // Sign with backend private key (KEEP THIS SECRET!)
-    const privateKey = process.env.BACKEND_PRIVATE_KEY; // Set this in Vercel env vars
+    const privateKey = process.env.VERIFIER_PRIVATE_KEY; // Set this in Vercel env vars
     if (!privateKey) {
-      throw new Error('Backend private key not configured');
+      throw new Error('Verifier private key not configured');
     }
 
     const wallet = new ethers.Wallet(privateKey);
