@@ -18,19 +18,24 @@ module.exports = async (req, res) => {
 
     // Validate input
     if (!playerAddress || !farcasterUsername || fid === undefined || score === undefined) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Missing required fields' 
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields'
       });
     }
+
+    // Convert to numbers to ensure correct types
+    const numericFid = Number(fid);
+    const numericScore = Number(score);
 
     // Generate nonce
     const nonce = Date.now();
 
-    // Create message hash
+    // Create message hash - MUST match contract's expected parameter order!
+    // Contract expects: [address, string, uint256, uint256, uint256]
     const messageHash = ethers.utils.solidityKeccak256(
-      ['string', 'uint256', 'uint256', 'uint256', 'address'],
-      [farcasterUsername, fid, score, nonce, playerAddress]
+      ['address', 'string', 'uint256', 'uint256', 'uint256'],
+      [playerAddress, farcasterUsername, numericFid, numericScore, nonce]
     );
 
     // Sign with backend private key (KEEP THIS SECRET!)
@@ -47,8 +52,8 @@ module.exports = async (req, res) => {
       data: {
         params: {
           farcasterUsername,
-          fid,
-          score
+          fid: numericFid,
+          score: numericScore
         },
         nonce,
         signature
